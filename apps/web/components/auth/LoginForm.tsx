@@ -52,7 +52,11 @@ export const LoginForm = () => {
           setErrorMsg(result.detail?.detail || result.detail || tApi('invalidCredentials'));
         }
       } else {
-        router.push('/dashboard');
+        if (result.user && !result.user.has_family) {
+          router.push('/onboarding/family');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (err) {
       setErrorMsg(tApi('somethingWentWrong'));

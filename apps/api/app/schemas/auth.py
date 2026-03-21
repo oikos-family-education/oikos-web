@@ -45,6 +45,7 @@ class UserResponse(BaseModel):
     email: str
     first_name: Optional[str]
     last_name: Optional[str]
+    has_family: bool
 
     class Config:
         from_attributes = True

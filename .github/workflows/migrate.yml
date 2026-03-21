@@ -1,0 +1,24 @@
+name: Run Database Migrations
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/api/alembic/versions/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run migrations
+        run: |
+          # Normally we would connect to the production DB
+          # This is a generic blueprint
+          echo "Running migrations in production..."
+          # cd apps/api && alembic upgrade head

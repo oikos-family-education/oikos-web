@@ -1,0 +1,9 @@
+{
+  "extends": "@oikos/config/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "dist",
+    "jsx": "react-jsx"
+  },
+  "include": ["."]
+}

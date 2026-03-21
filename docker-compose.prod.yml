@@ -1,0 +1,14 @@
+services:
+  db:
+    restart: always
+
+  redis:
+    restart: always
+
+  api:
+    restart: always
+    volumes: []
+
+  web:
+    restart: always
+    volumes: []

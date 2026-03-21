@@ -1,0 +1,73 @@
+{
+  "Home": {
+    "title": "Oikos",
+    "description": "Open Source Family Education Platform"
+  },
+  "Auth": {
+    "login": "Sign In",
+    "register": "Create Account",
+    "emailLabel": "Email address",
+    "passwordLabel": "Password",
+    "firstNameLabel": "First name",
+    "lastNameLabel": "Last name",
+    "confirmPasswordLabel": "Confirm password",
+    "newPasswordLabel": "New password",
+    "confirmNewPasswordLabel": "Confirm new password",
+    "welcomeBack": "Welcome back",
+    "signInToOikos": "Sign in to your Oikos account",
+    "createAccountTitle": "Create your account",
+    "startEquipping": "Start equipping your family. Free forever.",
+    "backToSignIn": "← Back to sign in",
+    "signInButton": "Sign in",
+    "createAccountButton": "Create account",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "createFreeAccount": "Create a free account",
+    "agreeToTerms": "I agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>",
+    "forgotPassword": "Forgot your password?",
+    "resetYourPassword": "Reset your password",
+    "enterEmailForReset": "Enter your email and we'll send you a reset link.",
+    "sendResetLink": "Send reset link",
+    "checkYourEmail": "Check your email",
+    "resetEmailSent": "If an account exists for <bold>{email}</bold>, you'll receive a reset link shortly. Check your spam folder if you don't see it.",
+    "chooseNewPassword": "Choose a new password",
+    "makeSureLength": "Make sure it's at least 10 characters long.",
+    "resetPasswordButton": "Reset password",
+    "requestNewLink": "Request a new link",
+    "passwordResetSuccess": "Your password has been reset. Signing you in…"
+  },
+  "Validation": {
+    "emailRequired": "Email is required.",
+    "emailInvalid": "Please enter a valid email address.",
+    "emailLength": "Email must be 255 characters or fewer.",
+    "passwordRequired": "Password is required.",
+    "passwordLength": "Password must be 128 characters or fewer.",
+    "firstNameRequired": "First name is required.",
+    "firstNameLength": "Name must be 100 characters or fewer.",
+    "lastNameRequired": "Last name is required.",
+    "lastNameLength": "Name must be 100 characters or fewer.",
+    "passwordMin": "Password must be at least 10 characters.",
+    "passwordUppercase": "Include at least one uppercase letter.",
+    "passwordLowercase": "Include at least one lowercase letter.",
+    "passwordNumber": "Include at least one number.",
+    "passwordSpecial": "Include at least one special character.",
+    "confirmPasswordRequired": "Please confirm your password.",
+    "passwordsDoNotMatch": "Passwords do not match.",
+    "agreeToTermsRequired": "You must agree to the Terms of Service to create an account."
+  },
+  "ApiErrors": {
+    "accountLocked": "Your account has been temporarily locked. Try again later.",
+    "tooManyAttempts": "Too many attempts. Please wait before trying again.",
+    "invalidCredentials": "Invalid email or password.",
+    "accountExists": "An account with this email already exists.",
+    "invalidToken": "This reset link is invalid or has expired.",
+    "noToken": "No reset token found in url.",
+    "somethingWentWrong": "Something went wrong. Please try again."
+  },
+  "PasswordStrength": {
+    "weak": "Weak",
+    "fair": "Fair",
+    "strong": "Strong",
+    "veryStrong": "Very Strong"
+  }
+}

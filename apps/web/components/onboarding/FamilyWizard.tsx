@@ -17,9 +17,14 @@ export interface FamilyFormData {
   shield_config: {
     initials: string;
     shape: string;
-    background_color: string;
+    primary_color: string;
+    secondary_color: string;
     accent_color: string;
-    dividing_pattern: string;
+    division: string;
+    crest_animal: string;
+    flourish: string;
+    center_symbol: string;
+    motto: string;
     font_style: string;
   };
   location_city: string;
@@ -47,9 +52,14 @@ export interface FamilyFormData {
 const defaultShield = {
   initials: '',
   shape: 'heater',
-  background_color: '#2D4A7A',
+  primary_color: '#1B2A4A',
+  secondary_color: '#C5A84B',
   accent_color: '#C5A84B',
-  dividing_pattern: 'none',
+  division: 'none',
+  crest_animal: 'none',
+  flourish: 'none',
+  center_symbol: 'none',
+  motto: '',
   font_style: 'serif',
 };
 

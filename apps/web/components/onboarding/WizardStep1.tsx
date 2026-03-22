@@ -48,9 +48,10 @@ export function WizardStep1({ data, onChange }: Props) {
         <p className="text-xs text-slate-400">{t('familyNameHelp')}</p>
       </div>
 
-      {/* Shield Builder */}
+      {/* Shield / Coat of Arms Builder */}
       <ShieldBuilder
         config={data.shield_config}
+        familyName={data.family_name}
         onChange={(shield_config) => onChange({ shield_config })}
       />
 

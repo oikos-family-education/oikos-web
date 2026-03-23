@@ -51,7 +51,6 @@ export interface Family {
   screen_policy?: ScreenPolicy;
   outdoor_orientation?: string;
   home_languages: string[];
-  lifestyle_tags: string[];
   family_culture?: string;
   visibility: FamilyVisibility;
   created_at: string;

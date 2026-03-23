@@ -87,15 +87,15 @@ export function ChildrenOnboarding() {
         </div>
       )}
 
-      {/* Continue Button */}
-      <div className="flex justify-end">
+      {/* Continue Button — hidden while the add-child form is open */}
+      {!showForm && <div className="flex justify-end">
         <Button
           onClick={handleContinue}
           className="px-8 py-3 rounded-xl shadow-[0_4px_14px_0_rgb(99,102,241,0.39)]"
         >
           {t('continueButton')} <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -9,7 +9,7 @@ class ChildCreate(BaseModel):
     nickname: Optional[str] = Field(None, max_length=40)
     gender: Optional[str] = None
     birthdate: Optional[date] = None
-    birth_year: Optional[int] = Field(None, ge=1990, le=2030)
+    birth_year: Optional[int] = Field(None, ge=1900, le=2030)
     birth_month: Optional[int] = Field(None, ge=1, le=12)
     grade_level: Optional[str] = None
     child_curriculum: list[str] = Field(default_factory=list)

@@ -42,18 +42,13 @@ const OUTDOOR_OPTIONS = [
   { value: 'mainly-indoors', label: 'Mainly indoors' },
 ];
 
-const LIFESTYLE_OPTIONS = [
-  'Liturgical calendar', 'Sabbath observance', 'Homesteading / farming',
-  'Handicrafts & manual arts', 'Music & arts emphasis', 'Sports & athletics emphasis',
-  'Multilingual / immersion', 'Delayed academics (ages 4-7)', 'Co-op participant',
-  'Deschooling / decompression phase',
-];
 
 const SUGGESTED_LANGUAGES = [
   'English', 'Spanish', 'French', 'Portuguese', 'German',
   'Italian', 'Dutch', 'Russian', 'Mandarin', 'Japanese',
   'Korean', 'Arabic', 'Hindi', 'Turkish', 'Polish', 'Swedish',
 ];
+
 
 const DIET_OPTIONS = [
   'Omnivore', 'Vegetarian', 'Vegan', 'Pescatarian', 'Kosher', 'Halal', 'Gluten-free', 'Other',
@@ -70,15 +65,6 @@ export function WizardStep3({ data, onChange }: Props) {
       onChange({ education_methods: current.filter(m => m !== val) });
     } else if (current.length < 3) {
       onChange({ education_methods: [...current, val] });
-    }
-  };
-
-  const toggleLifestyle = (val: string) => {
-    const current = data.lifestyle_tags;
-    if (current.includes(val)) {
-      onChange({ lifestyle_tags: current.filter(t => t !== val) });
-    } else {
-      onChange({ lifestyle_tags: [...current, val] });
     }
   };
 
@@ -271,26 +257,6 @@ export function WizardStep3({ data, onChange }: Props) {
         </div>
       </div>
 
-      {/* Lifestyle Tags */}
-      <div className="space-y-3">
-        <label className="text-sm font-semibold text-slate-700">{t('lifestyleLabel')}</label>
-        <div className="grid grid-cols-2 gap-2">
-          {LIFESTYLE_OPTIONS.map(l => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => toggleLifestyle(l)}
-              className={`p-2 text-sm rounded-lg border text-left transition-all ${
-                data.lifestyle_tags.includes(l)
-                  ? 'border-primary bg-primary/5 text-primary font-semibold'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              {data.lifestyle_tags.includes(l) ? '✓ ' : ''}{l}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

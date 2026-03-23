@@ -59,7 +59,6 @@ class FamilyService:
             screen_policy=data.screen_policy,
             outdoor_orientation=data.outdoor_orientation,
             home_languages=data.home_languages,
-            lifestyle_tags=data.lifestyle_tags,
             family_culture=data.family_culture,
             visibility="private" if data.visibility is None else data.visibility.value,
         )

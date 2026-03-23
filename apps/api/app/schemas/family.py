@@ -69,9 +69,8 @@ class FamilyCreate(BaseModel):
     screen_policy: Optional[str] = None
     outdoor_orientation: Optional[str] = None
     home_languages: list[str] = Field(default_factory=lambda: ["en"])
-    lifestyle_tags: list[str] = Field(default_factory=list)
     family_culture: Optional[str] = Field(None, max_length=2000)
-    visibility: Optional[FamilyVisibility] = FamilyVisibility.PRIVATE
+    visibility: Optional[FamilyVisibility] = FamilyVisibility.LOCAL
 
     @field_validator("family_name")
     @classmethod

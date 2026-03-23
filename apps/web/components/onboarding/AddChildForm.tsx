@@ -60,7 +60,6 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
   const [dobMode, setDobMode] = useState<'dob' | 'age'>('dob');
   const [birthdate, setBirthdate] = useState('');
   const [birthYear, setBirthYear] = useState('');
-  const [birthMonth, setBirthMonth] = useState('');
   const [gradeLevel, setGradeLevel] = useState('');
   const [learningStyles, setLearningStyles] = useState<string[]>([]);
   const [personalityDesc, setPersonalityDesc] = useState('');
@@ -130,7 +129,6 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
         payload.birthdate = birthdate;
       } else if (dobMode === 'age') {
         if (birthYear) payload.birth_year = parseInt(birthYear);
-        if (birthMonth) payload.birth_month = parseInt(birthMonth);
       }
 
       const res = await fetch('/api/v1/families/me/children', {
@@ -142,7 +140,12 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.detail || 'Something went wrong.');
+        const detail = data.detail;
+        if (Array.isArray(detail)) {
+          setError(detail.map((e: { msg?: string }) => e.msg ?? 'Validation error').join('; '));
+        } else {
+          setError(typeof detail === 'string' ? detail : 'Something went wrong.');
+        }
         return;
       }
 
@@ -202,12 +205,8 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
           <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
             className="px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
         ) : (
-          <div className="flex gap-3">
-            <input type="number" placeholder="Year (e.g. 2015)" value={birthYear} onChange={e => setBirthYear(e.target.value)} min="1990" max="2030"
-              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
-            <input type="number" placeholder="Month (1-12)" value={birthMonth} onChange={e => setBirthMonth(e.target.value)} min="1" max="12"
-              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
-          </div>
+          <input type="number" placeholder="Year (e.g. 2015)" value={birthYear} onChange={e => setBirthYear(e.target.value)} min="1900" max="2030"
+            className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
         )}
       </div>
 

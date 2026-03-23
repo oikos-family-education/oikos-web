@@ -11,6 +11,19 @@ import { WizardStep4 } from './WizardStep4';
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@oikos/ui';
 
+const LANGUAGE_CODE_MAP: Record<string, string> = {
+  en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese',
+  de: 'German', it: 'Italian', nl: 'Dutch', ru: 'Russian',
+  zh: 'Mandarin', ja: 'Japanese', ko: 'Korean', ar: 'Arabic',
+  hi: 'Hindi', tr: 'Turkish', pl: 'Polish', sv: 'Swedish',
+};
+
+function detectBrowserLanguage(): string {
+  if (typeof navigator === 'undefined') return 'English';
+  const code = (navigator.language || 'en').split('-')[0].toLowerCase();
+  return LANGUAGE_CODE_MAP[code] ?? 'English';
+}
+
 export interface FamilyFormData {
   // Step 1
   family_name: string;
@@ -45,7 +58,6 @@ export interface FamilyFormData {
   screen_policy: string;
   outdoor_orientation: string;
   home_languages: string[];
-  lifestyle_tags: string[];
   // Step 4
   family_culture: string;
   visibility: string;
@@ -66,28 +78,29 @@ const defaultShield = {
   font_style: 'serif',
 };
 
-const defaultFormData: FamilyFormData = {
-  family_name: '',
-  shield_config: { ...defaultShield },
-  location_city: '',
-  location_region: '',
-  location_country: '',
-  location_country_code: '',
-  faith_tradition: '',
-  faith_denomination: '',
-  faith_community_name: '',
-  worldview_notes: '',
-  education_purpose: '',
-  education_methods: [],
-  current_curriculum: [],
-  diet: '',
-  screen_policy: '',
-  outdoor_orientation: '',
-  home_languages: ['en'],
-  lifestyle_tags: [],
-  family_culture: '',
-  visibility: 'private',
-};
+function buildDefaultFormData(): FamilyFormData {
+  return {
+    family_name: '',
+    shield_config: { ...defaultShield },
+    location_city: '',
+    location_region: '',
+    location_country: '',
+    location_country_code: '',
+    faith_tradition: '',
+    faith_denomination: '',
+    faith_community_name: '',
+    worldview_notes: '',
+    education_purpose: '',
+    education_methods: [],
+    current_curriculum: [],
+    diet: '',
+    screen_policy: '',
+    outdoor_orientation: '',
+    home_languages: [detectBrowserLanguage()],
+    family_culture: '',
+    visibility: 'local',
+  };
+}
 
 const TOTAL_STEPS = 4;
 
@@ -95,7 +108,7 @@ export function FamilyWizard() {
   const router = useRouter();
   const t = useTranslations('Onboarding');
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<FamilyFormData>(defaultFormData);
+  const [formData, setFormData] = useState<FamilyFormData>(buildDefaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -137,7 +150,12 @@ export function FamilyWizard() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.detail || 'Something went wrong.');
+        const detail = data.detail;
+        if (Array.isArray(detail)) {
+          setError(detail.map((e: { msg?: string }) => e.msg ?? 'Validation error').join('; '));
+        } else {
+          setError(typeof detail === 'string' ? detail : 'Something went wrong.');
+        }
         return;
       }
 

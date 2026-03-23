@@ -37,10 +37,8 @@ class Family(Base):
     screen_policy = Column(String(20), nullable=True)
     outdoor_orientation = Column(String(30), nullable=True)
     home_languages = Column(ARRAY(String), nullable=False, default=list)
-    lifestyle_tags = Column(ARRAY(String), nullable=False, default=list)
-
     family_culture = Column(String(2000), nullable=True)
-    visibility = Column(String(10), default="private", nullable=False, index=True)
+    visibility = Column(String(10), default="local", nullable=False, index=True)
 
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)

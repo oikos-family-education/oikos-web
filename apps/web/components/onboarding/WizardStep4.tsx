@@ -11,8 +11,8 @@ interface Props {
 }
 
 const VISIBILITY_OPTIONS = [
-  { value: 'private', icon: EyeOff, label: 'Private', desc: 'Only you see your family. Invisible in community.' },
   { value: 'local', icon: Eye, label: 'Local', desc: 'Visible to families in your region who are also discoverable.' },
+  { value: 'private', icon: EyeOff, label: 'Private', desc: 'Only you see your family. Invisible in community.' },
   { value: 'public', icon: Globe, label: 'Public', desc: 'Visible in the full family directory.' },
 ];
 

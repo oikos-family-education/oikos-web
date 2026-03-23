@@ -11,6 +11,7 @@ export interface ShieldConfig {
   primary_color: string;
   secondary_color: string;
   accent_color: string;
+  symbol_color: string;
   division: string;
   crest_animal: string;
   flourish: string;
@@ -112,34 +113,329 @@ const DIVISIONS: Division[] = [
 /* SVG path definitions for center symbols — 20x20 centered at origin */
 const CENTER_SYMBOLS: { value: string; label: string; path: string }[] = [
   { value: 'none', label: 'None', path: '' },
-  { value: 'cross', label: 'Cross', path: 'M-2,-8 L2,-8 L2,-2 L8,-2 L8,2 L2,2 L2,8 L-2,8 L-2,2 L-8,2 L-8,-2 L-2,-2 Z' },
-  { value: 'star', label: 'Star', path: 'M0,-8 L2.4,-2.6 L8,-2.6 L3.6,1.6 L5.6,8 L0,4 L-5.6,8 L-3.6,1.6 L-8,-2.6 L-2.4,-2.6 Z' },
-  { value: 'fleur', label: 'Fleur-de-lis', path: 'M0,-9 C2,-7 4,-4 3,-1 C6,-3 8,-3 8,0 C8,3 5,4 3,3 C4,6 2,9 0,9 C-2,9 -4,6 -3,3 C-5,4 -8,3 -8,0 C-8,-3 -6,-3 -3,-1 C-4,-4 -2,-7 0,-9 Z' },
-  { value: 'lion_face', label: 'Lion', path: 'M0,-7 C5,-7 8,-3 8,1 C8,5 5,8 0,8 C-5,8 -8,5 -8,1 C-8,-3 -5,-7 0,-7 Z M-3,-3 C-4,-3 -4,-1 -3,-1 C-2,-1 -2,-3 -3,-3 Z M3,-3 C2,-3 2,-1 3,-1 C4,-1 4,-3 3,-3 Z M0,1 L-2,4 L0,3 L2,4 Z' },
-  { value: 'eagle', label: 'Eagle', path: 'M0,-8 L3,-5 L8,-6 L5,-2 L8,2 L4,1 L2,5 L0,3 L-2,5 L-4,1 L-8,2 L-5,-2 L-8,-6 L-3,-5 Z' },
-  { value: 'shield_mini', label: 'Escutcheon', path: 'M0,-7 L7,-3 L7,2 Q7,7 0,8 Q-7,7 -7,2 L-7,-3 Z' },
-  { value: 'circle', label: 'Roundel', path: 'M0,-6 A6,6 0 1,1 0,6 A6,6 0 1,1 0,-6 Z' },
-  { value: 'diamond', label: 'Lozenge', path: 'M0,-8 L6,0 L0,8 L-6,0 Z' },
-  { value: 'crescent', label: 'Crescent', path: 'M-6,4 A7,7 0 1,1 6,4 A5,5 0 1,0 -6,4 Z' },
-  { value: 'anchor', label: 'Anchor', path: 'M-1,-8 L1,-8 L1,-6 L3,-6 L3,-4 L1,-4 L1,2 L5,6 L4,8 L0,5 L-4,8 L-5,6 L-1,2 L-1,-4 L-3,-4 L-3,-6 L-1,-6 Z' },
-  { value: 'heart', label: 'Heart', path: 'M0,7 C-8,0 -8,-5 -4,-7 C-1,-8 0,-5 0,-5 C0,-5 1,-8 4,-7 C8,-5 8,0 0,7 Z' },
-  { value: 'sun', label: 'Sun', path: 'M0,-4 A4,4 0 1,1 0,4 A4,4 0 1,1 0,-4 Z M0,-8 L1,-5 L-1,-5 Z M0,8 L1,5 L-1,5 Z M-8,0 L-5,1 L-5,-1 Z M8,0 L5,1 L5,-1 Z M-5.6,-5.6 L-3.5,-3.5 L-4.5,-2.5 Z M5.6,5.6 L3.5,3.5 L4.5,2.5 Z M5.6,-5.6 L3.5,-3.5 L4.5,-2.5 Z M-5.6,5.6 L-3.5,3.5 L-4.5,2.5 Z' },
+
+  /* ── EXISTING (unchanged) ────────────────────────────────────────────────── */
+
+  {
+    value: 'cross',
+    label: 'Cross',
+    path: 'M-2,-8 L2,-8 L2,-2 L8,-2 L8,2 L2,2 L2,8 L-2,8 L-2,2 L-8,2 L-8,-2 L-2,-2 Z',
+  },
+  {
+    value: 'star',
+    label: 'Star',
+    path: 'M0,-8 L2.4,-2.6 L8,-2.6 L3.6,1.6 L5.6,8 L0,4 L-5.6,8 L-3.6,1.6 L-8,-2.6 L-2.4,-2.6 Z',
+  },
+  {
+    value: 'fleur',
+    label: 'Fleur-de-lis',
+    path: 'M0,-9 C2,-7 4,-4 3,-1 C6,-3 8,-3 8,0 C8,3 5,4 3,3 C4,6 2,9 0,9 C-2,9 -4,6 -3,3 C-5,4 -8,3 -8,0 C-8,-3 -6,-3 -3,-1 C-4,-4 -2,-7 0,-9 Z',
+  },
+  {
+    value: 'eagle',
+    label: 'Eagle',
+    path: 'M0,-8 L3,-5 L8,-6 L5,-2 L8,2 L4,1 L2,5 L0,3 L-2,5 L-4,1 L-8,2 L-5,-2 L-8,-6 L-3,-5 Z',
+  },
+  {
+    value: 'shield_mini',
+    label: 'Escutcheon',
+    path: 'M0,-7 L7,-3 L7,2 Q7,7 0,8 Q-7,7 -7,2 L-7,-3 Z',
+  },
+  {
+    value: 'circle',
+    label: 'Roundel',
+    path: 'M0,-6 A6,6 0 1,1 0,6 A6,6 0 1,1 0,-6 Z',
+  },
+  {
+    value: 'diamond',
+    label: 'Lozenge',
+    path: 'M0,-8 L6,0 L0,8 L-6,0 Z',
+  },
+  {
+    value: 'crescent',
+    label: 'Crescent',
+    path: 'M-6,4 A7,7 0 1,1 6,4 A5,5 0 1,0 -6,4 Z',
+  },
+  {
+    value: 'heart',
+    label: 'Heart',
+    path: 'M0,7 C-8,0 -8,-5 -4,-7 C-1,-8 0,-5 0,-5 C0,-5 1,-8 4,-7 C8,-5 8,0 0,7 Z',
+  },
+  {
+    value: 'sun',
+    label: 'Sun',
+    path: 'M0,-4 A4,4 0 1,1 0,4 A4,4 0 1,1 0,-4 Z M0,-9 L1,-6 L-1,-6 Z M0,9 L1,6 L-1,6 Z M-9,0 L-6,1 L-6,-1 Z M9,0 L6,1 L6,-1 Z M-6.4,-6.4 L-4.5,-4.5 L-5.5,-3.5 Z M6.4,6.4 L4.5,4.5 L5.5,3.5 Z M6.4,-6.4 L4.5,-4.5 L5.5,-3.5 Z M-6.4,6.4 L-4.5,4.5 L-5.5,3.5 Z',
+  },
+
+  /* ── NEW SYMBOLS ─────────────────────────────────────────────────────────── */
+
+  {
+    /* Three circles (r=3) whose centres sit at 120° on a ring of r=3.2,
+       joined at the origin. Stem is a small closed trapezoid below.
+       Each circle uses the two-arc trick: M cx-r,cy A r,r 0 1,1 cx+r,cy A r,r 0 1,1 cx-r,cy Z */
+    value: 'clover',
+    label: 'Clover',
+    path:
+      // Top leaf  (centre 0, -3.2)
+      'M -3,-3.2 A 3,3 0 1,1 3,-3.2 A 3,3 0 1,1 -3,-3.2 Z ' +
+      // Bottom-left leaf  (centre -2.77, 1.6)
+      'M -5.77,1.6 A 3,3 0 1,1 0.23,1.6 A 3,3 0 1,1 -5.77,1.6 Z ' +
+      // Bottom-right leaf (centre  2.77, 1.6)
+      'M -0.23,1.6 A 3,3 0 1,1 5.77,1.6 A 3,3 0 1,1 -0.23,1.6 Z ' +
+      // Stem
+      'M -1,4.5 L 1,4.5 L 1.5,9 L -1.5,9 Z',
+  },
+
+  {
+    /* Simple heraldic crown: crenellated top + band base */
+    value: 'crown',
+    label: 'Crown',
+    path:
+      // Crown body with three points
+      'M -7,4 L -7,-1 L -5,-1 L -5,-6 L -3,-6 L -3,-1 L -1,-1 L -1,-8 L 1,-8 L 1,-1 L 3,-1 L 3,-6 L 5,-6 L 5,-1 L 7,-1 L 7,4 Z ' +
+      // Base band
+      'M -8,4 L 8,4 L 7,7 L -7,7 Z',
+  },
+
+  {
+    /* Upward-pointing sword: tapered blade + crossguard + grip + pommel */
+    value: 'sword',
+    label: 'Sword',
+    path:
+      // Blade (tapered from tip to guard)
+      'M 0,-9 L 1.2,1 L -1.2,1 Z ' +
+      // Crossguard
+      'M -6,1 L 6,1 L 6,2.8 L -6,2.8 Z ' +
+      // Grip
+      'M -1,2.8 L 1,2.8 L 1,6.5 L -1,6.5 Z ' +
+      // Pommel (rounded diamond)
+      'M 0,6.5 L 2.5,8 L 0,9.5 L -2.5,8 Z',
+  },
+
+  {
+    /* Chalice / goblet: bowl + stem + foot */
+    value: 'chalice',
+    label: 'Chalice',
+    path:
+      // Bowl (trapezoid, wide at top)
+      'M -6,-7 L 6,-7 L 4,1 L -4,1 Z ' +
+      // Stem
+      'M -1,1 L 1,1 L 1,5.5 L -1,5.5 Z ' +
+      // Foot
+      'M -5.5,5.5 L 5.5,5.5 L 5.5,8 L -5.5,8 Z',
+  },
+
+  {
+    /* Tower / castle keep: walls + three battlements */
+    value: 'tower',
+    label: 'Tower',
+    path:
+      // Tower body
+      'M -5,8 L -5,1 L -3.5,1 L -3.5,-5 L -2,-5 L -2,-8 L -0.5,-8 L -0.5,-5 L 0.5,-5 L 0.5,-8 L 2,-8 L 2,-5 L 3.5,-5 L 3.5,1 L 5,1 L 5,8 Z ' +
+      // Gate arch (filled rectangle; real arch needs clip)
+      'M -1.5,3 L 1.5,3 L 1.5,8 L -1.5,8 Z',
+  },
+
+  {
+    /* Anchor: ring + shaft + stock bar + flukes */
+    value: 'anchor',
+    label: 'Anchor',
+    path:
+      // Ring at top (full circle, r=2)
+      'M -2,-7 A 2,2 0 1,1 2,-7 A 2,2 0 1,1 -2,-7 Z ' +
+      // Shaft
+      'M -0.8,-5 L 0.8,-5 L 0.8,5 L -0.8,5 Z ' +
+      // Stock (horizontal bar)
+      'M -5,-3 L 5,-3 L 5,-1.5 L -5,-1.5 Z ' +
+      // Left fluke
+      'M -0.8,5 L -5,8 L -6,5 L -2,4 Z ' +
+      // Right fluke
+      'M 0.8,5 L 5,8 L 6,5 L 2,4 Z',
+  },
+
+  {
+    /* Key: ring head + shaft + two teeth */
+    value: 'key',
+    label: 'Key',
+    path:
+      // Head ring (r=3, centre 0,-5)
+      'M -3,-5 A 3,3 0 1,1 3,-5 A 3,3 0 1,1 -3,-5 Z ' +
+      // Shaft
+      'M -0.8,-2 L 0.8,-2 L 0.8,8 L -0.8,8 Z ' +
+      // Top tooth
+      'M 0.8,1 L 3.5,1 L 3.5,2.8 L 0.8,2.8 Z ' +
+      // Bottom tooth
+      'M 0.8,4.5 L 3.5,4.5 L 3.5,6.3 L 0.8,6.3 Z',
+  },
+
+  {
+    /* Compass rose: 4 large cardinal points + 4 small inter-cardinal points */
+    value: 'compass',
+    label: 'Compass Rose',
+    path:
+      // N
+      'M 0,-9 L 2,-4 L -2,-4 Z ' +
+      // S
+      'M 0,9 L 2,4 L -2,4 Z ' +
+      // W
+      'M -9,0 L -4,2 L -4,-2 Z ' +
+      // E
+      'M 9,0 L 4,2 L 4,-2 Z ' +
+      // NE
+      'M 6.4,-6.4 L 2,-2.8 L 4.2,-0.6 Z ' +
+      // SW
+      'M -6.4,6.4 L -2,2.8 L -4.2,0.6 Z ' +
+      // NW
+      'M -6.4,-6.4 L -2,-2.8 L -4.2,-0.6 Z ' +
+      // SE
+      'M 6.4,6.4 L 2,2.8 L 4.2,0.6 Z ' +
+      // Centre disc
+      'M 0,-2 A 2,2 0 1,1 0,2 A 2,2 0 1,1 0,-2 Z',
+  },
+
+  {
+    /* Book (open): two pages meeting at the spine */
+    value: 'book',
+    label: 'Open Book',
+    path:
+      // Left page
+      'M 0,-7 L 0,7 L -7.5,5.5 L -7.5,-5.5 Z ' +
+      // Right page
+      'M 0,-7 L 0,7 L 7.5,5.5 L 7.5,-5.5 Z ' +
+      // Spine ridge
+      'M -0.8,-7 L 0.8,-7 L 0.8,7 L -0.8,7 Z',
+  },
+
+  {
+    /* Trident: three upward prongs + shaft */
+    value: 'trident',
+    label: 'Trident',
+    path:
+      // Centre prong (tallest)
+      'M -0.8,-9 L 0.8,-9 L 0.8,2 L -0.8,2 Z ' +
+      // Left prong
+      'M -4.5,-9 L -3,-9 L -3,-3 L -4.5,-3 Z ' +
+      // Right prong
+      'M 3,-9 L 4.5,-9 L 4.5,-3 L 3,-3 Z ' +
+      // Cross bar connecting prongs
+      'M -4.5,-3 L 4.5,-3 L 4.5,-1.5 L -4.5,-1.5 Z ' +
+      // Shaft below crossbar
+      'M -0.8,2 L 0.8,2 L 0.8,9 L -0.8,9 Z',
+  },
 ];
 
 /* Crest animals — SVG paths rendered above the shield, 30x30 centered at origin */
 const CREST_ANIMALS: { value: string; label: string; svg: string }[] = [
   { value: 'none', label: 'None', svg: '' },
-  { value: 'eagle_crest', label: 'Eagle', svg: 'M0,-4 L-10,-1 L-8,2 L-3,0 L-1,4 L0,2 L1,4 L3,0 L8,2 L10,-1 Z M-2,-2 L0,-6 L2,-2 Z' },
-  { value: 'lion_crest', label: 'Lion', svg: 'M-6,4 L-4,-2 C-4,-6 -2,-6 0,-4 C2,-6 4,-6 4,-2 L6,4 L4,6 L2,4 L0,6 L-2,4 L-4,6 Z M-2,-2 A1,1 0 1,0 -2,0 M2,-2 A1,1 0 1,0 2,0' },
-  { value: 'wolf_crest', label: 'Wolf', svg: 'M-6,4 L-5,-2 L-3,-6 L-1,-2 L0,-4 L1,-2 L3,-6 L5,-2 L6,4 L3,6 L0,4 L-3,6 Z' },
-  { value: 'horse_crest', label: 'Horse', svg: 'M-4,6 L-3,0 L-5,-3 L-3,-5 L0,-6 L3,-5 L4,-3 L5,-1 L4,2 L2,4 L3,6 Z M-1,-3 A1,1 0 1,0 -1,-1' },
-  { value: 'deer_crest', label: 'Deer', svg: 'M-3,6 L-2,2 L-3,-1 L-2,-3 L0,-2 L2,-3 L3,-1 L2,2 L3,6 Z M-2,-3 L-5,-7 L-3,-5 L-4,-8 M2,-3 L5,-7 L3,-5 L4,-8' },
-  { value: 'bear_crest', label: 'Bear', svg: 'M-5,5 L-6,0 L-5,-3 C-4,-6 -2,-6 0,-5 C2,-6 4,-6 5,-3 L6,0 L5,5 L3,6 L0,5 L-3,6 Z M-3,-3 A1,1 0 1,0 -3,-1 M3,-3 A1,1 0 1,0 3,-1' },
-  { value: 'griffin_crest', label: 'Griffin', svg: 'M-6,5 L-4,-1 L-7,-2 L-4,-3 L-2,-6 L0,-3 L2,-6 L4,-3 L7,-2 L4,-1 L6,5 L3,3 L0,5 L-3,3 Z' },
-  { value: 'owl_crest', label: 'Owl', svg: 'M-5,5 L-6,1 L-5,-3 L-3,-5 L0,-6 L3,-5 L5,-3 L6,1 L5,5 L0,6 Z M-3,-2 C-4,-2 -4,0 -3,0 C-2,0 -2,-2 -3,-2 Z M3,-2 C2,-2 2,0 3,0 C4,0 4,-2 3,-2 Z M0,1 L-1,3 L1,3 Z' },
-  { value: 'dragon_crest', label: 'Dragon', svg: 'M-7,4 L-5,0 L-7,-3 L-4,-2 L-2,-6 L0,-3 L2,-6 L4,-2 L7,-3 L5,0 L7,4 L4,2 L2,5 L0,3 L-2,5 L-4,2 Z' },
-  { value: 'phoenix_crest', label: 'Phoenix', svg: 'M0,-7 L-3,-4 L-6,-5 L-4,-1 L-8,1 L-4,2 L-5,5 L-2,3 L0,6 L2,3 L5,5 L4,2 L8,1 L4,-1 L6,-5 L3,-4 Z' },
-  { value: 'dove_crest', label: 'Dove', svg: 'M-6,2 L-4,-1 L-2,-3 L0,-4 L3,-3 L5,-1 L6,2 L4,0 L2,2 L0,1 L-2,3 L-4,1 Z M-7,0 L-9,-1 L-7,-2 Z' },
+
+  /* ── KEPT — already render correctly ──────────────────────────────────────── */
+
+  {
+    // Two filled polygons: crown body + band base
+    value: 'crown_imperial',
+    label: 'Imperial Crown',
+    svg: 'M -8,4 L -8,-1 L -6,-5 L -4,-1 L -2,-7 L 0,-3 L 2,-7 L 4,-1 L 6,-5 L 8,-1 L 8,4 Z M -8,4 L 8,4 L 7,7 L -7,7 Z',
+  },
+
+  {
+    // Two overlapping triangles (compound path — nonzero fill rule fills both)
+    value: 'star_6',
+    label: 'Star of David',
+    svg: 'M 0,-8 L 2.3,-3.5 L 7,-3.5 L 3.5,0 L 5.5,5 L 0,2.5 L -5.5,5 L -3.5,0 L -7,-3.5 L -2.3,-3.5 Z M 0,8 L -2.3,3.5 L -7,3.5 L -3.5,0 L -5.5,-5 L 0,-2.5 L 5.5,-5 L 3.5,0 L 7,3.5 L 2.3,3.5 Z',
+  },
+
+  {
+    // 16-point closed star polygon
+    value: 'star_8',
+    label: '8-Point Star',
+    svg: 'M 0,-8 L 1.5,-3 L 5.6,-5.6 L 3,-1.5 L 8,0 L 3,1.5 L 5.6,5.6 L 1.5,3 L 0,8 L -1.5,3 L -5.6,5.6 L -3,1.5 L -8,0 L -3,-1.5 L -5.6,-5.6 L -1.5,-3 Z',
+  },
+
+  {
+    // Bezier petal body + closed base bar
+    value: 'fleur_de_lis',
+    label: 'Fleur-de-lis',
+    svg: 'M 0,-9 C 1,-7 3,-5 2,-2 C 4,-4 7,-4 7,-1 C 7,2 4,3 2,2 C 3,5 1,8 0,8 C -1,8 -3,5 -2,2 C -4,3 -7,2 -7,-1 C -7,-4 -4,-4 -2,-2 C -3,-5 -1,-7 0,-9 Z M -3,5 L 3,5 L 2,7 L -2,7 Z',
+  },
+
+  {
+    // Filled circle + filled rectangle cross + filled cross-top
+    // FIXED vs original: cross arms are now rectangles (closed), not open lines
+    value: 'orb',
+    label: 'Orb',
+    svg: 'M 0,-7 A 7,7 0 1,1 0,7 A 7,7 0 1,1 0,-7 Z M -7,-0.6 L 7,-0.6 L 7,0.6 L -7,0.6 Z M -0.6,-7 L 0.6,-7 L 0.6,0 L -0.6,0 Z M -1.2,-9.5 L 1.2,-9.5 L 1.2,-7 L -1.2,-7 Z',
+  },
+
+  {
+    // Filled disc + 8 filled ray triangles
+    value: 'sunburst',
+    label: 'Sunburst',
+    svg: 'M 0,-4 A 4,4 0 1,1 0,4 A 4,4 0 1,1 0,-4 Z M 0,-9 L 0.8,-6 L -0.8,-6 Z M 0,9 L 0.8,6 L -0.8,6 Z M -9,0 L -6,0.8 L -6,-0.8 Z M 9,0 L 6,0.8 L 6,-0.8 Z M -6.4,-6.4 L -4.2,-4.2 L -5.2,-3.2 Z M 6.4,6.4 L 4.2,4.2 L 5.2,3.2 Z M 6.4,-6.4 L 4.2,-4.2 L 5.2,-3.2 Z M -6.4,6.4 L -4.2,4.2 L -5.2,3.2 Z',
+  },
+
+  {
+    // Wing body polygon + neck/head triangle
+    value: 'double_eagle',
+    label: 'Double Eagle',
+    svg: 'M 0,-2 L -4,-5 L -8,-4 L -6,-1 L -9,2 L -5,1 L -3,5 L 0,3 L 3,5 L 5,1 L 9,2 L 6,-1 L 8,-4 L 4,-5 Z M -2,-2 L -2,-6 L 0,-8 L 2,-6 L 2,-2 Z',
+  },
+
+  /* ── NEW REPLACEMENTS — all fully closed, fill-safe ───────────────────────── */
+
+  {
+    // Arc math: outer circle r=7 center (0,0); inner circle r=5.5 center (2.5,0).
+    // Intersection at x=5, y=±4.9. Large CCW arc sweeps the left "back" of the moon;
+    // small CW arc cuts the inner face. Result: left-facing crescent.
+    value: 'crescent_moon',
+    label: 'Crescent Moon',
+    svg: 'M 5,4.9 A 7,7 0 1,0 5,-4.9 A 5.5,5.5 0 0,1 5,4.9 Z',
+  },
+
+  {
+    // 12-point polygon: arms narrow at centre, widen toward tips (heraldic cross pattée)
+    value: 'cross_pattee',
+    label: 'Cross Pattée',
+    svg: 'M -1.5,-9 L 1.5,-9 L 3,-3 L 9,-1.5 L 9,1.5 L 3,3 L 1.5,9 L -1.5,9 L -3,3 L -9,1.5 L -9,-1.5 L -3,-3 Z',
+  },
+
+  {
+    // 16-point star: alternating outer petals (r=7) and inner notches (r=3).
+    // Points computed at 22.5° intervals → classic 8-petal Tudor / heraldic rose shape.
+    value: 'tudor_rose',
+    label: 'Tudor Rose',
+    svg: 'M 0,-7 L 1.15,-2.77 L 4.95,-4.95 L 2.77,-1.15 L 7,0 L 2.77,1.15 L 4.95,4.95 L 1.15,2.77 L 0,7 L -1.15,2.77 L -4.95,4.95 L -2.77,1.15 L -7,0 L -2.77,-1.15 L -4.95,-4.95 L -1.15,-2.77 Z',
+  },
+
+  {
+    // Battlemented crown silhouette: 3 merlons (left short, centre tall, right short)
+    // sitting on a band. Entire shape is one closed polygon.
+    value: 'mural_crown',
+    label: 'Mural Crown',
+    svg: 'M -9,7 L -9,1 L -7,1 L -7,-3 L -5,-3 L -5,1 L -1,1 L -1,-5 L 1,-5 L 1,1 L 5,1 L 5,-3 L 7,-3 L 7,1 L 9,1 L 9,7 Z',
+  },
+
+  {
+    // Five filled circles arranged in a regular pentagon (r=4 from centre, each circle r=2.5).
+    // Each circle is two 180° arcs (the only way to draw a full circle with <path>).
+    // Centers: top (0,-4), upper-R (3.80,-1.24), lower-R (2.35,3.24),
+    //          lower-L (-2.35,3.24), upper-L (-3.80,-1.24).
+    value: 'cinquefoil',
+    label: 'Cinquefoil',
+    svg:
+      'M -2.5,-4   A 2.5,2.5 0 1,1 2.5,-4    A 2.5,2.5 0 1,1 -2.5,-4   Z ' +
+      'M  1.3,-1.24 A 2.5,2.5 0 1,1 6.3,-1.24  A 2.5,2.5 0 1,1  1.3,-1.24 Z ' +
+      'M -0.15,3.24 A 2.5,2.5 0 1,1 4.85,3.24  A 2.5,2.5 0 1,1 -0.15,3.24 Z ' +
+      'M -4.85,3.24 A 2.5,2.5 0 1,1 0.15,3.24  A 2.5,2.5 0 1,1 -4.85,3.24 Z ' +
+      'M -6.3,-1.24 A 2.5,2.5 0 1,1 -1.3,-1.24 A 2.5,2.5 0 1,1 -6.3,-1.24 Z',
+  },
+
+  {
+    // 20-point polygon: flat-tipped arms (width=2) with concave square notches
+    // at 45° corners — the defining trait of the Maltese cross.
+    value: 'maltese_cross',
+    label: 'Maltese Cross',
+    svg: 'M -1,-9 L 1,-9 L 2.5,-6 L 2.5,-2.5 L 6,-2.5 L 9,-1 L 9,1 L 6,2.5 L 2.5,2.5 L 2.5,6 L 1,9 L -1,9 L -2.5,6 L -2.5,2.5 L -6,2.5 L -9,1 L -9,-1 L -6,-2.5 L -2.5,-2.5 L -2.5,-6 Z',
+  },
 ];
 
 /* Flourish patterns — decorative elements around the shield */
@@ -150,8 +446,14 @@ const FLOURISHES: { value: string; label: string }[] = [
   { value: 'olive', label: 'Olive Branches' },
   { value: 'roses', label: 'Roses' },
   { value: 'ribbon', label: 'Ribbon' },
-  { value: 'swords', label: 'Crossed Swords' },
+  { value: 'swords', label: 'Swords' },
   { value: 'wings', label: 'Wings' },
+  { value: 'torches', label: 'Torches' },
+  { value: 'spears', label: 'Spears' },
+  { value: 'arrows', label: 'Arrows' },
+  { value: 'vines', label: 'Vines' },
+  { value: 'candles', label: 'Candles' },
+  { value: 'columns', label: 'Columns' },
 ];
 
 const FONT_MAP: Record<string, string> = {
@@ -160,92 +462,349 @@ const FONT_MAP: Record<string, string> = {
   script: "'Georgia', cursive",
 };
 
+
 /* ─────────────── Flourish Renderer ─────────────── */
 
 function renderFlourish(type: string, color: string): JSX.Element | null {
   if (type === 'none') return null;
   const c = color;
+
   const flourishSvg: Record<string, JSX.Element> = {
+
+    /* ── LAUREL ────────────────────────────────────────────────────────────── */
     laurel: (
-      <g opacity="0.7">
-        {/* Left branch */}
-        <path d="M 38 85 Q 25 70 20 50 Q 18 40 22 30" stroke={c} strokeWidth="1.5" fill="none"/>
-        <ellipse cx="22" cy="35" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(-30,22,35)"/>
-        <ellipse cx="20" cy="45" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(-20,20,45)"/>
-        <ellipse cx="21" cy="55" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(-10,21,55)"/>
-        <ellipse cx="24" cy="65" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(0,24,65)"/>
-        <ellipse cx="30" cy="75" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(15,30,75)"/>
-        {/* Right branch */}
-        <path d="M 62 85 Q 75 70 80 50 Q 82 40 78 30" stroke={c} strokeWidth="1.5" fill="none"/>
-        <ellipse cx="78" cy="35" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(30,78,35)"/>
-        <ellipse cx="80" cy="45" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(20,80,45)"/>
-        <ellipse cx="79" cy="55" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(10,79,55)"/>
-        <ellipse cx="76" cy="65" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(0,76,65)"/>
-        <ellipse cx="70" cy="75" rx="4" ry="2" fill={c} opacity="0.5" transform="rotate(-15,70,75)"/>
+      <g fill={c} opacity="0.85">
+        <rect x="3.5" y="24" width="1.2" height="64" rx="0.6" />
+        <ellipse cx="0.5" cy="33" rx="4.5" ry="2" transform="rotate(-40 0.5 33)" />
+        <ellipse cx="6.5" cy="41" rx="4.5" ry="2" transform="rotate( 35 6.5 41)" />
+        <ellipse cx="0.5" cy="50" rx="4.5" ry="2" transform="rotate(-38 0.5 50)" />
+        <ellipse cx="6.5" cy="58" rx="4.5" ry="2" transform="rotate( 35 6.5 58)" />
+        <ellipse cx="0.5" cy="66" rx="4.5" ry="2" transform="rotate(-35 0.5 66)" />
+        <ellipse cx="6.5" cy="74" rx="4.5" ry="2" transform="rotate( 30 6.5 74)" />
+        <ellipse cx="1.5" cy="82" rx="4.5" ry="2" transform="rotate(-25 1.5 82)" />
+
+        <rect x="95.3" y="24" width="1.2" height="64" rx="0.6" />
+        <ellipse cx="99.5" cy="33" rx="4.5" ry="2" transform="rotate( 40 99.5 33)" />
+        <ellipse cx="93.5" cy="41" rx="4.5" ry="2" transform="rotate(-35 93.5 41)" />
+        <ellipse cx="99.5" cy="50" rx="4.5" ry="2" transform="rotate( 38 99.5 50)" />
+        <ellipse cx="93.5" cy="58" rx="4.5" ry="2" transform="rotate(-35 93.5 58)" />
+        <ellipse cx="99.5" cy="66" rx="4.5" ry="2" transform="rotate( 35 99.5 66)" />
+        <ellipse cx="93.5" cy="74" rx="4.5" ry="2" transform="rotate(-30 93.5 74)" />
+        <ellipse cx="98.5" cy="82" rx="4.5" ry="2" transform="rotate( 25 98.5 82)" />
       </g>
     ),
+
+    /* ── OAK ───────────────────────────────────────────────────────────────── */
     oak: (
-      <g opacity="0.7">
-        <path d="M 38 88 Q 18 65 15 40" stroke={c} strokeWidth="1.8" fill="none"/>
-        <path d="M 15 45 Q 10 40 15 35 Q 20 40 15 45 Z" fill={c} opacity="0.5"/>
-        <path d="M 17 55 Q 12 50 17 45 Q 22 50 17 55 Z" fill={c} opacity="0.5"/>
-        <path d="M 22 65 Q 17 60 22 55 Q 27 60 22 65 Z" fill={c} opacity="0.5"/>
-        <path d="M 30 75 Q 25 70 30 65 Q 35 70 30 75 Z" fill={c} opacity="0.5"/>
-        <path d="M 62 88 Q 82 65 85 40" stroke={c} strokeWidth="1.8" fill="none"/>
-        <path d="M 85 45 Q 90 40 85 35 Q 80 40 85 45 Z" fill={c} opacity="0.5"/>
-        <path d="M 83 55 Q 88 50 83 45 Q 78 50 83 55 Z" fill={c} opacity="0.5"/>
-        <path d="M 78 65 Q 83 60 78 55 Q 73 60 78 65 Z" fill={c} opacity="0.5"/>
-        <path d="M 70 75 Q 75 70 70 65 Q 65 70 70 75 Z" fill={c} opacity="0.5"/>
+      <g fill={c} opacity="0.85">
+        <rect x="3.5" y="24" width="1.5" height="64" rx="0.7" />
+        <path d="M 4,32 C 0,29 -5,29 -5,32 C -5,35 -1,36 0,34 C -1,37 -4,39 -3,41 C -1,43 2,42 3,40 C 3,42 4,44 4,44 Z" />
+        <path d="M 4,46 C 8,43 11,43 11,46 C 11,49  7,50  6,48 C  7,51 10,53  9,55 C  7,57 4,56  3,54 C 3,56 4,58 4,58 Z" />
+        <path d="M 4,60 C 0,57 -5,57 -5,60 C -5,63 -1,64  0,62 C -1,65 -4,67 -3,69 C -1,71 2,70  3,68 C 3,70 4,72 4,72 Z" />
+        <path d="M 4,74 C 8,71 11,71 11,74 C 11,77  7,78  6,76 C  7,79 10,81  9,83 C  7,85 4,84  3,82 Z" />
+
+        <rect x="95" y="24" width="1.5" height="64" rx="0.7" />
+        <path d="M 96,32 C 100,29 105,29 105,32 C 105,35 101,36 100,34 C 101,37 104,39 103,41 C 101,43 98,42 97,40 C 97,42 96,44 96,44 Z" />
+        <path d="M 96,46 C  92,43  89,43  89,46 C  89,49  93,50  94,48 C  93,51  90,53  91,55 C  93,57  96,56  97,54 C 97,56 96,58 96,58 Z" />
+        <path d="M 96,60 C 100,57 105,57 105,60 C 105,63 101,64 100,62 C 101,65 104,67 103,69 C 101,71 98,70  97,68 C 97,70 96,72 96,72 Z" />
+        <path d="M 96,74 C  92,71  89,71  89,74 C  89,77  93,78  94,76 C  93,79  90,81  91,83 C  93,85  96,84  97,82 Z" />
       </g>
     ),
+
+    /* ── OLIVE ─────────────────────────────────────────────────────────────── */
     olive: (
-      <g opacity="0.65">
-        <path d="M 40 86 Q 22 68 18 42" stroke={c} strokeWidth="1.2" fill="none"/>
-        <ellipse cx="19" cy="47" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(-15,19,47)"/>
-        <ellipse cx="22" cy="57" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(-5,22,57)"/>
-        <ellipse cx="28" cy="67" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(5,28,67)"/>
-        <ellipse cx="34" cy="77" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(10,34,77)"/>
-        <path d="M 60 86 Q 78 68 82 42" stroke={c} strokeWidth="1.2" fill="none"/>
-        <ellipse cx="81" cy="47" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(15,81,47)"/>
-        <ellipse cx="78" cy="57" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(5,78,57)"/>
-        <ellipse cx="72" cy="67" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(-5,72,67)"/>
-        <ellipse cx="66" cy="77" rx="3" ry="5" fill={c} opacity="0.4" transform="rotate(-10,66,77)"/>
+      <g fill={c} opacity="0.85">
+        <rect x="3.5" y="24" width="1" height="64" rx="0.5" />
+        <ellipse cx="0.5" cy="32" rx="3.5" ry="1.5" transform="rotate(-42 0.5 32)" />
+        <ellipse cx="7" cy="39" rx="3.5" ry="1.5" transform="rotate( 36 7   39)" />
+        <ellipse cx="0.5" cy="47" rx="3.5" ry="1.5" transform="rotate(-40 0.5 47)" />
+        <ellipse cx="7" cy="54" rx="3.5" ry="1.5" transform="rotate( 36 7   54)" />
+        <ellipse cx="0.5" cy="62" rx="3.5" ry="1.5" transform="rotate(-38 0.5 62)" />
+        <ellipse cx="7" cy="69" rx="3.5" ry="1.5" transform="rotate( 34 7   69)" />
+        <ellipse cx="1" cy="77" rx="3.5" ry="1.5" transform="rotate(-32 1   77)" />
+        <circle cx="-2" cy="36" r="1.5" />
+        <circle cx="8.5" cy="43" r="1.5" />
+        <circle cx="-2" cy="51" r="1.5" />
+        <circle cx="8.5" cy="58" r="1.5" />
+        <circle cx="-2" cy="66" r="1.5" />
+
+        <rect x="95.5" y="24" width="1" height="64" rx="0.5" />
+        <ellipse cx="99.5" cy="32" rx="3.5" ry="1.5" transform="rotate( 42 99.5 32)" />
+        <ellipse cx="93" cy="39" rx="3.5" ry="1.5" transform="rotate(-36 93   39)" />
+        <ellipse cx="99.5" cy="47" rx="3.5" ry="1.5" transform="rotate( 40 99.5 47)" />
+        <ellipse cx="93" cy="54" rx="3.5" ry="1.5" transform="rotate(-36 93   54)" />
+        <ellipse cx="99.5" cy="62" rx="3.5" ry="1.5" transform="rotate( 38 99.5 62)" />
+        <ellipse cx="93" cy="69" rx="3.5" ry="1.5" transform="rotate(-34 93   69)" />
+        <ellipse cx="99" cy="77" rx="3.5" ry="1.5" transform="rotate( 32 99   77)" />
+        <circle cx="102" cy="36" r="1.5" />
+        <circle cx="91.5" cy="43" r="1.5" />
+        <circle cx="102" cy="51" r="1.5" />
+        <circle cx="91.5" cy="58" r="1.5" />
+        <circle cx="102" cy="66" r="1.5" />
       </g>
     ),
+
+    /* ── ROSES ─────────────────────────────────────────────────────────────── */
     roses: (
-      <g opacity="0.7">
-        <circle cx="15" cy="50" r="4" fill={c} opacity="0.4"/><circle cx="15" cy="50" r="2" fill={c} opacity="0.6"/>
-        <circle cx="20" cy="65" r="4" fill={c} opacity="0.4"/><circle cx="20" cy="65" r="2" fill={c} opacity="0.6"/>
-        <circle cx="30" cy="78" r="4" fill={c} opacity="0.4"/><circle cx="30" cy="78" r="2" fill={c} opacity="0.6"/>
-        <circle cx="85" cy="50" r="4" fill={c} opacity="0.4"/><circle cx="85" cy="50" r="2" fill={c} opacity="0.6"/>
-        <circle cx="80" cy="65" r="4" fill={c} opacity="0.4"/><circle cx="80" cy="65" r="2" fill={c} opacity="0.6"/>
-        <circle cx="70" cy="78" r="4" fill={c} opacity="0.4"/><circle cx="70" cy="78" r="2" fill={c} opacity="0.6"/>
-        <path d="M 38 86 Q 20 70 15 50" stroke={c} strokeWidth="1" fill="none" opacity="0.4"/>
-        <path d="M 62 86 Q 80 70 85 50" stroke={c} strokeWidth="1" fill="none" opacity="0.4"/>
+      <g fill={c} opacity="0.85">
+        <rect x="3.5" y="24" width="1.2" height="64" rx="0.6" />
+        {[32, 48, 64, 80].map(y => (
+          <g key={y} transform={`translate(4, ${y})`}>
+            <circle cx="-1.5" cy="0" r="3.5" opacity="0.40" />
+            <circle cx=" 1.5" cy="0" r="3.5" opacity="0.40" />
+            <circle cx="0" cy="-1.5" r="3.5" opacity="0.40" />
+            <circle cx="0" cy=" 1.5" r="3.5" opacity="0.40" />
+            <circle cx="0" cy="0" r="2" opacity="0.85" />
+          </g>
+        ))}
+        <rect x="95.3" y="24" width="1.2" height="64" rx="0.6" />
+        {[32, 48, 64, 80].map(y => (
+          <g key={y} transform={`translate(96, ${y})`}>
+            <circle cx="-1.5" cy="0" r="3.5" opacity="0.40" />
+            <circle cx=" 1.5" cy="0" r="3.5" opacity="0.40" />
+            <circle cx="0" cy="-1.5" r="3.5" opacity="0.40" />
+            <circle cx="0" cy=" 1.5" r="3.5" opacity="0.40" />
+            <circle cx="0" cy="0" r="2" opacity="0.85" />
+          </g>
+        ))}
       </g>
     ),
+
+    /* ── RIBBON ────────────────────────────────────────────────────────────── */
     ribbon: (
-      <g opacity="0.6">
-        <path d="M 10 82 Q 25 88 50 85 Q 75 88 90 82" stroke={c} strokeWidth="2.5" fill="none"/>
-        <path d="M 10 82 L 5 90 L 15 86" fill={c} opacity="0.5"/>
-        <path d="M 90 82 L 95 90 L 85 86" fill={c} opacity="0.5"/>
+      <g fill={c} opacity="0.80">
+        <path d="M 2,24 C -2,32 8,40 2,50 C -2,58 8,66 2,74 C -2,82 4,87 4,90
+                 L 6,90 C 6,87 0,82 4,74 C 8,66 -1,58 4,50 C 8,40 -1,32 4,24 Z" />
+        <path d="M 2,90 L -3,100 L 4,93 L 6,90 Z" />
+
+        <path d="M 98,24 C 102,32 92,40 98,50 C 102,58 92,66 98,74 C 102,82 96,87 96,90
+                 L 94,90 C 94,87 100,82 96,74 C 92,66 101,58 96,50 C 92,40 101,32 96,24 Z" />
+        <path d="M 98,90 L 103,100 L 96,93 L 94,90 Z" />
       </g>
     ),
+
+    /* ── SWORDS (fixed) ────────────────────────────────────────────────────── */
+    /* Two swords lean in toward the shield top-centre, blades pointing up-inward,
+       hilts hanging down-outward — creates a "would cross" visual impression.   */
     swords: (
-      <g opacity="0.6">
-        <line x1="12" y1="85" x2="35" y2="20" stroke={c} strokeWidth="2"/>
-        <line x1="30" y1="25" x2="40" y2="25" stroke={c} strokeWidth="2"/>
-        <line x1="88" y1="85" x2="65" y2="20" stroke={c} strokeWidth="2"/>
-        <line x1="60" y1="25" x2="70" y2="25" stroke={c} strokeWidth="2"/>
+      <g fill={c} opacity="0.88">
+        {/* LEFT sword — blade points upper-right toward shield */}
+        {/* Blade: tapered parallelogram */}
+        <polygon points="8,24  11,30  2,84  -1,78" />
+        {/* Crossguard */}
+        <rect x="-5" y="78" width="18" height="3.5" rx="1.8" />
+        {/* Grip */}
+        <rect x="1.5" y="81.5" width="4" height="10" rx="2" />
+        {/* Pommel: flattened diamond */}
+        <polygon points="3.5,91.5  7,95  3.5,98.5  0,95" />
+
+        {/* RIGHT sword — mirror */}
+        <polygon points="92,24  89,30  98,84  101,78" />
+        <rect x="87" y="78" width="18" height="3.5" rx="1.8" />
+        <rect x="94.5" y="81.5" width="4" height="10" rx="2" />
+        <polygon points="96.5,91.5  100,95  96.5,98.5  93,95" />
       </g>
     ),
+
+    /* ── WINGS (fixed) ─────────────────────────────────────────────────────── */
+    /* Single solid silhouette per side — 3-layer feather fan curving outward.  */
     wings: (
-      <g opacity="0.55">
-        <path d="M 42 20 Q 25 10 8 15 Q 15 25 20 18 Q 18 28 12 22 Q 18 35 30 28 Q 25 35 35 30" fill={c}/>
-        <path d="M 58 20 Q 75 10 92 15 Q 85 25 80 18 Q 82 28 88 22 Q 82 35 70 28 Q 75 35 65 30" fill={c}/>
+      <g fill={c} opacity="0.78">
+        {/* LEFT wing */}
+        <path d="
+          M 8,62
+          C 2,64  -6,68  -9,58
+          C -7,52  -1,51   3,50
+          C -3,46 -10,40 -10,42
+          C -8,35   0,35   4,34
+          C  0,29  -7,25  -7,24
+          C -3,18   3,23   8,30
+          Z
+        " />
+        {/* RIGHT wing */}
+        <path d="
+          M 92,62
+          C 98,64 106,68 109,58
+          C 107,52 101,51  97,50
+          C 103,46 110,40 110,42
+          C 108,35 100,35  96,34
+          C 100,29 107,25 107,24
+          C 103,18  97,23  92,30
+          Z
+        " />
+      </g>
+    ),
+
+    /* ── TORCHES (new) ─────────────────────────────────────────────────────── */
+    torches: (
+      <g fill={c} opacity="0.88">
+        {/* LEFT torch */}
+        {/* Outer flame */}
+        <path d="M 4,48 C -1,40 0,30 4,24 C 8,30 9,40 4,48 Z" />
+        {/* Inner flame highlight (slightly smaller, more opaque) */}
+        <path d="M 4,46 C 2,40 3,33 4,28 C 5,33 6,40 4,46 Z" opacity="0.5" />
+        {/* Torch head (wrapped cloth) */}
+        <path d="M 0,48 L 8,48 L 7,56 L 1,56 Z" />
+        {/* Handle */}
+        <rect x="1.5" y="56" width="5" height="30" rx="1.5" />
+        {/* Bottom ferrule */}
+        <rect x="0.5" y="84" width="7" height="3" rx="1" />
+        {/* Pommel knob */}
+        <ellipse cx="4" cy="89" rx="3.5" ry="2.5" />
+
+        {/* RIGHT torch — mirror at x=100 */}
+        <path d="M 96,48 C 101,40 100,30 96,24 C 92,30 91,40 96,48 Z" />
+        <path d="M 96,46 C 98,40 97,33 96,28 C 95,33 94,40 96,46 Z" opacity="0.5" />
+        <path d="M 100,48 L 92,48 L 93,56 L 99,56 Z" />
+        <rect x="93.5" y="56" width="5" height="30" rx="1.5" />
+        <rect x="92.5" y="84" width="7" height="3" rx="1" />
+        <ellipse cx="96" cy="89" rx="3.5" ry="2.5" />
+      </g>
+    ),
+
+    /* ── SPEARS (new) ──────────────────────────────────────────────────────── */
+    spears: (
+      <g fill={c} opacity="0.88">
+        {/* LEFT spear */}
+        {/* Spearhead — elongated leaf shape */}
+        <path d="M 4,22 L 8,36 L 5.2,33 L 5.2,88 L 2.8,88 L 2.8,33 L 0,36 Z" />
+        {/* Butt cap */}
+        <ellipse cx="4" cy="90" rx="3" ry="2.2" />
+        {/* Binding wrap — two thin bands on the shaft */}
+        <rect x="2.5" y="50" width="3" height="2.5" rx="0.5" opacity="0.6" />
+        <rect x="2.5" y="65" width="3" height="2.5" rx="0.5" opacity="0.6" />
+
+        {/* RIGHT spear — mirror */}
+        <path d="M 96,22 L 92,36 L 94.8,33 L 94.8,88 L 97.2,88 L 97.2,33 L 100,36 Z" />
+        <ellipse cx="96" cy="90" rx="3" ry="2.2" />
+        <rect x="94.5" y="50" width="3" height="2.5" rx="0.5" opacity="0.6" />
+        <rect x="94.5" y="65" width="3" height="2.5" rx="0.5" opacity="0.6" />
+      </g>
+    ),
+
+    /* ── ARROWS (new) ──────────────────────────────────────────────────────── */
+    arrows: (
+      <g fill={c} opacity="0.88">
+        {/* LEFT arrow pointing upward */}
+        {/* Arrowhead */}
+        <polygon points="4,22  9,38  6,35  6,80  2,80  2,35  -1,38" />
+        {/* Fletching left */}
+        <polygon points="2,78  -4,90  2,84" />
+        {/* Fletching right */}
+        <polygon points="6,78  12,90  6,84" />
+        {/* Nock */}
+        <rect x="2.8" y="88" width="2.4" height="4" rx="1" />
+
+        {/* RIGHT arrow — mirror */}
+        <polygon points="96,22  91,38  94,35  94,80  98,80  98,35  101,38" />
+        <polygon points="98,78 104,90  98,84" />
+        <polygon points="94,78  88,90  94,84" />
+        <rect x="94.8" y="88" width="2.4" height="4" rx="1" />
+      </g>
+    ),
+
+    /* ── VINES (new) ───────────────────────────────────────────────────────── */
+    vines: (
+      <g fill={c} opacity="0.85">
+        {/* LEFT vine — stem + alternating leaves + berry clusters */}
+        <rect x="3.5" y="24" width="1" height="66" rx="0.5" />
+        {/* Left-side leaves */}
+        <path d="M 4,32 C 1,29 -4,30 -3,34 C -2,38  1,37  3,39 C 4,36 5,33 4,32 Z" />
+        <path d="M 4,50 C 1,47 -4,48 -3,52 C -2,56  1,55  3,57 C 4,54 5,51 4,50 Z" />
+        <path d="M 4,68 C 1,65 -4,66 -3,70 C -2,74  1,73  3,75 C 4,72 5,69 4,68 Z" />
+        {/* Right-side leaves */}
+        <path d="M 4,41 C 7,38 12,39 11,43 C 10,47  7,46  5,48 C 4,45 3,42 4,41 Z" />
+        <path d="M 4,59 C 7,56 12,57 11,61 C 10,65  7,64  5,66 C 4,63 3,60 4,59 Z" />
+        <path d="M 4,77 C 7,74 12,75 11,79 C 10,83  7,82  5,84 C 4,81 3,78 4,77 Z" />
+        {/* Berries */}
+        <circle cx="-1" cy="36" r="1.8" />
+        <circle cx="-2.5" cy="38" r="1.4" />
+        <circle cx="9" cy="45" r="1.8" />
+        <circle cx="10.5" cy="47" r="1.4" />
+        <circle cx="-1" cy="54" r="1.8" />
+        <circle cx="9" cy="63" r="1.8" />
+
+        {/* RIGHT vine — mirror */}
+        <rect x="95.5" y="24" width="1" height="66" rx="0.5" />
+        <path d="M 96,32 C 99,29 104,30 103,34 C 102,38 99,37 97,39 C 96,36 95,33 96,32 Z" />
+        <path d="M 96,50 C 99,47 104,48 103,52 C 102,56 99,55 97,57 C 96,54 95,51 96,50 Z" />
+        <path d="M 96,68 C 99,65 104,66 103,70 C 102,74 99,73 97,75 C 96,72 95,69 96,68 Z" />
+        <path d="M 96,41 C 93,38 88,39 89,43 C 90,47 93,46 95,48 C 96,45 97,42 96,41 Z" />
+        <path d="M 96,59 C 93,56 88,57 89,61 C 90,65 93,64 95,66 C 96,63 97,60 96,59 Z" />
+        <path d="M 96,77 C 93,74 88,75 89,79 C 90,83 93,82 95,84 C 96,81 97,78 96,77 Z" />
+        <circle cx="101" cy="36" r="1.8" />
+        <circle cx="102.5" cy="38" r="1.4" />
+        <circle cx="91" cy="45" r="1.8" />
+        <circle cx="89.5" cy="47" r="1.4" />
+        <circle cx="101" cy="54" r="1.8" />
+        <circle cx="91" cy="63" r="1.8" />
+      </g>
+    ),
+
+    /* ── CANDLES (new) ─────────────────────────────────────────────────────── */
+    candles: (
+      <g fill={c} opacity="0.88">
+        {/* LEFT candle */}
+        {/* Flame outer */}
+        <path d="M 4,26 C 0,20 1,12 4,8 C 7,12 8,20 4,26 Z" />
+        {/* Flame inner (accent) */}
+        <path d="M 4,24 C 2.5,19 3,14 4,11 C 5,14 5.5,19 4,24 Z" opacity="0.45" />
+        {/* Wax drip left */}
+        <path d="M 2,26 C 0,30 1,34 3,34 C 3,30 2.5,28 2,26 Z" />
+        {/* Wax drip right */}
+        <path d="M 6,26 C 8,30 7,34 5,34 C 5,30 5.5,28 6,26 Z" />
+        {/* Candle body */}
+        <rect x="1.5" y="26" width="5" height="52" rx="1" />
+        {/* Wax pool at base */}
+        <ellipse cx="4" cy="78" rx="5.5" ry="2" />
+        {/* Holder cup */}
+        <path d="M -1,78 L 9,78 L 10,84 L -2,84 Z" />
+        {/* Saucer */}
+        <ellipse cx="4" cy="85" rx="7" ry="2.5" />
+
+        {/* RIGHT candle — mirror */}
+        <path d="M 96,26 C 100,20 99,12 96,8 C 93,12 92,20 96,26 Z" />
+        <path d="M 96,24 C 97.5,19 97,14 96,11 C 95,14 94.5,19 96,24 Z" opacity="0.45" />
+        <path d="M 98,26 C 100,30 99,34 97,34 C 97,30 97.5,28 98,26 Z" />
+        <path d="M 94,26 C 92,30 93,34 95,34 C 95,30 94.5,28 94,26 Z" />
+        <rect x="93.5" y="26" width="5" height="52" rx="1" />
+        <ellipse cx="96" cy="78" rx="5.5" ry="2" />
+        <path d="M 101,78 L 91,78 L 90,84 L 102,84 Z" />
+        <ellipse cx="96" cy="85" rx="7" ry="2.5" />
+      </g>
+    ),
+
+    /* ── COLUMNS (new) ─────────────────────────────────────────────────────── */
+    columns: (
+      <g fill={c} opacity="0.85">
+        {/* LEFT column */}
+        {/* Abacus (top flat slab) */}
+        <rect x="-3" y="24" width="14" height="3" rx="0.5" />
+        {/* Echinus (curved capital body) */}
+        <path d="M -2,27 L 11,27 L 9,32 L 0,32 Z" />
+        {/* Shaft with subtle fluting (thin inner lines as separate filled rects) */}
+        <rect x="0.5" y="32" width="7" height="50" />
+        <rect x="1.5" y="32" width="0.8" height="50" opacity="0.25" />
+        <rect x="3.6" y="32" width="0.8" height="50" opacity="0.25" />
+        <rect x="5.7" y="32" width="0.8" height="50" opacity="0.25" />
+        {/* Base necking */}
+        <path d="M 0,82 L 8,82 L 9.5,87 L -1.5,87 Z" />
+        {/* Plinth */}
+        <rect x="-3" y="87" width="14" height="4" rx="0.5" />
+
+        {/* RIGHT column — mirror */}
+        <rect x="89" y="24" width="14" height="3" rx="0.5" />
+        <path d="M 102,27 L 89,27 L 91,32 L 100,32 Z" />
+        <rect x="92.5" y="32" width="7" height="50" />
+        <rect x="93.5" y="32" width="0.8" height="50" opacity="0.25" />
+        <rect x="95.6" y="32" width="0.8" height="50" opacity="0.25" />
+        <rect x="97.7" y="32" width="0.8" height="50" opacity="0.25" />
+        <path d="M 100,82 L 92,82 L 90.5,87 L 101.5,87 Z" />
+        <rect x="89" y="87" width="14" height="4" rx="0.5" />
       </g>
     ),
   };
+
   return flourishSvg[type] || null;
 }
 
@@ -278,6 +837,8 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
       primary_color: pick(PRIMARY_COLORS).value,
       secondary_color: pick(SECONDARY_COLORS).value,
       accent_color: pick(SECONDARY_COLORS).value,
+      symbol_color: pick(['#FFFFFF', '#F5F5F5', '#FFD700', '#E8E8E8', '#1C1C1C', '#C5A84B']
+      ).toString(),
       division: pick(DIVISIONS).value,
       crest_animal: pickNonNone(CREST_ANIMALS).value,
       flourish: pick(FLOURISHES).value,
@@ -315,8 +876,6 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
             </clipPath>
           </defs>
 
-          {/* Flourishes (behind shield) */}
-          {renderFlourish(config.flourish, config.accent_color)}
 
           {/* Shield base */}
           <path d={currentShape.path} fill={config.primary_color} stroke={config.accent_color} strokeWidth="2.5" />
@@ -326,12 +885,15 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
 
           {/* Border accent */}
           <path d={currentShape.path} fill="none" stroke={config.accent_color} strokeWidth="1.5" opacity="0.5"
-                transform="scale(0.9) translate(5.5, 5.5)" />
+            transform="scale(0.9) translate(5.5, 5.5)" />
+
+          {/* Flourishes (behind shield) */}
+          {renderFlourish(config.flourish, config.accent_color)}
 
           {/* Center Symbol */}
           {currentSymbol && currentSymbol.path && (
             <g transform="translate(50, 42)">
-              <path d={currentSymbol.path} fill={config.accent_color} opacity="0.85" />
+              <path d={currentSymbol.path} fill={config.symbol_color} opacity="0.85" />
             </g>
           )}
 
@@ -340,7 +902,7 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
             <text
               x="50" y={currentSymbol && currentSymbol.path ? 62 : 50}
               textAnchor="middle" dominantBaseline="middle"
-              fill={config.accent_color} fontFamily={font}
+              fill={config.symbol_color} fontFamily={font}
               fontSize={config.initials.length > 2 ? '10' : '13'}
               fontWeight="bold" opacity="0.9"
             >
@@ -358,9 +920,9 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
           {/* Motto ribbon */}
           {config.motto && (
             <g>
-              <rect x="5" y="99" width="90" height="11" rx="2" fill={config.primary_color} stroke={config.accent_color} strokeWidth="0.8" opacity="0.9"/>
+              <rect x="5" y="99" width="90" height="11" rx="2" fill={config.primary_color} stroke={config.accent_color} strokeWidth="0.8" opacity="0.9" />
               <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
-                    fill={config.accent_color} fontFamily={font} fontSize="4.5" fontStyle="italic" fontWeight="600" opacity="0.9">
+                fill={config.accent_color} fontFamily={font} fontSize="4.5" fontStyle="italic" fontWeight="600" opacity="0.9">
                 {config.motto.length > 35 ? config.motto.slice(0, 35) + '…' : config.motto}
               </text>
             </g>
@@ -369,7 +931,7 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
           {/* Family Name */}
           {familyName && (
             <text x="50" y={config.motto ? 117 : 106} textAnchor="middle" dominantBaseline="middle"
-                  fill={config.accent_color} fontFamily={font} fontSize="5" fontWeight="bold" letterSpacing="1" opacity="0.7">
+              fill={config.accent_color} fontFamily={font} fontSize="5" fontWeight="bold" letterSpacing="1" opacity="0.7">
               {familyName.toUpperCase().slice(0, 30)}
             </text>
           )}
@@ -426,6 +988,34 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
           </div>
         </div>
 
+        {/* ── Symbol & Initials Colour ── */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldSymbolColor')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { value: '#FFFFFF', label: 'White' },
+              { value: '#F5F5F5', label: 'Snow' },
+              { value: '#E8E8E8', label: 'Silver' },
+              { value: '#FFD700', label: 'Gold' },
+              { value: '#C5A84B', label: 'Old Gold' },
+              { value: '#1C1C1C', label: 'Black' },
+              { value: '#8B0000', label: 'Crimson' },
+              { value: '#1B2A4A', label: 'Azure' },
+              { value: '#1A5C2E', label: 'Vert' },
+              { value: '#2B1055', label: 'Purple' },
+            ].map(c => (
+              <button key={c.value} type="button" onClick={() => onChange({ ...config, symbol_color: c.value })}
+                className={`w-8 h-8 rounded-full border-2 transition-all ${config.symbol_color === c.value ? 'border-primary scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                style={{ backgroundColor: c.value }} title={c.label} />
+            ))}
+            <label className="relative w-8 h-8 rounded-full border-2 border-dashed border-slate-300 cursor-pointer overflow-hidden hover:border-primary transition-colors" title="Custom">
+              <input type="color" value={config.symbol_color} onChange={e => onChange({ ...config, symbol_color: e.target.value })}
+                className="absolute inset-0 opacity-0 cursor-pointer" />
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 font-bold">+</span>
+            </label>
+          </div>
+        </div>
+
         {/* ── Division ── */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldDivision')}</p>
@@ -434,7 +1024,7 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
               <button key={d.value} type="button" onClick={() => onChange({ ...config, division: d.value })}
                 className={`w-11 h-11 rounded-lg border-2 flex items-center justify-center ${toggleBtn(config.division === d.value)}`} title={d.label}>
                 <svg viewBox="0 0 100 100" width="24" height="24">
-                  <defs><clipPath id={`divPrev_${d.value}`}><path d={SHAPES[0].path}/></clipPath></defs>
+                  <defs><clipPath id={`divPrev_${d.value}`}><path d={SHAPES[0].path} /></clipPath></defs>
                   <path d={SHAPES[0].path} fill="#94a3b8" />
                   <g clipPath={`url(#divPrev_${d.value})`}>{d.render('#94a3b8', '#cbd5e1', SHAPES[0].path)}</g>
                 </svg>

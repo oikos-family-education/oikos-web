@@ -38,10 +38,16 @@ class EducationMethod(str, Enum):
 
 class ShieldConfig(BaseModel):
     initials: str = Field(..., min_length=1, max_length=3)
-    shape: str = Field("heater", pattern="^(heater|rounded|angular|split)$")
-    background_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
+    shape: str = Field("heater", pattern="^(heater|rounded|kite|swiss|french|polish|lozenge|oval)$")
+    primary_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
+    secondary_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
     accent_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
-    dividing_pattern: str = Field("none", pattern="^(none|horizontal|diagonal|quarterly)$")
+    symbol_color: str = Field("#FFFFFF", pattern="^#[0-9A-Fa-f]{6}$")
+    division: str = Field("none", pattern="^(none|per_fess|per_pale|per_bend|per_bend_sinister|per_saltire|quarterly|per_chevron)$")
+    crest_animal: str = Field("none")
+    flourish: str = Field("none")
+    center_symbol: str = Field("none")
+    motto: str = Field("", max_length=60)
     font_style: str = Field("serif", pattern="^(serif|sans|script)$")
 
 
@@ -56,6 +62,7 @@ class FamilyCreate(BaseModel):
     faith_denomination: Optional[str] = Field(None, max_length=80)
     faith_community_name: Optional[str] = Field(None, max_length=120)
     worldview_notes: Optional[str] = Field(None, max_length=300)
+    education_purpose: Optional[str] = Field(None, pattern="^(full_homeschool|school_supplement|family_routine)$")
     education_methods: list[str] = Field(default_factory=list)
     current_curriculum: list[str] = Field(default_factory=list)
     diet: Optional[str] = None
@@ -87,6 +94,7 @@ class FamilyResponse(BaseModel):
     location_city: Optional[str] = None
     location_country: Optional[str] = None
     faith_tradition: Optional[str] = None
+    education_purpose: Optional[str] = None
     education_methods: list[str] = []
     visibility: str = "private"
     created_at: datetime

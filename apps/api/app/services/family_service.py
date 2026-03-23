@@ -52,6 +52,7 @@ class FamilyService:
             faith_denomination=data.faith_denomination,
             faith_community_name=data.faith_community_name,
             worldview_notes=data.worldview_notes,
+            education_purpose=data.education_purpose,
             education_methods=data.education_methods,
             current_curriculum=data.current_curriculum,
             diet=data.diet,

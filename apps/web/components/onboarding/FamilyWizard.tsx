@@ -20,6 +20,7 @@ export interface FamilyFormData {
     primary_color: string;
     secondary_color: string;
     accent_color: string;
+    symbol_color: string;
     division: string;
     crest_animal: string;
     flourish: string;
@@ -37,6 +38,7 @@ export interface FamilyFormData {
   faith_community_name: string;
   worldview_notes: string;
   // Step 3
+  education_purpose: string;
   education_methods: string[];
   current_curriculum: string[];
   diet: string;
@@ -55,6 +57,7 @@ const defaultShield = {
   primary_color: '#1B2A4A',
   secondary_color: '#C5A84B',
   accent_color: '#C5A84B',
+  symbol_color: '#FFFFFF',
   division: 'none',
   crest_animal: 'none',
   flourish: 'none',
@@ -74,6 +77,7 @@ const defaultFormData: FamilyFormData = {
   faith_denomination: '',
   faith_community_name: '',
   worldview_notes: '',
+  education_purpose: '',
   education_methods: [],
   current_curriculum: [],
   diet: '',
@@ -113,6 +117,7 @@ export function FamilyWizard() {
         faith_denomination: formData.faith_denomination || undefined,
         faith_community_name: formData.faith_community_name || undefined,
         worldview_notes: formData.worldview_notes || undefined,
+        education_purpose: formData.education_purpose || undefined,
         diet: formData.diet || undefined,
         screen_policy: formData.screen_policy || undefined,
         outdoor_orientation: formData.outdoor_orientation || undefined,

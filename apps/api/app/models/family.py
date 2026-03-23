@@ -29,6 +29,7 @@ class Family(Base):
     faith_community_name = Column(String(120), nullable=True)
     worldview_notes = Column(String(300), nullable=True)
 
+    education_purpose = Column(String(30), nullable=True)
     education_methods = Column(ARRAY(String), nullable=False, default=list)
     current_curriculum = Column(ARRAY(String), nullable=False, default=list)
 

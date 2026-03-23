@@ -9,6 +9,12 @@ interface Props {
   onChange: (partial: Partial<FamilyFormData>) => void;
 }
 
+const EDUCATION_PURPOSES = [
+  { value: 'full_homeschool', label: 'Full Homeschooling', desc: 'Our family handles all education at home' },
+  { value: 'school_supplement', label: 'School & Home Partnership', desc: 'Children attend school, and we actively guide their learning at home' },
+  { value: 'family_routine', label: 'Family Routine Planner', desc: 'Organise daily routines, activities, and family goals' },
+];
+
 const EDUCATION_METHODS = [
   { value: 'classical', label: 'Classical', desc: 'Trivium: grammar, logic, rhetoric' },
   { value: 'charlotte_mason', label: 'Charlotte Mason', desc: 'Living books, nature study, narration' },
@@ -41,6 +47,12 @@ const LIFESTYLE_OPTIONS = [
   'Handicrafts & manual arts', 'Music & arts emphasis', 'Sports & athletics emphasis',
   'Multilingual / immersion', 'Delayed academics (ages 4-7)', 'Co-op participant',
   'Deschooling / decompression phase',
+];
+
+const SUGGESTED_LANGUAGES = [
+  'English', 'Spanish', 'French', 'Portuguese', 'German',
+  'Italian', 'Dutch', 'Russian', 'Mandarin', 'Japanese',
+  'Korean', 'Arabic', 'Hindi', 'Turkish', 'Polish', 'Swedish',
 ];
 
 const DIET_OPTIONS = [
@@ -91,6 +103,29 @@ export function WizardStep3({ data, onChange }: Props) {
       <div>
         <h2 className="text-2xl font-bold text-slate-800">{t('step3Heading')}</h2>
         <p className="text-slate-500 mt-1">{t('step3Sub')}</p>
+      </div>
+
+      {/* Education Purpose */}
+      <div className="space-y-3">
+        <label className="text-sm font-semibold text-slate-700">{t('educationPurposeLabel')}</label>
+        <p className="text-xs text-slate-400">{t('educationPurposeHelp')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {EDUCATION_PURPOSES.map(p => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => onChange({ education_purpose: p.value })}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                data.education_purpose === p.value
+                  ? 'border-primary bg-primary/5 shadow-sm'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <span className="text-sm font-semibold text-slate-700 block">{p.label}</span>
+              <span className="text-xs text-slate-400 mt-1 block">{p.desc}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Education Method */}
@@ -213,6 +248,18 @@ export function WizardStep3({ data, onChange }: Props) {
             className="flex-1 px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm"
           />
           <button type="button" onClick={addLanguage} className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium">+</button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {SUGGESTED_LANGUAGES.filter(l => !data.home_languages.includes(l)).map(l => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => onChange({ home_languages: [...data.home_languages, l] })}
+              className="px-2.5 py-1 text-xs rounded-full border border-slate-200 text-slate-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+            >
+              + {l}
+            </button>
+          ))}
         </div>
         <div className="flex flex-wrap gap-2">
           {data.home_languages.map((l, i) => (

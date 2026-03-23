@@ -78,3 +78,9 @@ Tests use a real async database (not mocked). The `conftest.py` creates/drops ta
 
 ### Frontend Tests (`apps/web/tests`)
 Vitest + jsdom + `@testing-library/react`. Run with `npm run test` from `apps/web`.
+
+## Form Guidelines
+
+When creating or modifying forms in the frontend:
+- **Required field indicators**: All required fields MUST display a red asterisk (`*`) next to their label. Use the `required` prop on `<Input>` components from `@oikos/ui`. For custom labels (not using `<Input>`), append `<span className="text-red-500 ml-0.5">*</span>` after the label text.
+- **Button layout**: All submit/action buttons MUST use the `<Button>` component from `@oikos/ui`, which includes `inline-flex items-center justify-center whitespace-nowrap` to prevent text wrapping to multiple lines. Never override these layout classes.

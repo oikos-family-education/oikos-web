@@ -171,7 +171,7 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
 
       {/* Basic Identity */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input label={t('childNameLabel')} placeholder={t('childNamePlaceholder')} value={firstName} onChange={e => setFirstName(e.target.value)} maxLength={60} />
+        <Input label={t('childNameLabel')} placeholder={t('childNamePlaceholder')} value={firstName} onChange={e => setFirstName(e.target.value)} maxLength={60} required />
         <Input label={t('childNicknameLabel')} placeholder={t('childNicknamePlaceholder')} value={nickname} onChange={e => setNickname(e.target.value)} maxLength={40} />
       </div>
 

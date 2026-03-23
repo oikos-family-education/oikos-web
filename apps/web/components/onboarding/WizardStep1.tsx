@@ -45,6 +45,7 @@ export function WizardStep1({ data, onChange }: Props) {
           value={data.family_name}
           onChange={(e) => onChange({ family_name: e.target.value })}
           maxLength={80}
+          required
         />
         <p className="text-xs text-slate-400">{t('familyNameHelp')}</p>
       </div>

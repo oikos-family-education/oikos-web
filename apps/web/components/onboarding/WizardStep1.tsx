@@ -27,6 +27,7 @@ export function WizardStep1({ data, onChange }: Props) {
         shield_config: { ...data.shield_config, initials },
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.family_name]);
 
   return (

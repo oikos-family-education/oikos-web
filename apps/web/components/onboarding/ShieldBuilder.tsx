@@ -65,50 +65,114 @@ const SECONDARY_COLORS = [
   { value: '#FFD700', label: 'Bright Gold' },
 ];
 
-type Division = { value: string; label: string; render: (p: string, s: string, path: string) => JSX.Element };
-
-const DIVISIONS: Division[] = [
-  { value: 'none', label: 'Plain', render: () => <></> },
-  {
-    value: 'per_fess', label: 'Per Fess',
-    render: (_, s) => <rect x="0" y="50" width="100" height="50" fill={s} clipPath="url(#shieldClip)" />,
-  },
-  {
-    value: 'per_pale', label: 'Per Pale',
-    render: (_, s) => <rect x="50" y="0" width="50" height="100" fill={s} clipPath="url(#shieldClip)" />,
-  },
-  {
-    value: 'per_bend', label: 'Per Bend',
-    render: (_, s) => <polygon points="0,0 100,0 100,100" fill={s} clipPath="url(#shieldClip)" />,
-  },
-  {
-    value: 'per_bend_sinister', label: 'Per Bend Sin.',
-    render: (_, s) => <polygon points="0,0 100,100 0,100" fill={s} clipPath="url(#shieldClip)" />,
-  },
-  {
-    value: 'per_saltire', label: 'Per Saltire',
-    render: (_, s) => (
-      <>
-        <polygon points="50,0 100,50 50,100" fill={s} clipPath="url(#shieldClip)" />
-        <polygon points="0,50 50,0 0,0" fill={s} clipPath="url(#shieldClip)" opacity="0" />
-        <polygon points="50,100 0,50 0,100" fill={s} clipPath="url(#shieldClip)" />
-      </>
-    ),
-  },
-  {
-    value: 'quarterly', label: 'Quarterly',
-    render: (_, s) => (
-      <>
-        <rect x="50" y="0" width="50" height="50" fill={s} clipPath="url(#shieldClip)" />
-        <rect x="0" y="50" width="50" height="50" fill={s} clipPath="url(#shieldClip)" />
-      </>
-    ),
-  },
-  {
-    value: 'per_chevron', label: 'Per Chevron',
-    render: (_, s) => <polygon points="50,45 100,100 0,100" fill={s} clipPath="url(#shieldClip)" />,
-  },
+const DETAIL_COLORS = [
+  { value: '#1C1C1C', label: 'Sable' },
+  { value: '#2C2C2C', label: 'Charcoal' },
+  { value: '#3D1C00', label: 'Dark Brown' },
+  { value: '#1B2A4A', label: 'Dark Blue' },
+  { value: '#0D3B2F', label: 'Dark Green' },
+  { value: '#2B1055', label: 'Dark Purple' },
+  { value: '#4A0E0E', label: 'Dark Red' },
+  { value: '#2F4F4F', label: 'Dark Teal' },
+  { value: '#191970', label: 'Midnight' },
+  { value: '#3B3B3B', label: 'Graphite' },
 ];
+
+const PATTERNS: { value: string; label: string }[] = [
+  { value: 'none', label: 'Plain' },
+  { value: 'chess', label: 'Checkerboard' },
+  { value: 'stripes_h', label: 'Horizontal Stripes' },
+  { value: 'stripes_v', label: 'Vertical Stripes' },
+  { value: 'stripes_d', label: 'Diagonal Stripes' },
+  { value: 'dots', label: 'Polka Dots' },
+  { value: 'diamonds', label: 'Diamonds' },
+  { value: 'stars', label: 'Stars' },
+  { value: 'crosses', label: 'Crosses' },
+  { value: 'leaves', label: 'Leaves' },
+  { value: 'scales', label: 'Scales' },
+  { value: 'waves', label: 'Waves' },
+  { value: 'fleur', label: 'Fleur-de-lis' },
+];
+
+function getPatternDef(type: string, color: string, id: string): JSX.Element | null {
+  if (type === 'none') return null;
+  switch (type) {
+    case 'chess':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="10">
+          <rect width="5" height="5" fill={color} /><rect x="5" y="5" width="5" height="5" fill={color} />
+        </pattern>
+      );
+    case 'stripes_h':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="8">
+          <rect width="10" height="4" fill={color} />
+        </pattern>
+      );
+    case 'stripes_v':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="8" height="10">
+          <rect width="4" height="10" fill={color} />
+        </pattern>
+      );
+    case 'stripes_d':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+          <rect width="5" height="10" fill={color} />
+        </pattern>
+      );
+    case 'dots':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="12" height="12">
+          <circle cx="6" cy="6" r="3" fill={color} />
+        </pattern>
+      );
+    case 'diamonds':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="14" height="14">
+          <path d="M7,1 L13,7 L7,13 L1,7 Z" fill={color} />
+        </pattern>
+      );
+    case 'stars':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="18" height="18">
+          <path d="M9,3 L10.5,7 L15,7 L11.5,9.5 L12.8,14 L9,11 L5.2,14 L6.5,9.5 L3,7 L7.5,7 Z" fill={color} />
+        </pattern>
+      );
+    case 'crosses':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="16" height="16">
+          <path d="M6,2 L10,2 L10,6 L14,6 L14,10 L10,10 L10,14 L6,14 L6,10 L2,10 L2,6 L6,6 Z" fill={color} />
+        </pattern>
+      );
+    case 'leaves':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="16" height="20">
+          <path d="M8,2 C12,6 14,14 8,18 C2,14 4,6 8,2 Z" fill={color} />
+        </pattern>
+      );
+    case 'scales':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="12" height="10">
+          <path d="M0,10 C0,4 6,0 6,0 C6,0 12,4 12,10" fill="none" stroke={color} strokeWidth="2" />
+        </pattern>
+      );
+    case 'waves':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="20" height="10">
+          <path d="M0,5 C5,0 10,0 10,5 C10,10 15,10 20,5" fill="none" stroke={color} strokeWidth="2" />
+        </pattern>
+      );
+    case 'fleur':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="20" height="20">
+          <path d="M10,4 C11,5 12,7 11.5,9 C13,7.5 15,7.5 15,9 C15,10.5 13,11 11.5,10.5 C12,12.5 11,15 10,15 C9,15 8,12.5 8.5,10.5 C7,11 5,10.5 5,9 C5,7.5 7,7.5 8.5,9 C8,7 9,5 10,4 Z" fill={color} />
+        </pattern>
+      );
+    default:
+      return null;
+  }
+}
 
 /* SVG path definitions for center symbols — 20x20 centered at origin */
 const CENTER_SYMBOLS: { value: string; label: string; path: string }[] = [
@@ -359,11 +423,10 @@ const CREST_ANIMALS: { value: string; label: string; svg: string }[] = [
   },
 
   {
-    // Filled circle + filled rectangle cross + filled cross-top
-    // FIXED vs original: cross arms are now rectangles (closed), not open lines
-    value: 'orb',
-    label: 'Orb',
-    svg: 'M 0,-7 A 7,7 0 1,1 0,7 A 7,7 0 1,1 0,-7 Z M -7,-0.6 L 7,-0.6 L 7,0.6 L -7,0.6 Z M -0.6,-7 L 0.6,-7 L 0.6,0 L -0.6,0 Z M -1.2,-9.5 L 1.2,-9.5 L 1.2,-7 L -1.2,-7 Z',
+    // Knight's great helm — bucket shape with visor slits
+    value: 'helm',
+    label: 'Heraldic Helm',
+    svg: 'M -7,8 L -7,0 C -7,-5 -4,-9 0,-9 C 4,-9 7,-5 7,0 L 7,8 L 5,9 L -5,9 Z M -7,0 L 7,0 L 7,2 L -7,2 Z M -5,4 L 5,4 L 5,6 L -5,6 Z',
   },
 
   {
@@ -392,10 +455,10 @@ const CREST_ANIMALS: { value: string; label: string; svg: string }[] = [
   },
 
   {
-    // 12-point polygon: arms narrow at centre, widen toward tips (heraldic cross pattée)
-    value: 'cross_pattee',
-    label: 'Cross Pattée',
-    svg: 'M -1.5,-9 L 1.5,-9 L 3,-3 L 9,-1.5 L 9,1.5 L 3,3 L 1.5,9 L -1.5,9 L -3,3 L -9,1.5 L -9,-1.5 L -3,-3 Z',
+    // Winged crown — crown body with flared wing-like extensions
+    value: 'winged_crown',
+    label: 'Winged Crown',
+    svg: 'M -5,7 L -5,1 L -9,-3 L -7,-1 L -5,-6 L -3,-1 L 0,-9 L 3,-1 L 5,-6 L 7,-1 L 9,-3 L 5,1 L 5,7 Z M -6,7 L 6,7 L 5,9 L -5,9 Z',
   },
 
   {
@@ -443,23 +506,25 @@ const FLOURISHES: { value: string; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'laurel', label: 'Laurel Wreath' },
   { value: 'oak', label: 'Oak Branches' },
-  { value: 'olive', label: 'Olive Branches' },
+  { value: 'scrolls', label: 'Scrolls' },
   { value: 'roses', label: 'Roses' },
   { value: 'ribbon', label: 'Ribbon' },
-  { value: 'swords', label: 'Swords' },
+  { value: 'crossed_swords', label: 'Crossed Swords' },
   { value: 'wings', label: 'Wings' },
   { value: 'torches', label: 'Torches' },
   { value: 'spears', label: 'Spears' },
-  { value: 'arrows', label: 'Arrows' },
+  { value: 'axes', label: 'Battle Axes' },
   { value: 'vines', label: 'Vines' },
   { value: 'candles', label: 'Candles' },
-  { value: 'columns', label: 'Columns' },
+  { value: 'banners', label: 'Banners' },
 ];
 
 const FONT_MAP: Record<string, string> = {
-  serif: "'Georgia', serif",
-  sans: "'Inter', sans-serif",
-  script: "'Georgia', cursive",
+  serif: "'Georgia', 'Times New Roman', serif",
+  sans: "'Inter', 'Helvetica Neue', sans-serif",
+  script: "'Brush Script MT', 'Segoe Script', cursive",
+  gothic: "'Copperplate', 'Copperplate Gothic Light', fantasy",
+  classic: "'Palatino Linotype', 'Book Antiqua', 'Palatino', serif",
 };
 
 
@@ -511,36 +576,35 @@ function renderFlourish(type: string, color: string): JSX.Element | null {
       </g>
     ),
 
-    /* ── OLIVE ─────────────────────────────────────────────────────────────── */
-    olive: (
+    /* ── SCROLLS (replacing olive) ───────────────────────────────────────── */
+    scrolls: (
       <g fill={c} opacity="0.85">
-        <rect x="3.5" y="24" width="1" height="64" rx="0.5" />
-        <ellipse cx="0.5" cy="32" rx="3.5" ry="1.5" transform="rotate(-42 0.5 32)" />
-        <ellipse cx="7" cy="39" rx="3.5" ry="1.5" transform="rotate( 36 7   39)" />
-        <ellipse cx="0.5" cy="47" rx="3.5" ry="1.5" transform="rotate(-40 0.5 47)" />
-        <ellipse cx="7" cy="54" rx="3.5" ry="1.5" transform="rotate( 36 7   54)" />
-        <ellipse cx="0.5" cy="62" rx="3.5" ry="1.5" transform="rotate(-38 0.5 62)" />
-        <ellipse cx="7" cy="69" rx="3.5" ry="1.5" transform="rotate( 34 7   69)" />
-        <ellipse cx="1" cy="77" rx="3.5" ry="1.5" transform="rotate(-32 1   77)" />
-        <circle cx="-2" cy="36" r="1.5" />
-        <circle cx="8.5" cy="43" r="1.5" />
-        <circle cx="-2" cy="51" r="1.5" />
-        <circle cx="8.5" cy="58" r="1.5" />
-        <circle cx="-2" cy="66" r="1.5" />
+        {/* LEFT scroll */}
+        <rect x="1" y="34" width="8" height="42" rx="1" />
+        <ellipse cx="5" cy="32" rx="5.5" ry="3.5" />
+        <ellipse cx="5" cy="78" rx="5.5" ry="3.5" />
+        {/* Curl at top */}
+        <path d="M -1,32 C -3,28 0,24 4,24 C 8,24 10,28 8,30" fill="none" stroke={c} strokeWidth="1.5" />
+        {/* Curl at bottom */}
+        <path d="M -1,78 C -3,82 0,86 4,86 C 8,86 10,82 8,80" fill="none" stroke={c} strokeWidth="1.5" />
+        {/* Line details */}
+        <rect x="2.5" y="40" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="2.5" y="46" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="2.5" y="52" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="2.5" y="58" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="2.5" y="64" width="5" height="0.8" rx="0.4" opacity="0.3" />
 
-        <rect x="95.5" y="24" width="1" height="64" rx="0.5" />
-        <ellipse cx="99.5" cy="32" rx="3.5" ry="1.5" transform="rotate( 42 99.5 32)" />
-        <ellipse cx="93" cy="39" rx="3.5" ry="1.5" transform="rotate(-36 93   39)" />
-        <ellipse cx="99.5" cy="47" rx="3.5" ry="1.5" transform="rotate( 40 99.5 47)" />
-        <ellipse cx="93" cy="54" rx="3.5" ry="1.5" transform="rotate(-36 93   54)" />
-        <ellipse cx="99.5" cy="62" rx="3.5" ry="1.5" transform="rotate( 38 99.5 62)" />
-        <ellipse cx="93" cy="69" rx="3.5" ry="1.5" transform="rotate(-34 93   69)" />
-        <ellipse cx="99" cy="77" rx="3.5" ry="1.5" transform="rotate( 32 99   77)" />
-        <circle cx="102" cy="36" r="1.5" />
-        <circle cx="91.5" cy="43" r="1.5" />
-        <circle cx="102" cy="51" r="1.5" />
-        <circle cx="91.5" cy="58" r="1.5" />
-        <circle cx="102" cy="66" r="1.5" />
+        {/* RIGHT scroll — mirror */}
+        <rect x="91" y="34" width="8" height="42" rx="1" />
+        <ellipse cx="95" cy="32" rx="5.5" ry="3.5" />
+        <ellipse cx="95" cy="78" rx="5.5" ry="3.5" />
+        <path d="M 101,32 C 103,28 100,24 96,24 C 92,24 90,28 92,30" fill="none" stroke={c} strokeWidth="1.5" />
+        <path d="M 101,78 C 103,82 100,86 96,86 C 92,86 90,82 92,80" fill="none" stroke={c} strokeWidth="1.5" />
+        <rect x="92.5" y="40" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="92.5" y="46" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="92.5" y="52" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="92.5" y="58" width="5" height="0.8" rx="0.4" opacity="0.3" />
+        <rect x="92.5" y="64" width="5" height="0.8" rx="0.4" opacity="0.3" />
       </g>
     ),
 
@@ -583,26 +647,30 @@ function renderFlourish(type: string, color: string): JSX.Element | null {
       </g>
     ),
 
-    /* ── SWORDS (fixed) ────────────────────────────────────────────────────── */
-    /* Two swords lean in toward the shield top-centre, blades pointing up-inward,
-       hilts hanging down-outward — creates a "would cross" visual impression.   */
-    swords: (
+    /* ── CROSSED SWORDS (refined, elegant version) ──────────────────────── */
+    crossed_swords: (
       <g fill={c} opacity="0.88">
-        {/* LEFT sword — blade points upper-right toward shield */}
-        {/* Blade: tapered parallelogram */}
-        <polygon points="8,24  11,30  2,84  -1,78" />
-        {/* Crossguard */}
-        <rect x="-5" y="78" width="18" height="3.5" rx="1.8" />
-        {/* Grip */}
-        <rect x="1.5" y="81.5" width="4" height="10" rx="2" />
-        {/* Pommel: flattened diamond */}
-        <polygon points="3.5,91.5  7,95  3.5,98.5  0,95" />
+        {/* LEFT sword — blade crossing from lower-left to upper-right */}
+        {/* Blade */}
+        <path d="M 12,20 L 14,22 L 3,80 L 1,78 Z" />
+        {/* Crossguard — curved */}
+        <path d="M -4,78 C -2,75 10,75 12,78 C 10,81 -2,81 -4,78 Z" />
+        {/* Grip (wrapped look) */}
+        <rect x="2" y="80" width="3.5" height="10" rx="1.8" />
+        <rect x="2.5" y="82" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        <rect x="2.5" y="85" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        <rect x="2.5" y="88" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        {/* Pommel — round */}
+        <circle cx="3.75" cy="92.5" r="2.5" />
 
         {/* RIGHT sword — mirror */}
-        <polygon points="92,24  89,30  98,84  101,78" />
-        <rect x="87" y="78" width="18" height="3.5" rx="1.8" />
-        <rect x="94.5" y="81.5" width="4" height="10" rx="2" />
-        <polygon points="96.5,91.5  100,95  96.5,98.5  93,95" />
+        <path d="M 88,20 L 86,22 L 97,80 L 99,78 Z" />
+        <path d="M 104,78 C 102,75 90,75 88,78 C 90,81 102,81 104,78 Z" />
+        <rect x="94.5" y="80" width="3.5" height="10" rx="1.8" />
+        <rect x="95" y="82" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        <rect x="95" y="85" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        <rect x="95" y="88" width="2.5" height="1" rx="0.5" opacity="0.3" />
+        <circle cx="96.25" cy="92.5" r="2.5" />
       </g>
     ),
 
@@ -682,24 +750,23 @@ function renderFlourish(type: string, color: string): JSX.Element | null {
       </g>
     ),
 
-    /* ── ARROWS (new) ──────────────────────────────────────────────────────── */
-    arrows: (
+    /* ── BATTLE AXES (replacing arrows) ──────────────────────────────────── */
+    axes: (
       <g fill={c} opacity="0.88">
-        {/* LEFT arrow pointing upward */}
-        {/* Arrowhead */}
-        <polygon points="4,22  9,38  6,35  6,80  2,80  2,35  -1,38" />
-        {/* Fletching left */}
-        <polygon points="2,78  -4,90  2,84" />
-        {/* Fletching right */}
-        <polygon points="6,78  12,90  6,84" />
-        {/* Nock */}
-        <rect x="2.8" y="88" width="2.4" height="4" rx="1" />
+        {/* LEFT axe */}
+        {/* Shaft */}
+        <rect x="2.5" y="28" width="3" height="62" rx="1.5" />
+        {/* Axe head — double-sided crescent blade */}
+        <path d="M 5.5,30 C 12,26 14,32 14,38 C 14,44 12,50 5.5,46 Z" />
+        <path d="M 2.5,30 C -4,26 -6,32 -6,38 C -6,44 -4,50 2.5,46 Z" />
+        {/* Shaft cap */}
+        <ellipse cx="4" cy="92" rx="3" ry="2" />
 
-        {/* RIGHT arrow — mirror */}
-        <polygon points="96,22  91,38  94,35  94,80  98,80  98,35  101,38" />
-        <polygon points="98,78 104,90  98,84" />
-        <polygon points="94,78  88,90  94,84" />
-        <rect x="94.8" y="88" width="2.4" height="4" rx="1" />
+        {/* RIGHT axe — mirror */}
+        <rect x="94.5" y="28" width="3" height="62" rx="1.5" />
+        <path d="M 94.5,30 C 88,26 86,32 86,38 C 86,44 88,50 94.5,46 Z" />
+        <path d="M 97.5,30 C 104,26 106,32 106,38 C 106,44 104,50 97.5,46 Z" />
+        <ellipse cx="96" cy="92" rx="3" ry="2" />
       </g>
     ),
 
@@ -774,33 +841,24 @@ function renderFlourish(type: string, color: string): JSX.Element | null {
       </g>
     ),
 
-    /* ── COLUMNS (new) ─────────────────────────────────────────────────────── */
-    columns: (
+    /* ── BANNERS (replacing columns) ─────────────────────────────────────── */
+    banners: (
       <g fill={c} opacity="0.85">
-        {/* LEFT column */}
-        {/* Abacus (top flat slab) */}
-        <rect x="-3" y="24" width="14" height="3" rx="0.5" />
-        {/* Echinus (curved capital body) */}
-        <path d="M -2,27 L 11,27 L 9,32 L 0,32 Z" />
-        {/* Shaft with subtle fluting (thin inner lines as separate filled rects) */}
-        <rect x="0.5" y="32" width="7" height="50" />
-        <rect x="1.5" y="32" width="0.8" height="50" opacity="0.25" />
-        <rect x="3.6" y="32" width="0.8" height="50" opacity="0.25" />
-        <rect x="5.7" y="32" width="0.8" height="50" opacity="0.25" />
-        {/* Base necking */}
-        <path d="M 0,82 L 8,82 L 9.5,87 L -1.5,87 Z" />
-        {/* Plinth */}
-        <rect x="-3" y="87" width="14" height="4" rx="0.5" />
+        {/* LEFT banner */}
+        {/* Pole */}
+        <rect x="3" y="22" width="2" height="72" rx="1" />
+        {/* Pole finial — sphere */}
+        <circle cx="4" cy="20" r="3" />
+        {/* Flag — pennant shape */}
+        <path d="M 5,26 L 16,30 C 14,36 16,42 16,48 L 5,44 Z" />
+        {/* Flag accent stripe */}
+        <path d="M 5,34 L 14,37 L 14,39 L 5,36 Z" opacity="0.3" />
 
-        {/* RIGHT column — mirror */}
-        <rect x="89" y="24" width="14" height="3" rx="0.5" />
-        <path d="M 102,27 L 89,27 L 91,32 L 100,32 Z" />
-        <rect x="92.5" y="32" width="7" height="50" />
-        <rect x="93.5" y="32" width="0.8" height="50" opacity="0.25" />
-        <rect x="95.6" y="32" width="0.8" height="50" opacity="0.25" />
-        <rect x="97.7" y="32" width="0.8" height="50" opacity="0.25" />
-        <path d="M 100,82 L 92,82 L 90.5,87 L 101.5,87 Z" />
-        <rect x="89" y="87" width="14" height="4" rx="0.5" />
+        {/* RIGHT banner — mirror */}
+        <rect x="95" y="22" width="2" height="72" rx="1" />
+        <circle cx="96" cy="20" r="3" />
+        <path d="M 95,26 L 84,30 C 86,36 84,42 84,48 L 95,44 Z" />
+        <path d="M 95,34 L 86,37 L 86,39 L 95,36 Z" opacity="0.3" />
       </g>
     ),
   };
@@ -813,7 +871,6 @@ function renderFlourish(type: string, color: string): JSX.Element | null {
 export function ShieldBuilder({ config, familyName, onChange }: Props) {
   const t = useTranslations('Onboarding');
   const currentShape = SHAPES.find(s => s.value === config.shape) || SHAPES[0];
-  const currentDivision = DIVISIONS.find(d => d.value === config.division) || DIVISIONS[0];
   const currentSymbol = CENTER_SYMBOLS.find(s => s.value === config.center_symbol);
   const currentCrest = CREST_ANIMALS.find(a => a.value === config.crest_animal);
 
@@ -836,14 +893,14 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
       shape: pick(SHAPES).value,
       primary_color: pick(PRIMARY_COLORS).value,
       secondary_color: pick(SECONDARY_COLORS).value,
-      accent_color: pick(SECONDARY_COLORS).value,
+      accent_color: pick(DETAIL_COLORS).value,
       symbol_color: pick(['#FFFFFF', '#F5F5F5', '#FFD700', '#E8E8E8', '#1C1C1C', '#C5A84B']
       ).toString(),
-      division: pick(DIVISIONS).value,
+      division: pick(PATTERNS).value,
       crest_animal: pickNonNone(CREST_ANIMALS).value,
       flourish: pick(FLOURISHES).value,
       center_symbol: pickNonNone(CENTER_SYMBOLS).value,
-      font_style: pick(['serif', 'sans', 'script']),
+      font_style: pick(['serif', 'sans', 'script', 'gothic', 'classic']),
     });
   }, [config, familyName, onChange]);
 
@@ -874,14 +931,17 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
             <clipPath id="shieldClip">
               <path d={currentShape.path} />
             </clipPath>
+            {config.division !== 'none' && getPatternDef(config.division, config.secondary_color, 'shieldPattern')}
           </defs>
 
 
           {/* Shield base */}
           <path d={currentShape.path} fill={config.primary_color} stroke={config.accent_color} strokeWidth="2.5" />
 
-          {/* Division */}
-          {currentDivision.render(config.primary_color, config.secondary_color, currentShape.path)}
+          {/* Shield Pattern */}
+          {config.division !== 'none' && (
+            <rect x="0" y="0" width="100" height="100" fill="url(#shieldPattern)" clipPath="url(#shieldClip)" opacity="0.35" />
+          )}
 
           {/* Border accent */}
           <path d={currentShape.path} fill="none" stroke={config.accent_color} strokeWidth="1.5" opacity="0.5"
@@ -971,7 +1031,7 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
           </div>
         </div>
 
-        {/* ── Secondary Colour ── */}
+        {/* ── Pattern Colour ── */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldSecondary')}</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -985,6 +1045,18 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
                 className="absolute inset-0 opacity-0 cursor-pointer" />
               <span className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 font-bold">+</span>
             </label>
+          </div>
+        </div>
+
+        {/* ── Detail Colour (border, crest, flourish, family name) ── */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldDetail')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {DETAIL_COLORS.map(c => (
+              <button key={c.value} type="button" onClick={() => onChange({ ...config, accent_color: c.value })}
+                className={`w-8 h-8 rounded-full border-2 transition-all ${config.accent_color === c.value ? 'border-primary scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                style={{ backgroundColor: c.value }} title={c.label} />
+            ))}
           </div>
         </div>
 
@@ -1016,17 +1088,23 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
           </div>
         </div>
 
-        {/* ── Division ── */}
+        {/* ── Shield Pattern ── */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldDivision')}</p>
           <div className="flex flex-wrap gap-2">
-            {DIVISIONS.map(d => (
-              <button key={d.value} type="button" onClick={() => onChange({ ...config, division: d.value })}
-                className={`w-11 h-11 rounded-lg border-2 flex items-center justify-center ${toggleBtn(config.division === d.value)}`} title={d.label}>
+            {PATTERNS.map(p => (
+              <button key={p.value} type="button" onClick={() => onChange({ ...config, division: p.value })}
+                className={`w-11 h-11 rounded-lg border-2 flex items-center justify-center ${toggleBtn(config.division === p.value)}`} title={p.label}>
                 <svg viewBox="0 0 100 100" width="24" height="24">
-                  <defs><clipPath id={`divPrev_${d.value}`}><path d={SHAPES[0].path} /></clipPath></defs>
+                  <defs>
+                    <clipPath id={`patPrev_${p.value}`}><path d={SHAPES[0].path} /></clipPath>
+                    {p.value !== 'none' && getPatternDef(p.value, '#64748b', `patPrev_${p.value}_fill`)}
+                  </defs>
                   <path d={SHAPES[0].path} fill="#94a3b8" />
-                  <g clipPath={`url(#divPrev_${d.value})`}>{d.render('#94a3b8', '#cbd5e1', SHAPES[0].path)}</g>
+                  {p.value !== 'none' && (
+                    <rect x="0" y="0" width="100" height="100" fill={`url(#patPrev_${p.value}_fill)`}
+                      clipPath={`url(#patPrev_${p.value})`} opacity="0.4" />
+                  )}
                 </svg>
               </button>
             ))}
@@ -1089,7 +1167,7 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldFont')}</p>
           <div className="flex gap-2">
-            {(['serif', 'sans', 'script'] as const).map(f => (
+            {(['serif', 'sans', 'script', 'gothic', 'classic'] as const).map(f => (
               <button key={f} type="button" onClick={() => onChange({ ...config, font_style: f })}
                 className={`px-3 py-1.5 text-xs rounded-lg border-2 font-medium ${toggleBtn(config.font_style === f)}`}
                 style={{ fontFamily: FONT_MAP[f] }}>

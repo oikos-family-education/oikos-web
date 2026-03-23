@@ -13,8 +13,8 @@ export type EducationMethod =
   | "structured" | "eclectic" | "waldorf" | "unit_study" | "online" | "other";
 
 export type ShieldShape = "heater" | "rounded" | "kite" | "swiss" | "french" | "polish" | "lozenge" | "oval";
-export type ShieldDivision = "none" | "per_fess" | "per_pale" | "per_bend" | "per_bend_sinister" | "per_saltire" | "quarterly" | "per_chevron";
-export type ShieldFontStyle = "serif" | "sans" | "script";
+export type ShieldDivision = "none" | "chess" | "stripes_h" | "stripes_v" | "stripes_d" | "dots" | "diamonds" | "stars" | "crosses" | "leaves" | "scales" | "waves" | "fleur";
+export type ShieldFontStyle = "serif" | "sans" | "script" | "gothic" | "classic";
 
 export interface ShieldConfig {
   initials: string;

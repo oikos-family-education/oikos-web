@@ -43,12 +43,12 @@ class ShieldConfig(BaseModel):
     secondary_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
     accent_color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
     symbol_color: str = Field("#FFFFFF", pattern="^#[0-9A-Fa-f]{6}$")
-    division: str = Field("none", pattern="^(none|per_fess|per_pale|per_bend|per_bend_sinister|per_saltire|quarterly|per_chevron)$")
+    division: str = Field("none", pattern="^(none|chess|stripes_h|stripes_v|stripes_d|dots|diamonds|stars|crosses|leaves|scales|waves|fleur)$")
     crest_animal: str = Field("none")
     flourish: str = Field("none")
     center_symbol: str = Field("none")
     motto: str = Field("", max_length=60)
-    font_style: str = Field("serif", pattern="^(serif|sans|script)$")
+    font_style: str = Field("serif", pattern="^(serif|sans|script|gothic|classic)$")
 
 
 class FamilyCreate(BaseModel):

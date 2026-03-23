@@ -55,11 +55,11 @@ const CREST_PATHS: Record<string, string> = {
   star_6: 'M 0,-8 L 2.3,-3.5 L 7,-3.5 L 3.5,0 L 5.5,5 L 0,2.5 L -5.5,5 L -3.5,0 L -7,-3.5 L -2.3,-3.5 Z M 0,8 L -2.3,3.5 L -7,3.5 L -3.5,0 L -5.5,-5 L 0,-2.5 L 5.5,-5 L 3.5,0 L 7,3.5 L 2.3,3.5 Z',
   star_8: 'M 0,-8 L 1.5,-3 L 5.6,-5.6 L 3,-1.5 L 8,0 L 3,1.5 L 5.6,5.6 L 1.5,3 L 0,8 L -1.5,3 L -5.6,5.6 L -3,1.5 L -8,0 L -3,-1.5 L -5.6,-5.6 L -1.5,-3 Z',
   fleur_de_lis: 'M 0,-9 C 1,-7 3,-5 2,-2 C 4,-4 7,-4 7,-1 C 7,2 4,3 2,2 C 3,5 1,8 0,8 C -1,8 -3,5 -2,2 C -4,3 -7,2 -7,-1 C -7,-4 -4,-4 -2,-2 C -3,-5 -1,-7 0,-9 Z M -3,5 L 3,5 L 2,7 L -2,7 Z',
-  orb: 'M 0,-7 A 7,7 0 1,1 0,7 A 7,7 0 1,1 0,-7 Z M -7,-0.6 L 7,-0.6 L 7,0.6 L -7,0.6 Z M -0.6,-7 L 0.6,-7 L 0.6,0 L -0.6,0 Z M -1.2,-9.5 L 1.2,-9.5 L 1.2,-7 L -1.2,-7 Z',
+  helm: 'M -7,8 L -7,0 C -7,-5 -4,-9 0,-9 C 4,-9 7,-5 7,0 L 7,8 L 5,9 L -5,9 Z M -7,0 L 7,0 L 7,2 L -7,2 Z M -5,4 L 5,4 L 5,6 L -5,6 Z',
   sunburst: 'M 0,-4 A 4,4 0 1,1 0,4 A 4,4 0 1,1 0,-4 Z M 0,-9 L 0.8,-6 L -0.8,-6 Z M 0,9 L 0.8,6 L -0.8,6 Z M -9,0 L -6,0.8 L -6,-0.8 Z M 9,0 L 6,0.8 L 6,-0.8 Z M -6.4,-6.4 L -4.2,-4.2 L -5.2,-3.2 Z M 6.4,6.4 L 4.2,4.2 L 5.2,3.2 Z M 6.4,-6.4 L 4.2,-4.2 L 5.2,-3.2 Z M -6.4,6.4 L -4.2,4.2 L -5.2,3.2 Z',
   double_eagle: 'M 0,-2 L -4,-5 L -8,-4 L -6,-1 L -9,2 L -5,1 L -3,5 L 0,3 L 3,5 L 5,1 L 9,2 L 6,-1 L 8,-4 L 4,-5 Z M -2,-2 L -2,-6 L 0,-8 L 2,-6 L 2,-2 Z',
   crescent_moon: 'M 5,4.9 A 7,7 0 1,0 5,-4.9 A 5.5,5.5 0 0,1 5,4.9 Z',
-  cross_pattee: 'M -1.5,-9 L 1.5,-9 L 3,-3 L 9,-1.5 L 9,1.5 L 3,3 L 1.5,9 L -1.5,9 L -3,3 L -9,1.5 L -9,-1.5 L -3,-3 Z',
+  winged_crown: 'M -5,7 L -5,1 L -9,-3 L -7,-1 L -5,-6 L -3,-1 L 0,-9 L 3,-1 L 5,-6 L 7,-1 L 9,-3 L 5,1 L 5,7 Z M -6,7 L 6,7 L 5,9 L -5,9 Z',
   tudor_rose: 'M 0,-7 L 1.15,-2.77 L 4.95,-4.95 L 2.77,-1.15 L 7,0 L 2.77,1.15 L 4.95,4.95 L 1.15,2.77 L 0,7 L -1.15,2.77 L -4.95,4.95 L -2.77,1.15 L -7,0 L -2.77,-1.15 L -4.95,-4.95 L -1.15,-2.77 Z',
   mural_crown: 'M -9,7 L -9,1 L -7,1 L -7,-3 L -5,-3 L -5,1 L -1,1 L -1,-5 L 1,-5 L 1,1 L 5,1 L 5,-3 L 7,-3 L 7,1 L 9,1 L 9,7 Z',
   cinquefoil: 'M -2.5,-4 A 2.5,2.5 0 1,1 2.5,-4 A 2.5,2.5 0 1,1 -2.5,-4 Z M 1.3,-1.24 A 2.5,2.5 0 1,1 6.3,-1.24 A 2.5,2.5 0 1,1 1.3,-1.24 Z M -0.15,3.24 A 2.5,2.5 0 1,1 4.85,3.24 A 2.5,2.5 0 1,1 -0.15,3.24 Z M -4.85,3.24 A 2.5,2.5 0 1,1 0.15,3.24 A 2.5,2.5 0 1,1 -4.85,3.24 Z M -6.3,-1.24 A 2.5,2.5 0 1,1 -1.3,-1.24 A 2.5,2.5 0 1,1 -6.3,-1.24 Z',
@@ -67,38 +67,89 @@ const CREST_PATHS: Record<string, string> = {
 };
 
 const FONT_MAP: Record<string, string> = {
-  serif: "'Georgia', serif",
-  sans: "'Inter', sans-serif",
-  script: "'Georgia', cursive",
+  serif: "'Georgia', 'Times New Roman', serif",
+  sans: "'Inter', 'Helvetica Neue', sans-serif",
+  script: "'Brush Script MT', 'Segoe Script', cursive",
+  gothic: "'Copperplate', 'Copperplate Gothic Light', fantasy",
+  classic: "'Palatino Linotype', 'Book Antiqua', 'Palatino', serif",
 };
 
-/* ─── Division renderer (simplified for standalone preview) ─── */
-function renderDivision(division: string, secondary: string): JSX.Element | null {
-  switch (division) {
-    case 'per_fess':
-      return <rect x="0" y="50" width="100" height="50" fill={secondary} clipPath="url(#previewClip)" />;
-    case 'per_pale':
-      return <rect x="50" y="0" width="50" height="100" fill={secondary} clipPath="url(#previewClip)" />;
-    case 'per_bend':
-      return <polygon points="0,0 100,0 100,100" fill={secondary} clipPath="url(#previewClip)" />;
-    case 'per_bend_sinister':
-      return <polygon points="0,0 100,100 0,100" fill={secondary} clipPath="url(#previewClip)" />;
-    case 'per_saltire':
+/* ─── Pattern definition helper ─── */
+function getPatternDef(type: string, color: string, id: string): JSX.Element | null {
+  if (type === 'none') return null;
+  switch (type) {
+    case 'chess':
       return (
-        <>
-          <polygon points="50,0 100,50 50,100" fill={secondary} clipPath="url(#previewClip)" />
-          <polygon points="50,100 0,50 0,100" fill={secondary} clipPath="url(#previewClip)" />
-        </>
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="10">
+          <rect width="5" height="5" fill={color} /><rect x="5" y="5" width="5" height="5" fill={color} />
+        </pattern>
       );
-    case 'quarterly':
+    case 'stripes_h':
       return (
-        <>
-          <rect x="50" y="0" width="50" height="50" fill={secondary} clipPath="url(#previewClip)" />
-          <rect x="0" y="50" width="50" height="50" fill={secondary} clipPath="url(#previewClip)" />
-        </>
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="8">
+          <rect width="10" height="4" fill={color} />
+        </pattern>
       );
-    case 'per_chevron':
-      return <polygon points="50,45 100,100 0,100" fill={secondary} clipPath="url(#previewClip)" />;
+    case 'stripes_v':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="8" height="10">
+          <rect width="4" height="10" fill={color} />
+        </pattern>
+      );
+    case 'stripes_d':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+          <rect width="5" height="10" fill={color} />
+        </pattern>
+      );
+    case 'dots':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="12" height="12">
+          <circle cx="6" cy="6" r="3" fill={color} />
+        </pattern>
+      );
+    case 'diamonds':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="14" height="14">
+          <path d="M7,1 L13,7 L7,13 L1,7 Z" fill={color} />
+        </pattern>
+      );
+    case 'stars':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="18" height="18">
+          <path d="M9,3 L10.5,7 L15,7 L11.5,9.5 L12.8,14 L9,11 L5.2,14 L6.5,9.5 L3,7 L7.5,7 Z" fill={color} />
+        </pattern>
+      );
+    case 'crosses':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="16" height="16">
+          <path d="M6,2 L10,2 L10,6 L14,6 L14,10 L10,10 L10,14 L6,14 L6,10 L2,10 L2,6 L6,6 Z" fill={color} />
+        </pattern>
+      );
+    case 'leaves':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="16" height="20">
+          <path d="M8,2 C12,6 14,14 8,18 C2,14 4,6 8,2 Z" fill={color} />
+        </pattern>
+      );
+    case 'scales':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="12" height="10">
+          <path d="M0,10 C0,4 6,0 6,0 C6,0 12,4 12,10" fill="none" stroke={color} strokeWidth="2" />
+        </pattern>
+      );
+    case 'waves':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="20" height="10">
+          <path d="M0,5 C5,0 10,0 10,5 C10,10 15,10 20,5" fill="none" stroke={color} strokeWidth="2" />
+        </pattern>
+      );
+    case 'fleur':
+      return (
+        <pattern id={id} patternUnits="userSpaceOnUse" width="20" height="20">
+          <path d="M10,4 C11,5 12,7 11.5,9 C13,7.5 15,7.5 15,9 C15,10.5 13,11 11.5,10.5 C12,12.5 11,15 10,15 C9,15 8,12.5 8.5,10.5 C7,11 5,10.5 5,9 C5,7.5 7,7.5 8.5,9 C8,7 9,5 10,4 Z" fill={color} />
+        </pattern>
+      );
     default:
       return null;
   }
@@ -128,13 +179,16 @@ export function ShieldPreview({
         <clipPath id="previewClip">
           <path d={shapePath} />
         </clipPath>
+        {config.division !== 'none' && getPatternDef(config.division, config.secondary_color, 'previewPattern')}
       </defs>
 
       {/* Shield base */}
       <path d={shapePath} fill={config.primary_color} stroke={config.accent_color} strokeWidth="2.5" />
 
-      {/* Division */}
-      {renderDivision(config.division, config.secondary_color)}
+      {/* Shield Pattern */}
+      {config.division !== 'none' && (
+        <rect x="0" y="0" width="100" height="100" fill="url(#previewPattern)" clipPath="url(#previewClip)" opacity="0.35" />
+      )}
 
       {/* Border accent */}
       <path d={shapePath} fill="none" stroke={config.accent_color} strokeWidth="1.5" opacity="0.5"

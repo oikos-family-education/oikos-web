@@ -68,7 +68,7 @@ const defaultShield = {
   shape: 'heater',
   primary_color: '#1B2A4A',
   secondary_color: '#C5A84B',
-  accent_color: '#C5A84B',
+  accent_color: '#1C1C1C',
   symbol_color: '#FFFFFF',
   division: 'none',
   crest_animal: 'none',

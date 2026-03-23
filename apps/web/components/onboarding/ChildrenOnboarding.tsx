@@ -51,7 +51,7 @@ export function ChildrenOnboarding() {
               </div>
               <div>
                 <p className="font-bold text-slate-800">{child.first_name}</p>
-                {child.nickname && <p className="text-sm text-slate-500">"{child.nickname}"</p>}
+                {child.nickname && <p className="text-sm text-slate-500">&quot;{child.nickname}&quot;</p>}
                 {child.grade_level && <p className="text-xs text-slate-400 mt-1">{child.grade_level.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>}
               </div>
             </div>

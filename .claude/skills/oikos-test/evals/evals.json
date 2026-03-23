@@ -1,0 +1,29 @@
+{
+  "skill_name": "oikos-test",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "run the frontend tests",
+      "expected_output": "Runs `npm run test` in apps/web, shows vitest output, reports pass/fail",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "run the backend api tests",
+      "expected_output": "Runs pytest in apps/api, mentions that a live PostgreSQL DB is required, reports results",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "run all tests",
+      "expected_output": "Runs both frontend (vitest) and backend (pytest) test suites, reports combined results",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "test the auth flow",
+      "expected_output": "Infers frontend auth tests, runs apps/web tests targeting auth.test.ts",
+      "files": []
+    }
+  ]
+}

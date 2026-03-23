@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run test)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run type-check)",
+      "Bash(npm run dev)",
+      "Bash(npm run:*)",
+      "Bash(cd apps/web && npm run:*)",
+      "Bash(cd apps/api && pytest:*)",
+      "Bash(cd apps/api && alembic:*)",
+      "Bash(docker compose up:*)",
+      "Bash(docker compose down:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose:*)"
+    ]
+  }
+}

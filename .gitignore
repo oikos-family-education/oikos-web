@@ -32,3 +32,7 @@ yarn-error.log*
 # IDE
 .vscode/
 .idea/
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json

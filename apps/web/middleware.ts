@@ -8,7 +8,7 @@ const intlMiddleware = createMiddleware({
 });
 
 const PROTECTED_PATHS = [
-  '/dashboard', '/family', '/children', '/disciplines',
+  '/dashboard', '/family', '/children', '/subjects', '/curriculums',
   '/planner', '/calendar', '/projects', '/resources',
   '/journal', '/progress', '/assistant', '/community', '/settings'
 ];

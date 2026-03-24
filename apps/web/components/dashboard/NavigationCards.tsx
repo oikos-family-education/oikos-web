@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import {
   BookOpen, LayoutGrid, Calendar, Layers,
-  Library, PenTool, BarChart3, Sparkles, Globe,
+  Library, PenTool, BarChart3, Sparkles, Globe, GraduationCap,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { LucideIcon } from 'lucide-react';
@@ -17,7 +17,8 @@ interface CardDef {
 }
 
 const CARDS: CardDef[] = [
-  { key: 'disciplines', href: '/disciplines', icon: BookOpen, color: 'bg-indigo-100 text-indigo-600' },
+  { key: 'subjects', href: '/subjects', icon: BookOpen, color: 'bg-indigo-100 text-indigo-600' },
+  { key: 'curriculums', href: '/curriculums', icon: GraduationCap, color: 'bg-violet-100 text-violet-600' },
   { key: 'planner', href: '/planner', icon: LayoutGrid, color: 'bg-blue-100 text-blue-600' },
   { key: 'calendar', href: '/calendar', icon: Calendar, color: 'bg-cyan-100 text-cyan-600' },
   { key: 'projects', href: '/projects', icon: Layers, color: 'bg-violet-100 text-violet-600' },

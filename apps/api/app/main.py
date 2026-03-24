@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, families
+from app.routers import auth, families, subjects, curriculums
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,8 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(families.router, prefix="/api/v1")
+app.include_router(subjects.router, prefix="/api/v1")
+app.include_router(curriculums.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():

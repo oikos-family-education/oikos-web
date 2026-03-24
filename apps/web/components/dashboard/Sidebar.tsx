@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Home, Users, Star, BookOpen, LayoutGrid, Calendar, Layers,
   Library, PenTool, BarChart3, Sparkles, Globe, Settings,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, GraduationCap,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { SidebarNavItem } from './SidebarNavItem';
@@ -58,7 +58,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Educate group */}
         <SidebarNavGroup label={t('groupEducate')} collapsed={collapsed}>
-          <SidebarNavItem href="/disciplines" label={t('disciplines')} icon={BookOpen} collapsed={collapsed} />
+          <SidebarNavItem href="/subjects" label={t('subjects')} icon={BookOpen} collapsed={collapsed} />
+          <SidebarNavItem href="/curriculums" label={t('curriculums')} icon={GraduationCap} collapsed={collapsed} />
           <SidebarNavItem href="/planner" label={t('planner')} icon={LayoutGrid} collapsed={collapsed} />
           <SidebarNavItem href="/calendar" label={t('calendar')} icon={Calendar} collapsed={collapsed} />
           <SidebarNavItem href="/projects" label={t('projects')} icon={Layers} collapsed={collapsed} />

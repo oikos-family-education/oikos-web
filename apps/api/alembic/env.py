@@ -14,6 +14,8 @@ from app.core.database import Base
 from app.models.user import User
 from app.models.family import Family
 from app.models.child import Child
+from app.models.subject import Subject
+from app.models.curriculum import Curriculum, ChildCurriculum, CurriculumSubject
 
 config = context.config
 

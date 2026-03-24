@@ -164,5 +164,62 @@
     "addChildButton": "Add {name} to Our Family",
     "addChildDefault": "Add Child to Our Family",
     "welcomeToast": "Welcome to Oikos, {familyName}! Now let's meet your children."
+  },
+  "Dashboard": {
+    "greeting_morning": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening",
+    "encouragement": "Every day you show up for your children is a day well spent. You are their most important teacher.",
+    "quickAccess": "Where would you like to start?"
+  },
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "family": "Family",
+    "children": "Children",
+    "disciplines": "Disciplines",
+    "planner": "Lesson Planner",
+    "calendar": "Calendar",
+    "projects": "Projects",
+    "resources": "Resources",
+    "journal": "Journal",
+    "progress": "Progress",
+    "assistant": "Assistant",
+    "community": "Community",
+    "settings": "Settings",
+    "groupFamily": "Family",
+    "groupEducate": "Educate",
+    "groupRecord": "Record",
+    "groupSupport": "Support",
+    "signOut": "Sign out",
+    "familyProfile": "Family Profile",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "Cards": {
+    "disciplines": "Set up subjects and curriculum for each child",
+    "planner": "Plan your school week, day by day",
+    "calendar": "View your full schedule at a glance",
+    "projects": "Create and track multi-week learning projects",
+    "resources": "Browse and save books, videos, and materials",
+    "journal": "Log what you covered and how it went",
+    "progress": "Track assessments and generate reports",
+    "assistant": "Get lesson ideas, explanations, and support",
+    "community": "Find and connect with like-minded families"
+  },
+  "Placeholder": {
+    "comingSoon": "Coming soon",
+    "backToDashboard": "Back to Dashboard",
+    "familyDesc": "Manage your family profile and settings",
+    "childrenDesc": "View and manage your children's profiles",
+    "disciplinesDesc": "Set up subjects and curriculum for each child",
+    "plannerDesc": "Plan your school week, day by day",
+    "calendarDesc": "View your full schedule at a glance",
+    "projectsDesc": "Create and track multi-week learning projects",
+    "resourcesDesc": "Browse and save books, videos, and materials",
+    "journalDesc": "Log what you covered and how it went",
+    "progressDesc": "Track assessments and generate reports",
+    "assistantDesc": "Get lesson ideas, explanations, and support",
+    "communityDesc": "Find and connect with like-minded families",
+    "settingsDesc": "Manage your account and platform settings"
   }
 }

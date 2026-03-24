@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Response, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, settings
+from app.core.security import create_access_token, create_refresh_token, get_current_user, settings
 from app.schemas.auth import (
     LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest,
     LoginResponse, MessageResponse
@@ -94,6 +94,10 @@ async def reset_password(
     user = await service.reset_password(req)
     set_auth_cookies(response, str(user.id))
     return LoginResponse(message="Password reset successfully.", user=user)
+
+@router.get("/me", response_model=LoginResponse)
+async def get_me(current_user=Depends(get_current_user)):
+    return LoginResponse(user=current_user)
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(response: Response):

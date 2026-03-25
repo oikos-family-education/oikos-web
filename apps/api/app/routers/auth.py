@@ -14,14 +14,18 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def get_auth_service(db: AsyncSession = Depends(get_db)):
     return AuthService(db)
 
+def _is_secure() -> bool:
+    return settings.APP_BASE_URL.startswith("https")
+
 def set_auth_cookies(response: Response, user_id: str):
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
+    secure = _is_secure()
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True, 
+        secure=secure,
         samesite="lax",
         max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
@@ -29,7 +33,7 @@ def set_auth_cookies(response: Response, user_id: str):
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=secure,
         samesite="lax",
         max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
@@ -125,7 +129,7 @@ async def refresh(request: Request, response: Response):
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=_is_secure(),
         samesite="lax",
         max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )

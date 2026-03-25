@@ -30,6 +30,7 @@ class SubjectCreate(BaseModel):
     max_age_years: Optional[int] = Field(None, ge=0, le=25)
     min_grade_level: Optional[int] = Field(None, ge=0, le=12)
     max_grade_level: Optional[int] = Field(None, ge=0, le=12)
+    priority: int = Field(2, ge=1, le=3)
     default_session_duration_minutes: int = Field(45, ge=5, le=480)
     default_weekly_frequency: int = Field(5, ge=1, le=7)
     learning_objectives: list[str] = Field(default_factory=list)
@@ -49,6 +50,7 @@ class SubjectUpdate(BaseModel):
     max_age_years: Optional[int] = Field(None, ge=0, le=25)
     min_grade_level: Optional[int] = Field(None, ge=0, le=12)
     max_grade_level: Optional[int] = Field(None, ge=0, le=12)
+    priority: Optional[int] = Field(None, ge=1, le=3)
     default_session_duration_minutes: Optional[int] = Field(None, ge=5, le=480)
     default_weekly_frequency: Optional[int] = Field(None, ge=1, le=7)
     learning_objectives: Optional[list[str]] = None
@@ -71,6 +73,7 @@ class SubjectResponse(BaseModel):
     max_age_years: Optional[int] = None
     min_grade_level: Optional[int] = None
     max_grade_level: Optional[int] = None
+    priority: int = 2
     default_session_duration_minutes: int
     default_weekly_frequency: int
     learning_objectives: list[str] = []

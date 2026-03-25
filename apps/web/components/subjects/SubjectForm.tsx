@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, ChevronUp, Minus, ChevronDown } from 'lucide-react';
 import { categoryKey } from '../../lib/categoryLabel';
+import { IconPicker } from './IconPicker';
 import { Input } from '@oikos/ui';
 import { Button } from '@oikos/ui';
 
@@ -23,6 +24,12 @@ const COLOR_PALETTE = [
   '#3B82F6', '#0EA5E9', '#64748B', '#22C55E',
 ];
 
+const PRIORITY_OPTIONS = [
+  { value: 1, key: 'priorityHigh', icon: ChevronUp, color: 'text-red-500' },
+  { value: 2, key: 'priorityMedium', icon: Minus, color: 'text-amber-500' },
+  { value: 3, key: 'priorityLow', icon: ChevronDown, color: 'text-slate-400' },
+];
+
 interface SubjectData {
   id?: string;
   name: string;
@@ -33,6 +40,7 @@ interface SubjectData {
   icon: string | null;
   min_age_years: number | null;
   max_age_years: number | null;
+  priority?: number;
   default_session_duration_minutes: number;
   default_weekly_frequency: number;
   learning_objectives: string[];
@@ -54,6 +62,8 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
   const [objectives, setObjectives] = useState<string[]>(initialData?.learning_objectives || []);
   const [skills, setSkills] = useState<string[]>(initialData?.skills_targeted || []);
   const [selectedColor, setSelectedColor] = useState(initialData?.color || '#6366F1');
+  const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
+  const [priority, setPriority] = useState(initialData?.priority ?? 2);
   const [objectiveInput, setObjectiveInput] = useState('');
   const [skillInput, setSkillInput] = useState('');
 
@@ -106,6 +116,8 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
     const body = {
       ...data,
       color: selectedColor,
+      icon: selectedIcon,
+      priority,
       min_age_years: data.min_age_years === '' ? null : Number(data.min_age_years),
       max_age_years: data.max_age_years === '' ? null : Number(data.max_age_years),
       short_description: data.short_description || null,
@@ -196,23 +208,68 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
             )}
           </div>
 
-          {/* Color */}
+          {/* Icon & Color */}
           <div>
             <label className="text-sm font-semibold text-slate-700 block mb-1.5">
-              {t('colorLabel')}
+              {t('iconLabel')} & {t('colorLabel')}
             </label>
-            <div className="flex gap-2 flex-wrap">
-              {COLOR_PALETTE.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all ${
-                    selectedColor === color ? 'border-slate-800 scale-110' : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+            <div className="flex items-start gap-4">
+              {/* Icon picker */}
+              <IconPicker value={selectedIcon} onChange={setSelectedIcon} color={selectedColor} />
+
+              {/* Color palette + custom */}
+              <div className="flex-1">
+                <div className="flex gap-2 flex-wrap items-center">
+                  {COLOR_PALETTE.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setSelectedColor(color)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${
+                        selectedColor === color ? 'border-slate-800 scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                {/* Custom color picker */}
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="text-xs text-slate-500">{t('customColorLabel')}:</label>
+                  <input
+                    type="color"
+                    value={selectedColor}
+                    onChange={(e) => setSelectedColor(e.target.value)}
+                    className="w-8 h-8 rounded-full border border-slate-200 cursor-pointer p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="text-sm font-semibold text-slate-700 block mb-1.5">
+              {t('priorityLabel')}
+            </label>
+            <div className="flex gap-2">
+              {PRIORITY_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setPriority(opt.value)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      priority === opt.value
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${priority === opt.value ? 'text-primary' : opt.color}`} />
+                    {t(opt.key)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -264,7 +321,7 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
             <label className="text-sm font-semibold text-slate-700 block mb-1.5">
               {t('learningObjectivesLabel')}
             </label>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-1">
               <input
                 type="text"
                 value={objectiveInput}
@@ -274,6 +331,7 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
+            <p className="text-xs text-slate-400 mb-2">{t('tagHint')}</p>
             <div className="flex flex-wrap gap-2">
               {objectives.map((obj, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs">
@@ -291,7 +349,7 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
             <label className="text-sm font-semibold text-slate-700 block mb-1.5">
               {t('skillsLabel')}
             </label>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-1">
               <input
                 type="text"
                 value={skillInput}
@@ -301,6 +359,7 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
+            <p className="text-xs text-slate-400 mb-2">{t('tagHint')}</p>
             <div className="flex flex-wrap gap-2">
               {skills.map((skill, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">
@@ -314,16 +373,19 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
           </div>
 
           {/* Visibility */}
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="is_public"
-              className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-              {...register('is_public')}
-            />
-            <label htmlFor="is_public" className="text-sm text-slate-600">
-              {t('visibilityLabel')}
-            </label>
+          <div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="is_public"
+                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                {...register('is_public')}
+              />
+              <label htmlFor="is_public" className="text-sm text-slate-600">
+                {t('visibilityLabel')}
+              </label>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 ml-7">{t('visibilityHint')}</p>
           </div>
         </div>
 

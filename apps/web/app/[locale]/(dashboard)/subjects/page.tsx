@@ -36,7 +36,7 @@ export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [source, setSource] = useState<string>('');
+  const [source, setSource] = useState<string>('mine');
   const [category, setCategory] = useState<string>('');
 
   useEffect(() => {

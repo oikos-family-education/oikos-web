@@ -50,6 +50,9 @@ class Subject(Base):
     min_grade_level = Column(SmallInteger, nullable=True)
     max_grade_level = Column(SmallInteger, nullable=True)
 
+    # Priority (1=High, 2=Medium, 3=Low)
+    priority = Column(SmallInteger, nullable=False, default=2)
+
     # Session defaults
     default_session_duration_minutes = Column(SmallInteger, default=45)
     default_weekly_frequency = Column(SmallInteger, default=5)

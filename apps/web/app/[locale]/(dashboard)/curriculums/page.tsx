@@ -1,9 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, Plus, Loader2, Calendar, ChevronRight } from 'lucide-react';
+import { GraduationCap, Plus, Loader2, Calendar, ChevronRight, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+
+interface ChildCurriculum {
+  id: string;
+  child_id: string;
+  curriculum_id: string;
+}
+
+interface Child {
+  id: string;
+  first_name: string;
+  nickname: string | null;
+}
 
 interface CurriculumListItem {
   id: string;
@@ -15,6 +27,7 @@ interface CurriculumListItem {
   academic_year: string | null;
   status: string;
   education_philosophy: string | null;
+  child_curriculums: ChildCurriculum[];
   created_at: string;
 }
 
@@ -33,18 +46,29 @@ export default function CurriculumsPage() {
   const t = useTranslations('Curriculums');
   const router = useRouter();
   const [curriculums, setCurriculums] = useState<CurriculumListItem[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const res = await fetch('/api/v1/curriculums', { credentials: 'include' });
-      if (res.ok) {
-        setCurriculums(await res.json());
-      }
+      const [currRes, childRes] = await Promise.all([
+        fetch('/api/v1/curriculums', { credentials: 'include' }),
+        fetch('/api/v1/families/me/children', { credentials: 'include' }),
+      ]);
+      if (currRes.ok) setCurriculums(await currRes.json());
+      if (childRes.ok) setChildren(await childRes.json());
       setIsLoading(false);
     }
     load();
   }, []);
+
+  const childMap = new Map(children.map((c) => [c.id, c.nickname || c.first_name]));
+
+  function getEnrolledNames(curriculum: CurriculumListItem): string[] {
+    return (curriculum.child_curriculums || [])
+      .map((cc) => childMap.get(cc.child_id))
+      .filter(Boolean) as string[];
+  }
 
   const grouped = STATUS_ORDER.reduce<Record<string, CurriculumListItem[]>>((acc, status) => {
     const items = curriculums.filter((c) => c.status === status);
@@ -110,6 +134,7 @@ export default function CurriculumsPage() {
               <div className="space-y-3">
                 {items.map((curriculum) => {
                   const progress = getWeeksProgress(curriculum.start_date, curriculum.end_date);
+                  const enrolledNames = getEnrolledNames(curriculum);
                   return (
                     <button
                       key={curriculum.id}
@@ -133,6 +158,12 @@ export default function CurriculumsPage() {
                               <span className="text-slate-400">· {curriculum.education_philosophy}</span>
                             )}
                           </div>
+                          {enrolledNames.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-sm text-slate-500">
+                              <Users className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{t('enrolledChildren', { names: enrolledNames.join(', ') })}</span>
+                            </div>
+                          )}
                           {status === 'active' && (
                             <div className="mt-2">
                               <div className="flex items-center gap-2">

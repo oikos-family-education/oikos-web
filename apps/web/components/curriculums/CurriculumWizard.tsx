@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Loader2, Check, BookOpen, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Check, BookOpen, X, Plus, ChevronDown, ChevronUp, AlertTriangle, Users } from 'lucide-react';
 import { Input } from '@oikos/ui';
 import { Button } from '@oikos/ui';
 import { useAuth } from '../../providers/AuthProvider';
@@ -37,10 +37,34 @@ interface SelectedSubject {
   expanded: boolean;
 }
 
-const PERIOD_TYPES = ['monthly', 'quarterly', 'semester', 'annual', 'custom'];
+interface ActiveCurriculum {
+  id: string;
+  name: string;
+  child_ids: string[];
+}
+
+const PERIOD_TYPES = ['custom', 'monthly', 'quarterly', 'semester', 'annual'];
 const PERIOD_WEEKS: Record<string, number> = { monthly: 4, quarterly: 13, semester: 18, annual: 36 };
 const DAY_KEYS = ['dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
 const TIME_SLOTS = ['morning_first', 'morning', 'midday', 'afternoon', 'flexible'];
+
+const EDUCATION_METHODS = [
+  'classical', 'charlotte_mason', 'montessori', 'unschooling',
+  'structured', 'eclectic', 'waldorf', 'unit_study', 'online', 'other',
+];
+
+const PHILOSOPHY_KEY_MAP: Record<string, string> = {
+  classical: 'philosophyClassical',
+  charlotte_mason: 'philosophyCharlotteMason',
+  montessori: 'philosophyMontessori',
+  unschooling: 'philosophyUnschooling',
+  structured: 'philosophyStructured',
+  eclectic: 'philosophyEclectic',
+  waldorf: 'philosophyWaldorf',
+  unit_study: 'philosophyUnitStudy',
+  online: 'philosophyOnline',
+  other: 'philosophyOther',
+};
 
 export function CurriculumWizard() {
   const t = useTranslations('Curriculums');
@@ -54,12 +78,13 @@ export function CurriculumWizard() {
 
   // Step 1 data
   const [name, setName] = useState('');
-  const [periodType, setPeriodType] = useState('annual');
+  const [periodType, setPeriodType] = useState('custom');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [academicYear, setAcademicYear] = useState('');
   const [termName, setTermName] = useState('');
   const [philosophy, setPhilosophy] = useState('');
+  const [customPhilosophy, setCustomPhilosophy] = useState('');
   const [goals, setGoals] = useState<string[]>([]);
   const [goalInput, setGoalInput] = useState('');
   const [notes, setNotes] = useState('');
@@ -67,11 +92,22 @@ export function CurriculumWizard() {
   // Step 2 data
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildIds, setSelectedChildIds] = useState<string[]>([]);
+  const [activeCurriculums, setActiveCurriculums] = useState<ActiveCurriculum[]>([]);
 
   // Step 3 data
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<SelectedSubject[]>([]);
   const [subjectSearch, setSubjectSearch] = useState('');
+
+  // Pre-fill philosophy from family education methods
+  useEffect(() => {
+    if (family?.education_methods?.length) {
+      const method = family.education_methods[0];
+      if (EDUCATION_METHODS.includes(method)) {
+        setPhilosophy(method);
+      }
+    }
+  }, [family]);
 
   useEffect(() => {
     // Fetch children
@@ -82,6 +118,22 @@ export function CurriculumWizard() {
     fetch('/api/v1/subjects', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then(setAvailableSubjects);
+    // Fetch active curriculums for conflict checking
+    fetch('/api/v1/curriculums?status=active', { credentials: 'include' })
+      .then(async (r) => {
+        if (!r.ok) return [];
+        const list = await r.json();
+        // For each active curriculum, fetch its children
+        const withChildren = await Promise.all(
+          list.map(async (c: any) => {
+            const childRes = await fetch(`/api/v1/curriculums/${c.id}/children`, { credentials: 'include' });
+            const childData = childRes.ok ? await childRes.json() : [];
+            return { id: c.id, name: c.name, child_ids: childData.map((ch: any) => ch.id) };
+          })
+        );
+        return withChildren;
+      })
+      .then(setActiveCurriculums);
   }, []);
 
   // Auto-calculate end date
@@ -107,6 +159,11 @@ export function CurriculumWizard() {
     setSelectedChildIds((prev) =>
       prev.includes(childId) ? prev.filter((id) => id !== childId) : [...prev, childId]
     );
+  }
+
+  function getChildActiveConflict(childId: string): string | null {
+    const conflict = activeCurriculums.find((c) => c.child_ids.includes(childId));
+    return conflict ? conflict.name : null;
   }
 
   function addSubject(subject: Subject) {
@@ -158,6 +215,12 @@ export function CurriculumWizard() {
     return 'text-red-600';
   }
 
+  function getEffectivePhilosophy(): string | null {
+    if (philosophy === 'other') return customPhilosophy || null;
+    if (philosophy) return philosophy;
+    return null;
+  }
+
   async function handleSubmit(activate: boolean) {
     setIsLoading(true);
     setError('');
@@ -169,7 +232,7 @@ export function CurriculumWizard() {
       end_date: endDate,
       academic_year: academicYear || null,
       term_name: termName || null,
-      education_philosophy: philosophy || null,
+      education_philosophy: getEffectivePhilosophy(),
       overall_goals: goals,
       notes: notes || null,
       child_ids: selectedChildIds,
@@ -323,17 +386,40 @@ export function CurriculumWizard() {
             />
           </div>
 
-          <Input
-            label={t('philosophyLabel')}
-            value={philosophy}
-            onChange={(e) => setPhilosophy(e.target.value)}
-          />
+          {/* Education Philosophy — dropdown */}
+          <div>
+            <label className="text-sm font-semibold text-slate-700 block mb-1.5">
+              {t('philosophyLabel')}
+            </label>
+            <select
+              value={philosophy}
+              onChange={(e) => setPhilosophy(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">—</option>
+              {EDUCATION_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {t(PHILOSOPHY_KEY_MAP[method] as any)}
+                </option>
+              ))}
+            </select>
+            {philosophy === 'other' && (
+              <input
+                type="text"
+                value={customPhilosophy}
+                onChange={(e) => setCustomPhilosophy(e.target.value)}
+                placeholder={t('philosophyLabel')}
+                className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            )}
+          </div>
 
+          {/* Overall Goals */}
           <div>
             <label className="text-sm font-semibold text-slate-700 block mb-1.5">
               {t('goalsLabel')}
             </label>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-1">
               <input
                 type="text"
                 value={goalInput}
@@ -343,6 +429,7 @@ export function CurriculumWizard() {
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
+            <p className="text-xs text-slate-400 mb-2">{t('tagHint')}</p>
             <div className="flex flex-wrap gap-2">
               {goals.map((g, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs">
@@ -369,34 +456,63 @@ export function CurriculumWizard() {
           <h2 className="text-lg font-semibold text-slate-800">{t('wizardStep2')}</h2>
           <p className="text-sm text-slate-500">{t('selectChildren')}</p>
 
-          <div className="space-y-2">
-            {children.map((child) => (
-              <label
-                key={child.id}
-                className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                  selectedChildIds.includes(child.id)
-                    ? 'border-primary bg-primary/5'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
+          {children.length === 0 ? (
+            <div className="text-center py-10">
+              <div className="inline-flex p-4 rounded-2xl bg-amber-50 mb-4">
+                <Users className="h-10 w-10 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">{t('noChildrenTitle')}</h3>
+              <p className="text-slate-500 mb-4">{t('noChildrenDescription')}</p>
+              <button
+                type="button"
+                onClick={() => router.push('/settings')}
+                className="text-sm font-medium text-primary hover:underline"
               >
-                <input
-                  type="checkbox"
-                  checked={selectedChildIds.includes(child.id)}
-                  onChange={() => toggleChild(child.id)}
-                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                />
-                <span className="font-medium text-slate-700">
-                  {child.nickname || child.first_name}
-                </span>
-              </label>
-            ))}
-          </div>
+                {t('addChildLink')}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {children.map((child) => {
+                const conflictName = getChildActiveConflict(child.id);
+                return (
+                  <div key={child.id}>
+                    <label
+                      className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                        selectedChildIds.includes(child.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedChildIds.includes(child.id)}
+                        onChange={() => toggleChild(child.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <span className="font-medium text-slate-700">
+                        {child.nickname || child.first_name}
+                      </span>
+                    </label>
+                    {conflictName && selectedChildIds.includes(child.id) && (
+                      <div className="flex items-center gap-1.5 mt-1 ml-1 text-amber-600">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="text-xs font-medium">
+                          {t('childActiveWarning', { name: child.nickname || child.first_name })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex justify-between">
             <button type="button" onClick={() => setStep(1)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium">
               {t('back')}
             </button>
-            <Button onClick={() => setStep(3)}>
+            <Button onClick={() => setStep(3)} disabled={children.length === 0}>
               {t('next')}
             </Button>
           </div>

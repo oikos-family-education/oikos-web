@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BookOpen, GitFork, Edit3 } from 'lucide-react';
+import { icons, BookOpen, GitFork, Edit3, ChevronUp, Minus, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { categoryKey } from '../../lib/categoryLabel';
 
@@ -13,6 +13,7 @@ interface Subject {
   category: string;
   color: string;
   icon: string | null;
+  priority?: number;
   min_age_years: number | null;
   max_age_years: number | null;
   is_platform_subject: boolean;
@@ -25,8 +26,26 @@ interface SubjectCardProps {
   onEdit: () => void;
 }
 
+const PRIORITY_CONFIG: Record<number, { icon: React.ElementType; color: string; key: string }> = {
+  1: { icon: ChevronUp, color: 'text-red-500', key: 'priorityHigh' },
+  2: { icon: Minus, color: 'text-amber-500', key: 'priorityMedium' },
+  3: { icon: ChevronDown, color: 'text-slate-400', key: 'priorityLow' },
+};
+
+function SubjectIcon({ iconName, color }: { iconName: string | null; color: string }) {
+  const name = iconName || 'BookOpen';
+  if (name in icons) {
+    return React.createElement(icons[name as keyof typeof icons], {
+      className: 'w-5 h-5',
+      style: { color },
+    });
+  }
+  return <BookOpen className="w-5 h-5" style={{ color }} />;
+}
+
 export function SubjectCard({ subject, onFork, onEdit }: SubjectCardProps) {
   const t = useTranslations('Subjects');
+  const priorityCfg = PRIORITY_CONFIG[subject.priority ?? 2];
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-primary/30 transition-all">
@@ -35,7 +54,7 @@ export function SubjectCard({ subject, onFork, onEdit }: SubjectCardProps) {
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${subject.color}20` }}
         >
-          <BookOpen className="w-5 h-5" style={{ color: subject.color }} />
+          <SubjectIcon iconName={subject.icon} color={subject.color} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -51,9 +70,17 @@ export function SubjectCard({ subject, onFork, onEdit }: SubjectCardProps) {
               </span>
             )}
           </div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 mb-2">
-            {t(categoryKey(subject.category))}
-          </span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+              {t(categoryKey(subject.category))}
+            </span>
+            {priorityCfg && (
+              <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${priorityCfg.color}`}>
+                {React.createElement(priorityCfg.icon, { className: 'w-3.5 h-3.5' })}
+                {t(priorityCfg.key)}
+              </span>
+            )}
+          </div>
           {subject.short_description && (
             <p className="text-sm text-slate-500 line-clamp-2">{subject.short_description}</p>
           )}

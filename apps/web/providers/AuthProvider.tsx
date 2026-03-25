@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     init();
     return () => { cancelled = true; };
-  }, [router]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = useCallback(async () => {
     await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });

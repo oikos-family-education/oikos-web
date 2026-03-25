@@ -170,6 +170,7 @@ class CurriculumListResponse(BaseModel):
     academic_year: Optional[str] = None
     status: str
     education_philosophy: Optional[str] = None
+    child_curriculums: list[ChildCurriculumResponse] = []
     created_at: datetime
     updated_at: datetime
 

@@ -1,5 +1,6 @@
 import secrets
 import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -31,7 +32,7 @@ def generate_reset_token() -> str:
     return secrets.token_urlsafe(32)
 
 def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
+    return hmac.new(settings.JWT_SECRET_KEY.encode(), token.encode(), hashlib.sha256).hexdigest()
 
 async def get_current_user(request: Request):
     from app.core.database import get_db

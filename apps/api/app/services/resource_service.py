@@ -9,6 +9,11 @@ from app.models.subject import Subject
 from app.schemas.resource import ResourceCreate, ResourceUpdate
 
 
+def _escape_like(value: str) -> str:
+    """Escape special SQL LIKE characters to prevent wildcard injection."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class ResourceService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -27,7 +32,7 @@ class ResourceService:
 
         if search:
             query = query.where(
-                Resource.title.ilike(f"%{search}%") | Resource.author.ilike(f"%{search}%")
+                Resource.title.ilike(f"%{_escape_like(search)}%") | Resource.author.ilike(f"%{_escape_like(search)}%")
             )
 
         query = query.order_by(Resource.title)

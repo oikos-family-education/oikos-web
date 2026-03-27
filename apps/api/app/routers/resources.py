@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import Optional
@@ -32,7 +32,7 @@ async def _get_family_id(current_user: User, family_service: FamilyService) -> U
 async def list_resources(
     type: Optional[str] = None,
     subject_id: Optional[UUID] = None,
-    search: Optional[str] = None,
+    search: Optional[str] = Query(None, max_length=200),
     current_user: User = Depends(get_current_user),
     service: ResourceService = Depends(get_resource_service),
     family_service: FamilyService = Depends(get_family_service),

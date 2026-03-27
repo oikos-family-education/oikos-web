@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Response, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.user import User
 from app.core.security import create_access_token, create_refresh_token, get_current_user, settings
 from app.schemas.auth import (
     LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest,
@@ -26,7 +27,7 @@ def set_auth_cookies(response: Response, user_id: str):
         value=access_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite="strict",
         max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     response.set_cookie(
@@ -34,7 +35,7 @@ def set_auth_cookies(response: Response, user_id: str):
         value=refresh_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite="strict",
         max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 
@@ -104,17 +105,20 @@ async def get_me(current_user=Depends(get_current_user)):
     return LoginResponse(user=current_user)
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(response: Response):
+async def logout(response: Response, current_user: User = Depends(get_current_user)):
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return MessageResponse(message="Logged out successfully.")
 
 @router.post("/refresh", response_model=MessageResponse)
 async def refresh(request: Request, response: Response):
+    ip = request.client.host if request.client else "127.0.0.1"
+    await check_rate_limit(f"ratelimit:refresh:{ip}", 30, 900)
+
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:
         raise HTTPException(status_code=401, detail={"detail": "Refresh token is missing.", "code": "invalid_refresh_token"})
-    
+
     from jose import jwt, JWTError
     try:
         payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
@@ -123,14 +127,24 @@ async def refresh(request: Request, response: Response):
             raise JWTError()
     except JWTError:
         raise HTTPException(status_code=401, detail={"detail": "Refresh token is invalid or expired.", "code": "invalid_refresh_token"})
-    
+
+    secure = _is_secure()
     access_token = create_access_token(user_id)
+    new_refresh_token = create_refresh_token(user_id)
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=_is_secure(),
-        samesite="lax",
+        secure=secure,
+        samesite="strict",
         max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     return MessageResponse(message="Token refreshed.")

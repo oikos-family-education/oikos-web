@@ -56,9 +56,13 @@ async def get_curriculum(
     curriculum_id: UUID,
     current_user: User = Depends(get_current_user),
     service: CurriculumService = Depends(get_curriculum_service),
+    family_service: FamilyService = Depends(get_family_service),
 ):
+    family_id = await _get_family_id(current_user, family_service)
     curriculum = await service.get_curriculum(curriculum_id)
     if not curriculum:
+        raise HTTPException(status_code=404, detail="Curriculum not found.")
+    if curriculum.family_id is not None and curriculum.family_id != family_id:
         raise HTTPException(status_code=404, detail="Curriculum not found.")
     return curriculum
 

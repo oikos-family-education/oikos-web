@@ -79,7 +79,8 @@ class AuthService:
             user.password_reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
             await self.db.commit()
             # In a real app, send email here
-            # link = f"{settings.APP_BASE_URL}/reset-password?token={token}"
+            # Use hash fragment so the token is never sent to the server in URL/Referer
+            # link = f"{settings.APP_BASE_URL}/reset-password#token={token}"
 
     async def reset_password(self, req: ResetPasswordRequest) -> User:
         hashed = hash_token(req.token)

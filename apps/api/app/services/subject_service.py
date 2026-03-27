@@ -10,6 +10,11 @@ from app.models.curriculum import CurriculumSubject
 from app.schemas.subject import SubjectCreate, SubjectUpdate
 
 
+def _escape_like(value: str) -> str:
+    """Escape special SQL LIKE characters to prevent wildcard injection."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class SubjectService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -58,7 +63,7 @@ class SubjectService:
             query = query.where(Subject.category == category)
 
         if search:
-            query = query.where(Subject.name.ilike(f"%{search}%"))
+            query = query.where(Subject.name.ilike(f"%{_escape_like(search)}%"))
 
         query = query.order_by(Subject.name)
         result = await self.db.execute(query)

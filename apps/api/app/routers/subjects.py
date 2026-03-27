@@ -32,7 +32,7 @@ async def _get_family_id(current_user: User, family_service: FamilyService) -> U
 async def list_subjects(
     source: Optional[str] = Query(None, pattern="^(mine|platform|community)$"),
     category: Optional[str] = None,
-    search: Optional[str] = None,
+    search: Optional[str] = Query(None, max_length=200),
     current_user: User = Depends(get_current_user),
     service: SubjectService = Depends(get_subject_service),
     family_service: FamilyService = Depends(get_family_service),
@@ -46,9 +46,13 @@ async def get_subject(
     subject_id: UUID,
     current_user: User = Depends(get_current_user),
     service: SubjectService = Depends(get_subject_service),
+    family_service: FamilyService = Depends(get_family_service),
 ):
+    family_id = await _get_family_id(current_user, family_service)
     subject = await service.get_subject(subject_id)
     if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found.")
+    if not subject.is_platform_subject and not subject.is_public and subject.family_id != family_id:
         raise HTTPException(status_code=404, detail="Subject not found.")
     return subject
 

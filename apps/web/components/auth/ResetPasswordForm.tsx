@@ -14,7 +14,20 @@ import { useTranslations } from 'next-intl';
 export const ResetPasswordForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read token from URL hash fragment (not sent to servers, unlike query params)
+    const hash = window.location.hash;
+    if (hash.startsWith('#token=')) {
+      setToken(hash.slice('#token='.length));
+      // Clean the hash from the URL to avoid leaking in browser history
+      window.history.replaceState(null, '', window.location.pathname);
+    } else {
+      // Fallback: support legacy query param links
+      setToken(searchParams.get('token'));
+    }
+  }, [searchParams]);
   
   const tAuth = useTranslations('Auth');
   const tVal = useTranslations('Validation');
@@ -84,6 +97,7 @@ export const ResetPasswordForm = () => {
       const res = await fetch('/api/v1/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ token, ...data }),
       });
       const result = await res.json();

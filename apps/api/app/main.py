@@ -11,7 +11,7 @@ app = FastAPI(title="Oikos API", version="1.0.0")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.error("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
+    logger.error("Validation error on %s %s: %d error(s)", request.method, request.url.path, len(exc.errors()))
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 app.add_middleware(

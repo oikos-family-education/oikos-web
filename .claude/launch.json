@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "apps/web"],
+      "runtimeExecutable": "/Users/fdemorais/Code/oikos/oikos-web/node_modules/.bin/next",
+      "runtimeArgs": ["dev"],
+      "cwd": "apps/web",
       "port": 3000,
       "autoPort": true
     }

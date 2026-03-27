@@ -16,6 +16,7 @@ from app.models.family import Family
 from app.models.child import Child
 from app.models.subject import Subject
 from app.models.curriculum import Curriculum, ChildCurriculum, CurriculumSubject
+from app.models.week_planner import WeekTemplate, RoutineEntry
 
 config = context.config
 

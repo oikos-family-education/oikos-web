@@ -456,6 +456,7 @@
     "delete": "Delete",
     "deleteConfirm": "Remove this entry from the schedule?",
     "duplicateToDays": "Duplicate to days",
+    "selectDays": "Select days",
     "edit": "Edit",
     "duplicate": "Duplicate to day(s)",
     "conflictError": "{name} already has a subject scheduled at this time",

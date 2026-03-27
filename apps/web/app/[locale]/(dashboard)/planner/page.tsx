@@ -20,6 +20,7 @@ import { SubjectPanel } from '../../../../components/planner/SubjectPanel';
 import { RoutineEntryPopup } from '../../../../components/planner/RoutineEntryPopup';
 import { TemplateSelector } from '../../../../components/planner/TemplateSelector';
 import { ContextMenu } from '../../../../components/planner/ContextMenu';
+import { DuplicateDaysPopup } from '../../../../components/planner/DuplicateDaysPopup';
 import {
   RoutineEntryData,
   WeekTemplateData,
@@ -50,6 +51,7 @@ export default function PlannerPage() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [deleteTemplateConfirm, setDeleteTemplateConfirm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<RoutineEntryData | null>(null);
+  const [duplicatePopupEntry, setDuplicatePopupEntry] = useState<RoutineEntryData | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entryId: string } | null>(null);
   const [dragActive, setDragActive] = useState<DragSubjectPayload | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
@@ -562,10 +564,22 @@ export default function PlannerPage() {
           }}
           onDuplicate={() => {
             const entry = entries.find(e => e.id === contextMenu.entryId);
-            if (entry) setSelectedEntry(entry);
+            if (entry) setDuplicatePopupEntry(entry);
           }}
           onDelete={() => deleteEntry(contextMenu.entryId)}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Duplicate to days popup */}
+      {duplicatePopupEntry && (
+        <DuplicateDaysPopup
+          entry={duplicatePopupEntry}
+          subject={duplicatePopupEntry.subject_id
+            ? subjects.find(s => s.id === duplicatePopupEntry.subject_id) || null
+            : null}
+          onDuplicate={duplicateEntry}
+          onClose={() => setDuplicatePopupEntry(null)}
         />
       )}
 

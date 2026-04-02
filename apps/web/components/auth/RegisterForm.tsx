@@ -91,7 +91,7 @@ export const RegisterForm = () => {
           setErrorMsg(result.detail?.detail || tApi('somethingWentWrong'));
         }
       } else {
-        router.push('/onboarding');
+        router.push('/onboarding/family');
       }
     } catch (err) {
       setErrorMsg(tApi('somethingWentWrong'));

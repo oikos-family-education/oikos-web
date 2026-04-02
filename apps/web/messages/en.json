@@ -134,7 +134,7 @@
     "childrenHeading": "Now let's meet your children.",
     "childrenSub": "Add one or more children to your family. You can always add more later from your family settings.",
     "addChild": "Add a Child",
-    "continueButton": "Continue to Dashboard →",
+    "continueButton": "Continue",
     "skipConfirm": "You can add children later from your family settings.",
     "childNameLabel": "First Name",
     "childNamePlaceholder": "Elias",
@@ -163,7 +163,11 @@
     "childSupportPlaceholder": "Type a service and press Enter…",
     "addChildButton": "Add {name} to Our Family",
     "addChildDefault": "Add Child to Our Family",
-    "welcomeToast": "Welcome to Oikos, {familyName}! Now let's meet your children."
+    "welcomeToast": "Welcome to Oikos, {familyName}! Now let's meet your children.",
+    "coatOfArmsHeading": "Design Your Family Coat of Arms",
+    "coatOfArmsSub": "This is your family's visual identity in Oikos. It appears on your profile, your children's journals, and in the community directory. Take your time — you can always change it later.",
+    "coatOfArmsSave": "Save Coat of Arms",
+    "coatOfArmsSkip": "Skip for now — I'll do this later"
   },
   "Dashboard": {
     "greeting_morning": "Good morning",
@@ -291,7 +295,17 @@
     "deleteConfirmMessage": "This cannot be undone.",
     "archiveConfirmTitle": "Archive Subject",
     "archiveConfirmMessage": "Hidden from pickers; history preserved. You can unarchive any time.",
-    "ages": "Ages {min}-{max}"
+    "ages": "Ages {min}-{max}",
+    "detailOverview": "Overview",
+    "detailDescription": "Description",
+    "detailAgeRange": "Age Range",
+    "detailYears": "years",
+    "detailSessionDuration": "Session Duration",
+    "detailMin": "min",
+    "detailFrequency": "Frequency",
+    "detailWeek": "week",
+    "detailLearningObjectives": "Learning Objectives",
+    "detailSkillsTargeted": "Skills Targeted"
   },
   "Curriculums": {
     "title": "Curriculums",
@@ -404,7 +418,12 @@
     "philosophyUnitStudy": "Unit Study",
     "philosophyOnline": "Online",
     "philosophyOther": "Other",
-    "enrolledChildren": "Enrolled: {names}"
+    "enrolledChildren": "Enrolled: {names}",
+    "restoreCurriculum": "Restore to Draft",
+    "activateConflictTitle": "Activation Conflict",
+    "activateConflictMessage": "One or more children already have an active curriculum. Activating this one will pause their current active curriculum.",
+    "cancelAction": "Cancel",
+    "activateAndPauseOther": "Activate & Pause Other"
   },
   "WeekPlanner": {
     "title": "Weekly Routine",

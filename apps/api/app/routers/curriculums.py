@@ -99,7 +99,7 @@ async def update_curriculum_status(
     family_service: FamilyService = Depends(get_family_service),
 ):
     family_id = await _get_family_id(current_user, family_service)
-    return await service.update_status(curriculum_id, family_id, req.status.value)
+    return await service.update_status(curriculum_id, family_id, req.status.value, force=req.force)
 
 
 @router.delete("/{curriculum_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -7,7 +7,6 @@ import { WizardProgress } from './WizardProgress';
 import { WizardStep1 } from './WizardStep1';
 import { WizardStep2 } from './WizardStep2';
 import { WizardStep3 } from './WizardStep3';
-import { WizardStep4 } from './WizardStep4';
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@oikos/ui';
 
@@ -27,20 +26,6 @@ function detectBrowserLanguage(): string {
 export interface FamilyFormData {
   // Step 1
   family_name: string;
-  shield_config: {
-    initials: string;
-    shape: string;
-    primary_color: string;
-    secondary_color: string;
-    accent_color: string;
-    symbol_color: string;
-    division: string;
-    crest_animal: string;
-    flourish: string;
-    center_symbol: string;
-    motto: string;
-    font_style: string;
-  };
   location_city: string;
   location_region: string;
   location_country: string;
@@ -58,30 +43,13 @@ export interface FamilyFormData {
   screen_policy: string;
   outdoor_orientation: string;
   home_languages: string[];
-  // Step 4
   family_culture: string;
   visibility: string;
 }
 
-const defaultShield = {
-  initials: '',
-  shape: 'heater',
-  primary_color: '#1B2A4A',
-  secondary_color: '#C5A84B',
-  accent_color: '#1C1C1C',
-  symbol_color: '#FFFFFF',
-  division: 'none',
-  crest_animal: 'none',
-  flourish: 'none',
-  center_symbol: 'none',
-  motto: '',
-  font_style: 'serif',
-};
-
 function buildDefaultFormData(): FamilyFormData {
   return {
     family_name: '',
-    shield_config: { ...defaultShield },
     location_city: '',
     location_region: '',
     location_country: '',
@@ -102,7 +70,7 @@ function buildDefaultFormData(): FamilyFormData {
   };
 }
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 3;
 
 export function FamilyWizard() {
   const router = useRouter();
@@ -125,7 +93,6 @@ export function FamilyWizard() {
     try {
       const payload = {
         ...formData,
-        shield_config: formData.shield_config.initials ? formData.shield_config : undefined,
         faith_tradition: formData.faith_tradition || undefined,
         faith_denomination: formData.faith_denomination || undefined,
         faith_community_name: formData.faith_community_name || undefined,
@@ -169,14 +136,13 @@ export function FamilyWizard() {
 
   const canProceed = () => {
     if (step === 1) return formData.family_name.trim().length >= 2;
-    return true; // Steps 2-4 are optional
+    return true; // Steps 2-3 are optional
   };
 
   const stepTitles = [
     t('step1Title'),
     t('step2Title'),
     t('step3Title'),
-    t('step4Title'),
   ];
 
   return (
@@ -187,7 +153,6 @@ export function FamilyWizard() {
         {step === 1 && <WizardStep1 data={formData} onChange={updateFormData} />}
         {step === 2 && <WizardStep2 data={formData} onChange={updateFormData} />}
         {step === 3 && <WizardStep3 data={formData} onChange={updateFormData} />}
-        {step === 4 && <WizardStep4 data={formData} onChange={updateFormData} />}
 
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">

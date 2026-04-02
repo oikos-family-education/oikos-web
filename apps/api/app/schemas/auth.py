@@ -46,6 +46,7 @@ class UserResponse(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     has_family: bool
+    has_coat_of_arms: bool
 
     class Config:
         from_attributes = True

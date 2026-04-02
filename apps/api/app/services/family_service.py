@@ -74,6 +74,23 @@ class FamilyService:
         await self.db.refresh(db_family)
         return db_family
 
+    async def update_shield(self, account_id: uuid.UUID, shield_config: dict) -> Family:
+        family = await self.get_family_by_account(account_id)
+        if not family:
+            raise HTTPException(status_code=404, detail="Family not configured yet.")
+
+        family.shield_config = shield_config
+
+        # Set has_coat_of_arms flag on user
+        result = await self.db.execute(select(User).where(User.id == account_id))
+        user = result.scalars().first()
+        if user:
+            user.has_coat_of_arms = True
+
+        await self.db.commit()
+        await self.db.refresh(family)
+        return family
+
     async def get_children(self, family_id: uuid.UUID) -> list[Child]:
         result = await self.db.execute(select(Child).where(Child.family_id == family_id))
         return list(result.scalars().all())

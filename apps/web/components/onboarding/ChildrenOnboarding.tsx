@@ -31,7 +31,7 @@ export function ChildrenOnboarding() {
       setShowSkipConfirm(true);
       return;
     }
-    router.push('/dashboard');
+    router.push('/onboarding/coat-of-arms');
   };
 
   return (

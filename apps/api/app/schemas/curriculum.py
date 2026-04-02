@@ -134,6 +134,7 @@ class CurriculumUpdate(BaseModel):
 
 class CurriculumStatusUpdate(BaseModel):
     status: CurriculumStatus
+    force: bool = False
 
 
 class CurriculumResponse(BaseModel):

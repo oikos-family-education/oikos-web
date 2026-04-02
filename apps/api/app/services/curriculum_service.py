@@ -125,6 +125,7 @@ class CurriculumService:
         curriculum_id: uuid.UUID,
         family_id: uuid.UUID,
         new_status: str,
+        force: bool = False,
     ) -> Curriculum:
         curriculum = await self.get_curriculum(curriculum_id)
         if not curriculum:
@@ -162,10 +163,16 @@ class CurriculumService:
                 )
                 conflict = result.scalars().first()
                 if conflict:
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"Child {cc.child_id} already has an active curriculum."
-                    )
+                    if force:
+                        # Deactivate the conflicting curriculum by pausing it
+                        conflict_curriculum = await self.get_curriculum(conflict.curriculum_id)
+                        if conflict_curriculum:
+                            conflict_curriculum.status = "paused"
+                    else:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Child {cc.child_id} already has an active curriculum."
+                        )
 
         # Template: remove all child assignments
         if new_status == "template":

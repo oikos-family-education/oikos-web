@@ -9,6 +9,7 @@ interface User {
   first_name: string | null;
   last_name: string | null;
   has_family: boolean;
+  has_coat_of_arms: boolean;
 }
 
 interface Family {
@@ -65,6 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!userData.has_family) {
           router.replace('/onboarding/family');
+          return;
+        }
+
+        if (!userData.has_coat_of_arms) {
+          router.replace('/onboarding/coat-of-arms');
           return;
         }
 

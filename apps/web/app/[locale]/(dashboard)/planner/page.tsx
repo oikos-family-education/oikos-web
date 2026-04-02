@@ -146,6 +146,21 @@ export default function PlannerPage() {
     await fetchTemplate(templateId);
   }
 
+  async function renameTemplate(templateId: string, newName: string) {
+    const res = await fetch(`/api/v1/week-planner/templates/${templateId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (res.ok) {
+      await fetchTemplates();
+      if (activeTemplate?.id === templateId) {
+        setActiveTemplate(prev => prev ? { ...prev, name: newName } : null);
+      }
+    }
+  }
+
   async function activateTemplate() {
     if (!activeTemplate || activeTemplate.is_active) return;
     const res = await fetch(`/api/v1/week-planner/templates/${activeTemplate.id}/activate`, {
@@ -443,6 +458,7 @@ export default function PlannerPage() {
             activeTemplateId={activeTemplate?.id || null}
             onSelect={selectTemplate}
             onCreate={createTemplate}
+            onRename={renameTemplate}
           />
         </div>
         <div className="flex items-center gap-2">

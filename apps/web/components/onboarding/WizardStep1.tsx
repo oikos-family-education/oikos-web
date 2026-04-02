@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Input } from '@oikos/ui';
-import { ShieldBuilder } from './ShieldBuilder';
 import type { FamilyFormData } from './FamilyWizard';
 import { MapPin } from 'lucide-react';
 
@@ -14,21 +13,6 @@ interface Props {
 
 export function WizardStep1({ data, onChange }: Props) {
   const t = useTranslations('Onboarding');
-
-  // Auto-generate shield initials from family name
-  useEffect(() => {
-    if (data.family_name) {
-      const words = data.family_name.trim().split(/\s+/);
-      const initials = words
-        .slice(0, 3)
-        .map(w => w[0]?.toUpperCase() || '')
-        .join('');
-      onChange({
-        shield_config: { ...data.shield_config, initials },
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.family_name]);
 
   return (
     <div className="space-y-8">
@@ -49,13 +33,6 @@ export function WizardStep1({ data, onChange }: Props) {
         />
         <p className="text-xs text-slate-400">{t('familyNameHelp')}</p>
       </div>
-
-      {/* Shield / Coat of Arms Builder */}
-      <ShieldBuilder
-        config={data.shield_config}
-        familyName={data.family_name}
-        onChange={(shield_config) => onChange({ shield_config })}
-      />
 
       {/* Location */}
       <div className="space-y-4">

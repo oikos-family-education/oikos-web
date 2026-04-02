@@ -7,7 +7,7 @@ import { categoryKey } from '../../../../../lib/categoryLabel';
 import {
   Loader2, Calendar, BookOpen, BarChart3, LayoutGrid,
   MoreHorizontal, Pause, CheckCircle, Archive, Copy,
-  Edit3,
+  Edit3, RotateCcw, Play, AlertTriangle,
 } from 'lucide-react';
 
 interface CurriculumSubject {
@@ -75,6 +75,8 @@ export default function CurriculumDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Overview');
   const [showMenu, setShowMenu] = useState(false);
+  const [activateConfirm, setActivateConfirm] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -92,17 +94,26 @@ export default function CurriculumDashboardPage() {
     load();
   }, [curriculumId]);
 
-  async function updateStatus(newStatus: string) {
+  async function updateStatus(newStatus: string, force: boolean = false) {
     setShowMenu(false);
+    setStatusError(null);
     const res = await fetch(`/api/v1/curriculums/${curriculumId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, force }),
     });
     if (res.ok) {
       setCurriculum(await res.json());
+      setActivateConfirm(false);
+    } else if (res.status === 409) {
+      // Conflict: child already has an active curriculum
+      setActivateConfirm(true);
     }
+  }
+
+  async function handleForceActivate() {
+    await updateStatus('active', true);
   }
 
   if (isLoading) {
@@ -116,6 +127,8 @@ export default function CurriculumDashboardPage() {
   if (!curriculum) {
     return <div className="text-center py-20 text-slate-500">Curriculum not found.</div>;
   }
+
+  const isArchived = curriculum.status === 'archived';
 
   const totalWeeklyHours = curriculum.curriculum_subjects.reduce(
     (sum, cs) => sum + (cs.weekly_frequency * cs.session_duration_minutes) / 60,
@@ -137,6 +150,40 @@ export default function CurriculumDashboardPage() {
 
   return (
     <div className="max-w-5xl">
+      {/* Activate conflict confirmation modal */}
+      {activateConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setActivateConfirm(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-md w-full">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="inline-flex p-2 rounded-lg bg-amber-100">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">{t('activateConflictTitle')}</h3>
+                  <p className="text-sm text-slate-500 mt-1">{t('activateConflictMessage')}</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setActivateConfirm(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                >
+                  {t('cancelAction')}
+                </button>
+                <button
+                  onClick={handleForceActivate}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover"
+                >
+                  {t('activateAndPauseOther')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
         <div className="flex items-start justify-between">
@@ -182,29 +229,50 @@ export default function CurriculumDashboardPage() {
               <MoreHorizontal className="w-5 h-5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1">
-                <button onClick={() => { setShowMenu(false); router.push(`/curriculums/${curriculumId}/edit`); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
-                  <Edit3 className="w-4 h-4" /> {t('editCurriculum')}
-                </button>
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1">
+                {/* Edit — only for non-archived */}
+                {!isArchived && (
+                  <button onClick={() => { setShowMenu(false); router.push(`/curriculums/${curriculumId}/edit`); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                    <Edit3 className="w-4 h-4" /> {t('editCurriculum')}
+                  </button>
+                )}
+                {/* Restore — only for archived */}
+                {isArchived && (
+                  <button onClick={() => updateStatus('draft')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                    <RotateCcw className="w-4 h-4" /> {t('restoreCurriculum')}
+                  </button>
+                )}
+                {/* Activate — for draft and paused */}
+                {['draft', 'paused'].includes(curriculum.status) && (
+                  <button onClick={() => updateStatus('active')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50">
+                    <Play className="w-4 h-4" /> {t('activateCurriculum')}
+                  </button>
+                )}
+                {/* Pause — only for active */}
                 {curriculum.status === 'active' && (
                   <button onClick={() => updateStatus('paused')}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
                     <Pause className="w-4 h-4" /> {t('pauseCurriculum')}
                   </button>
                 )}
+                {/* Complete — for active and paused */}
                 {['active', 'paused'].includes(curriculum.status) && (
                   <button onClick={() => updateStatus('completed')}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
                     <CheckCircle className="w-4 h-4" /> {t('completeCurriculum')}
                   </button>
                 )}
+                {/* Archive — for anything not already archived or template */}
                 {!['archived', 'template'].includes(curriculum.status) && (
                   <button onClick={() => updateStatus('archived')}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
                     <Archive className="w-4 h-4" /> {t('archiveCurriculum')}
                   </button>
                 )}
+                {/* Save as Template — for draft, active, paused */}
                 {['draft', 'active', 'paused'].includes(curriculum.status) && (
                   <button onClick={() => updateStatus('template')}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">

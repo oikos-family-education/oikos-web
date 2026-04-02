@@ -5,7 +5,7 @@ import uuid
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.schemas.family import FamilyCreate, FamilyResponse
+from app.schemas.family import FamilyCreate, FamilyResponse, ShieldConfig
 from app.schemas.child import ChildCreate, ChildResponse
 from app.services.family_service import FamilyService
 
@@ -31,6 +31,14 @@ async def get_my_family(
     if not family:
         raise HTTPException(status_code=404, detail="Family not configured yet.")
     return family
+
+@router.patch("/me/shield", response_model=FamilyResponse)
+async def update_shield(
+    req: ShieldConfig,
+    current_user: User = Depends(get_current_user),
+    service: FamilyService = Depends(get_family_service)
+):
+    return await service.update_shield(current_user.id, req.model_dump())
 
 @router.post("/me/children", response_model=ChildResponse, status_code=status.HTTP_201_CREATED)
 async def add_child(

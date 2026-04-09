@@ -5,13 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Plus, ArrowRight, User } from 'lucide-react';
 import { Button } from '@oikos/ui';
-import { AddChildForm } from './AddChildForm';
+import { AddChildForm, ChildFormData } from './AddChildForm';
 
-interface ChildCard {
-  first_name: string;
-  nickname?: string;
-  gender?: string;
-  grade_level?: string;
+interface ChildCard extends ChildFormData {
+  id?: string;
 }
 
 export function ChildrenOnboarding() {
@@ -21,7 +18,7 @@ export function ChildrenOnboarding() {
   const [showForm, setShowForm] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
-  const handleChildAdded = (child: ChildCard) => {
+  const handleChildAdded = (child: ChildFormData & { id?: string }) => {
     setChildren(prev => [...prev, child]);
     setShowForm(false);
   };

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
@@ -91,9 +92,49 @@ class FamilyService:
         await self.db.refresh(family)
         return family
 
-    async def get_children(self, family_id: uuid.UUID) -> list[Child]:
-        result = await self.db.execute(select(Child).where(Child.family_id == family_id))
+    async def get_children(self, family_id: uuid.UUID, include_archived: bool = False) -> list[Child]:
+        query = select(Child).where(Child.family_id == family_id)
+        if not include_archived:
+            query = query.where(Child.archived_at.is_(None))
+        query = query.order_by(Child.created_at.asc())
+        result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def get_child(self, child_id: uuid.UUID, family_id: uuid.UUID) -> Child:
+        result = await self.db.execute(
+            select(Child).where(Child.id == child_id, Child.family_id == family_id)
+        )
+        child = result.scalars().first()
+        if not child:
+            raise HTTPException(status_code=404, detail="Child not found.")
+        return child
+
+    async def update_child(self, child_id: uuid.UUID, family_id: uuid.UUID, data: ChildUpdate) -> Child:
+        child = await self.get_child(child_id, family_id)
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(child, key, value)
+        await self.db.commit()
+        await self.db.refresh(child)
+        return child
+
+    async def archive_child(self, child_id: uuid.UUID, family_id: uuid.UUID) -> Child:
+        child = await self.get_child(child_id, family_id)
+        if child.archived_at is not None:
+            raise HTTPException(status_code=400, detail="Child is already archived.")
+        child.archived_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        await self.db.refresh(child)
+        return child
+
+    async def unarchive_child(self, child_id: uuid.UUID, family_id: uuid.UUID) -> Child:
+        child = await self.get_child(child_id, family_id)
+        if child.archived_at is None:
+            raise HTTPException(status_code=400, detail="Child is not archived.")
+        child.archived_at = None
+        await self.db.commit()
+        await self.db.refresh(child)
+        return child
 
     async def add_child(self, family_id: uuid.UUID, data: ChildCreate) -> Child:
         db_child = Child(

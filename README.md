@@ -208,6 +208,54 @@ Authentication uses **httpOnly cookies** (no Authorization headers). The Next.js
 
 ---
 
+## Troubleshooting
+
+### Login fails with "Something went wrong"
+
+This usually means the database schema is out of date — a migration added a column that doesn't exist yet in your local database.
+
+**Diagnose** — check the API logs for a SQLAlchemy error pointing to a missing column:
+
+```bash
+docker compose logs api --tail 50
+```
+
+Look for errors like:
+```
+asyncpg.exceptions.UndefinedColumnError: column users.<column_name> does not exist
+```
+
+**Fix** — apply pending migrations:
+
+```bash
+# Docker setup
+docker compose exec api alembic upgrade head
+
+# Host setup
+cd apps/api
+source venv/bin/activate
+alembic upgrade head
+```
+
+Then retry logging in. If the API container keeps crashing, restart it after the migration:
+
+```bash
+docker compose restart api
+```
+
+### Port already in use
+
+If `docker compose up` fails because port 3000 or 8000 is already taken, find and stop the conflicting process:
+
+```bash
+lsof -i :3000   # find what's using the port
+kill <PID>       # stop it
+```
+
+Then run `docker compose up -d` again.
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.

@@ -57,7 +57,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function init() {
       try {
         // Verify session and get user data
-        const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        let meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        if (meRes.status === 401) {
+          // Access token expired — try refreshing
+          const refreshRes = await fetch('/api/v1/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          if (refreshRes.ok) {
+            meRes = await fetch('/api/v1/auth/me', { credentials: 'include' });
+          }
+        }
         if (!meRes.ok) {
           router.replace('/login');
           return;

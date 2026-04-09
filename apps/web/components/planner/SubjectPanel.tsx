@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Leaf, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Leaf, Pencil, BookOpen, icons } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   SubjectData, ChildData, CurriculumData, RoutineEntryData, priorityFromNumber, priorityColor, DragSubjectPayload,
@@ -138,6 +138,17 @@ function CustomActivityTile() {
   );
 }
 
+function SubjectIcon({ iconName, color }: { iconName: string | null; color: string }) {
+  const name = iconName || 'BookOpen';
+  if (name in icons) {
+    return React.createElement(icons[name as keyof typeof icons], {
+      className: 'w-4 h-4 flex-shrink-0',
+      style: { color },
+    });
+  }
+  return <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color }} />;
+}
+
 interface ChildSubjectGroupProps {
   child: ChildData;
   subjects: SubjectData[];
@@ -254,7 +265,7 @@ function DraggableSubjectTile({ subject, child, entryCount }: DraggableSubjectTi
       style={{ borderLeftWidth: '4px', borderLeftColor: subject.color }}
     >
       <div className="flex items-center gap-1.5">
-        {subject.icon && <span className="text-sm">{subject.icon}</span>}
+        <SubjectIcon iconName={subject.icon} color={subject.color} />
         <span className="text-sm font-medium text-slate-800 truncate">{subject.name}</span>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ml-auto ${priorityColor(priority)}`} />
       </div>

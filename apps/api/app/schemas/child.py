@@ -38,11 +38,21 @@ class ChildResponse(BaseModel):
     gender: Optional[str] = None
     birthdate: Optional[date] = None
     birth_year: Optional[int] = None
+    birth_month: Optional[int] = None
     grade_level: Optional[str] = None
+    child_curriculum: list[str] = []
     learning_styles: list[str] = []
+    personality_description: Optional[str] = None
     personality_tags: list[str] = []
     interests: list[str] = []
+    motivators: Optional[str] = None
+    demotivators: Optional[str] = None
+    learning_differences: list[str] = []
+    accommodations_notes: Optional[str] = None
+    support_services: list[str] = []
     is_active: bool = True
+    archived_at: Optional[datetime] = None
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}

@@ -95,8 +95,6 @@ export function RoutineEntryCard({
     : custom
     ? customData!.name
     : subject?.name || 'Unknown';
-  const icon = entry.is_free_time ? '🌿' : custom ? customData!.icon : subject?.icon || '';
-
   const childNames = childrenList
     .filter(c => entry.child_ids.includes(c.id))
     .map(c => c.nickname || c.name)
@@ -202,7 +200,6 @@ export function RoutineEntryCard({
     >
       <div className="p-1.5 h-full flex flex-col">
         <div className="flex items-center gap-1 min-w-0">
-          {icon && <span className="text-xs flex-shrink-0">{icon}</span>}
           <span className="text-xs font-semibold text-slate-800 truncate">{displayName}</span>
         </div>
 

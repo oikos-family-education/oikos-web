@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, BookOpen, icons } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
 import {
@@ -22,6 +22,16 @@ import {
   CUSTOM_COLORS,
 } from './types';
 import { EmojiPicker } from './EmojiPicker';
+
+function SubjectIconLarge({ iconName, color }: { iconName: string; color: string }) {
+  if (iconName in icons) {
+    return React.createElement(icons[iconName as keyof typeof icons], {
+      className: 'w-6 h-6',
+      style: { color },
+    });
+  }
+  return <BookOpen className="w-6 h-6" style={{ color }} />;
+}
 
 interface RoutineEntryPopupProps {
   entry: RoutineEntryData;
@@ -72,8 +82,6 @@ export function RoutineEntryPopup({
     : custom
     ? customData!.name
     : subject?.name || 'Unknown';
-  const icon = entry.is_free_time ? '🌿' : custom ? customData!.icon : subject?.icon || '';
-
   const childNames = childrenList
     .filter(c => entry.child_ids.includes(c.id))
     .map(c => c.nickname || c.name)
@@ -201,7 +209,13 @@ export function RoutineEntryPopup({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            {icon && <span className="text-2xl">{icon}</span>}
+            {entry.is_free_time ? (
+              <span className="text-2xl">🌿</span>
+            ) : custom ? (
+              <span className="text-2xl">{customData!.icon}</span>
+            ) : subject?.icon ? (
+              <SubjectIconLarge iconName={subject.icon} color={subject.color} />
+            ) : null}
             <h2 className="text-lg font-semibold text-slate-800">{displayName}</h2>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 text-slate-400">

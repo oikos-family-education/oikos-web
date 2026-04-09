@@ -6,9 +6,30 @@ import { Input } from '@oikos/ui';
 import { Button } from '@oikos/ui';
 import { Loader2, X } from 'lucide-react';
 
+export interface ChildFormData {
+  first_name: string;
+  nickname?: string;
+  gender?: string;
+  birthdate?: string;
+  birth_year?: number;
+  birth_month?: number;
+  grade_level?: string;
+  learning_styles?: string[];
+  personality_description?: string;
+  interests?: string[];
+  motivators?: string;
+  demotivators?: string;
+  learning_differences?: string[];
+  accommodations_notes?: string;
+  support_services?: string[];
+}
+
 interface Props {
-  onSuccess: (child: { first_name: string; nickname?: string; gender?: string; grade_level?: string }) => void;
+  onSuccess: (child: ChildFormData & { id?: string }) => void;
   onCancel: () => void;
+  initialData?: ChildFormData;
+  childId?: string;
+  translationNamespace?: 'Onboarding' | 'Children';
 }
 
 const GENDER_OPTIONS = ['male', 'female', 'prefer_not_to_say'];
@@ -48,28 +69,29 @@ const LEARNING_DIFFERENCES = [
   'Hearing impairment', 'Speech / Language', 'Other',
 ];
 
-export function AddChildForm({ onSuccess, onCancel }: Props) {
-  const t = useTranslations('Onboarding');
+export function AddChildForm({ onSuccess, onCancel, initialData, childId, translationNamespace = 'Onboarding' }: Props) {
+  const t = useTranslations(translationNamespace);
+  const isEditMode = !!childId;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Form state
-  const [firstName, setFirstName] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [gender, setGender] = useState('');
-  const [dobMode, setDobMode] = useState<'dob' | 'age'>('dob');
-  const [birthdate, setBirthdate] = useState('');
-  const [birthYear, setBirthYear] = useState('');
-  const [gradeLevel, setGradeLevel] = useState('');
-  const [learningStyles, setLearningStyles] = useState<string[]>([]);
-  const [personalityDesc, setPersonalityDesc] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
+  // Form state — pre-fill from initialData if editing
+  const [firstName, setFirstName] = useState(initialData?.first_name ?? '');
+  const [nickname, setNickname] = useState(initialData?.nickname ?? '');
+  const [gender, setGender] = useState(initialData?.gender ?? '');
+  const [dobMode, setDobMode] = useState<'dob' | 'age'>(initialData?.birthdate ? 'dob' : 'age');
+  const [birthdate, setBirthdate] = useState(initialData?.birthdate ?? '');
+  const [birthYear, setBirthYear] = useState(initialData?.birth_year?.toString() ?? '');
+  const [gradeLevel, setGradeLevel] = useState(initialData?.grade_level ?? '');
+  const [learningStyles, setLearningStyles] = useState<string[]>(initialData?.learning_styles ?? []);
+  const [personalityDesc, setPersonalityDesc] = useState(initialData?.personality_description ?? '');
+  const [interests, setInterests] = useState<string[]>(initialData?.interests ?? []);
   const [interestInput, setInterestInput] = useState('');
-  const [motivators, setMotivators] = useState('');
-  const [demotivators, setDemotivators] = useState('');
-  const [learningDifferences, setLearningDifferences] = useState<string[]>([]);
-  const [accommodationsNotes, setAccommodationsNotes] = useState('');
-  const [supportServices, setSupportServices] = useState<string[]>([]);
+  const [motivators, setMotivators] = useState(initialData?.motivators ?? '');
+  const [demotivators, setDemotivators] = useState(initialData?.demotivators ?? '');
+  const [learningDifferences, setLearningDifferences] = useState<string[]>(initialData?.learning_differences ?? []);
+  const [accommodationsNotes, setAccommodationsNotes] = useState(initialData?.accommodations_notes ?? '');
+  const [supportServices, setSupportServices] = useState<string[]>(initialData?.support_services ?? []);
   const [supportInput, setSupportInput] = useState('');
 
   const toggleLearningStyle = (val: string) => {
@@ -131,8 +153,12 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
         if (birthYear) payload.birth_year = parseInt(birthYear);
       }
 
-      const res = await fetch('/api/v1/families/me/children', {
-        method: 'POST',
+      const url = isEditMode
+        ? `/api/v1/families/me/children/${childId}`
+        : '/api/v1/families/me/children';
+
+      const res = await fetch(url, {
+        method: isEditMode ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         credentials: 'include',
@@ -149,11 +175,15 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
         return;
       }
 
+      const responseData = await res.json();
       onSuccess({
         first_name: firstName.trim(),
         nickname: nickname.trim() || undefined,
         gender: gender || undefined,
         grade_level: gradeLevel || undefined,
+        learning_styles: learningStyles,
+        interests,
+        id: responseData.id,
       });
     } catch {
       setError('Network error. Please try again.');
@@ -165,7 +195,7 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-slate-800">{t('addChild')}</h3>
+        <h3 className="text-xl font-bold text-slate-800">{isEditMode ? t('editChild') : t('addChild')}</h3>
         <button onClick={onCancel} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
       </div>
 
@@ -182,7 +212,7 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
           {GENDER_OPTIONS.map(g => (
             <button key={g} type="button" onClick={() => setGender(g)}
               className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${gender === g ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-              {g === 'prefer_not_to_say' ? 'Prefer not to say' : g.charAt(0).toUpperCase() + g.slice(1)}
+              {t(`gender_${g}` as any)}
             </button>
           ))}
         </div>
@@ -216,7 +246,7 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
         <p className="text-xs text-slate-400">{t('childGradeHint')}</p>
         <select value={gradeLevel} onChange={e => setGradeLevel(e.target.value)}
           className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white">
-          <option value="">Select…</option>
+          <option value="">{t('selectPlaceholder')}</option>
           {GRADE_OPTIONS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
         </select>
       </div>
@@ -324,10 +354,14 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
 
       {/* Submit */}
       <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-        <button onClick={onCancel} className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium">Cancel</button>
+        <button onClick={onCancel} className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium">{t('cancelButton')}</button>
         <Button onClick={handleSubmit} disabled={isSubmitting || !firstName.trim()}
           className="px-6 py-3 rounded-xl shadow-[0_4px_14px_0_rgb(99,102,241,0.39)]">
-          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (firstName.trim() ? t('addChildButton', { name: firstName.trim() }) : t('addChildDefault'))}
+          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+            isEditMode
+              ? t('saveChild')
+              : (firstName.trim() ? t('addChildButton', { name: firstName.trim() }) : t('addChildDefault'))
+          )}
         </Button>
       </div>
     </div>

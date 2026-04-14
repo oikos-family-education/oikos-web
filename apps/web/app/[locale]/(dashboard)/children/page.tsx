@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Star, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../lib/navigation';
 import { Button } from '@oikos/ui';
 import { ChildCard } from '../../../../components/children/ChildCard';
 import { AddChildForm, ChildFormData } from '../../../../components/onboarding/AddChildForm';

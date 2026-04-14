@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { Link } from '../../lib/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { LucideIcon } from 'lucide-react';

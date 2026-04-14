@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { Link } from '../../lib/navigation';
 import {
   BookOpen, LayoutGrid, Calendar, Layers,
   Library, PenTool, BarChart3, Sparkles, Globe, GraduationCap,

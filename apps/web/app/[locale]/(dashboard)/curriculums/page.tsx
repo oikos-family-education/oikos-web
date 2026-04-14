@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, Plus, Loader2, Calendar, ChevronRight, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../lib/navigation';
 
 interface ChildCurriculum {
   id: string;

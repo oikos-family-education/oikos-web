@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Library, Plus, Search, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../lib/navigation';
 import { ResourceCard, Resource, getTypeKey } from '../../../../components/resources/ResourceCard';
 
 const RESOURCE_TYPES = [

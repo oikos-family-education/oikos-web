@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BookOpen, Plus, Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../../../lib/navigation';
 import { SubjectCard } from '../../../../components/subjects/SubjectCard';
 import { categoryKey } from '../../../../lib/categoryLabel';
 
@@ -36,19 +36,31 @@ export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<string>('mine');
   const [category, setCategory] = useState<string>('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 300);
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
 
   useEffect(() => {
     fetchSubjects();
-  }, [source, category, search]);
+  }, [source, category, debouncedSearch]);
 
   async function fetchSubjects() {
     setIsLoading(true);
     const params = new URLSearchParams();
     if (source) params.set('source', source);
     if (category) params.set('category', category);
-    if (search) params.set('search', search);
+    if (debouncedSearch) params.set('search', debouncedSearch);
 
     const res = await fetch(`/api/v1/subjects?${params}`, { credentials: 'include' });
     if (res.ok) {
@@ -93,7 +105,7 @@ export default function SubjectsPage() {
             type="text"
             placeholder={t('searchPlaceholder')}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>

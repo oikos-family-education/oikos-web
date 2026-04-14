@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Input, Button } from '@oikos/ui';
 import { Alert } from '../ui/Alert';
-import Link from 'next/link';
+import { Link } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
 
 export const ResetPasswordForm = () => {

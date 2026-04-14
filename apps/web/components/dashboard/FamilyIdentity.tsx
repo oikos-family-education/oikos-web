@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import { Link } from '../../lib/navigation';
 import { ChevronUp, LogOut, Settings, Users } from 'lucide-react';
 import { useAuth } from '../../providers/AuthProvider';
 import { ShieldPreview } from '../onboarding/ShieldPreview';

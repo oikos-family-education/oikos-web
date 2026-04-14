@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import { Loader2, Check, BookOpen, X, Plus, ChevronDown, ChevronUp, AlertTriangle, Users } from 'lucide-react';
 import { Input } from '@oikos/ui';
 import { Button } from '@oikos/ui';
@@ -66,14 +66,20 @@ const PHILOSOPHY_KEY_MAP: Record<string, string> = {
   other: 'philosophyOther',
 };
 
-export function CurriculumWizard() {
+interface CurriculumWizardProps {
+  curriculumId?: string;
+}
+
+export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
   const t = useTranslations('Curriculums');
   const tSubj = useTranslations('Subjects');
   const router = useRouter();
   const { family } = useAuth();
 
+  const isEditMode = Boolean(curriculumId);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingCurriculum, setIsFetchingCurriculum] = useState(isEditMode);
   const [error, setError] = useState('');
 
   // Step 1 data
@@ -99,15 +105,15 @@ export function CurriculumWizard() {
   const [selectedSubjects, setSelectedSubjects] = useState<SelectedSubject[]>([]);
   const [subjectSearch, setSubjectSearch] = useState('');
 
-  // Pre-fill philosophy from family education methods
+  // Pre-fill philosophy from family education methods (only for new curriculums)
   useEffect(() => {
-    if (family?.education_methods?.length) {
+    if (!isEditMode && family?.education_methods?.length) {
       const method = family.education_methods[0];
       if (EDUCATION_METHODS.includes(method)) {
         setPhilosophy(method);
       }
     }
-  }, [family]);
+  }, [family, isEditMode]);
 
   useEffect(() => {
     // Fetch children
@@ -135,6 +141,69 @@ export function CurriculumWizard() {
       })
       .then(setActiveCurriculums);
   }, []);
+
+  // Load existing curriculum data in edit mode
+  useEffect(() => {
+    if (!curriculumId) return;
+    async function loadCurriculum() {
+      const [currRes, subjRes] = await Promise.all([
+        fetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' }),
+        fetch('/api/v1/subjects', { credentials: 'include' }),
+      ]);
+      if (!currRes.ok) {
+        setError('Failed to load curriculum.');
+        setIsFetchingCurriculum(false);
+        return;
+      }
+      const curr = await currRes.json();
+      const allSubjects: Subject[] = subjRes.ok ? await subjRes.json() : [];
+      const subjectMap = new Map(allSubjects.map((s) => [s.id, s]));
+
+      // Pre-fill form fields
+      setName(curr.name);
+      setPeriodType(curr.period_type);
+      setStartDate(curr.start_date);
+      setEndDate(curr.end_date);
+      setAcademicYear(curr.academic_year || '');
+      setTermName(curr.term_name || '');
+      setGoals(curr.overall_goals || []);
+      setNotes(curr.notes || '');
+
+      // Philosophy
+      const phil = curr.education_philosophy || '';
+      if (EDUCATION_METHODS.includes(phil)) {
+        setPhilosophy(phil);
+      } else if (phil) {
+        setPhilosophy('other');
+        setCustomPhilosophy(phil);
+      }
+
+      // Children
+      const childIds = (curr.child_curriculums || []).map((cc: any) => cc.child_id);
+      setSelectedChildIds(childIds);
+
+      // Subjects
+      const selected: SelectedSubject[] = (curr.curriculum_subjects || []).map((cs: any) => {
+        const subj = subjectMap.get(cs.subject_id);
+        return {
+          subject_id: cs.subject_id,
+          name: subj?.name || cs.subject_id,
+          color: subj?.color || '#888',
+          weekly_frequency: cs.weekly_frequency,
+          session_duration_minutes: cs.session_duration_minutes,
+          scheduled_days: cs.scheduled_days || [],
+          preferred_time_slot: cs.preferred_time_slot || 'flexible',
+          goals_for_period: cs.goals_for_period || [],
+          notes: cs.notes || '',
+          expanded: false,
+        };
+      });
+      setSelectedSubjects(selected);
+
+      setIsFetchingCurriculum(false);
+    }
+    loadCurriculum();
+  }, [curriculumId]);
 
   // Auto-calculate end date
   useEffect(() => {
@@ -225,61 +294,181 @@ export function CurriculumWizard() {
     setIsLoading(true);
     setError('');
 
-    const body = {
-      name,
-      period_type: periodType,
-      start_date: startDate,
-      end_date: endDate,
-      academic_year: academicYear || null,
-      term_name: termName || null,
-      education_philosophy: getEffectivePhilosophy(),
-      overall_goals: goals,
-      notes: notes || null,
-      child_ids: selectedChildIds,
-      subjects: selectedSubjects.map((s, i) => ({
-        subject_id: s.subject_id,
-        weekly_frequency: s.weekly_frequency,
-        session_duration_minutes: s.session_duration_minutes,
-        scheduled_days: s.scheduled_days,
-        preferred_time_slot: s.preferred_time_slot,
-        goals_for_period: s.goals_for_period,
-        sort_order: i,
-        notes: s.notes || null,
-      })),
-    };
+    if (isEditMode && curriculumId) {
+      // Edit mode: PATCH metadata, then sync children and subjects
+      const metadataBody = {
+        name,
+        period_type: periodType,
+        start_date: startDate,
+        end_date: endDate,
+        academic_year: academicYear || null,
+        term_name: termName || null,
+        education_philosophy: getEffectivePhilosophy(),
+        overall_goals: goals,
+        notes: notes || null,
+      };
 
-    const res = await fetch('/api/v1/curriculums', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.detail || 'Something went wrong.');
-      setIsLoading(false);
-      return;
-    }
-
-    const created = await res.json();
-
-    if (activate) {
-      await fetch(`/api/v1/curriculums/${created.id}/status`, {
+      const res = await fetch(`/api/v1/curriculums/${curriculumId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ status: 'active' }),
+        body: JSON.stringify(metadataBody),
       });
-    }
 
-    router.push(`/curriculums/${created.id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        setError(err?.detail || 'Something went wrong.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Sync children: fetch current, diff, add/remove
+      const childrenRes = await fetch(`/api/v1/curriculums/${curriculumId}/children`, { credentials: 'include' });
+      const currentChildren: { id: string; child_id: string }[] = childrenRes.ok ? await childrenRes.json() : [];
+      const currentChildIds = currentChildren.map((cc) => cc.child_id);
+
+      const toAdd = selectedChildIds.filter((id) => !currentChildIds.includes(id));
+      const toRemove = currentChildIds.filter((id) => !selectedChildIds.includes(id));
+
+      await Promise.all([
+        ...toAdd.map((childId) =>
+          fetch(`/api/v1/curriculums/${curriculumId}/children`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ child_id: childId }),
+          })
+        ),
+        ...toRemove.map((childId) =>
+          fetch(`/api/v1/curriculums/${curriculumId}/children/${childId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          })
+        ),
+      ]);
+
+      // Sync subjects: fetch current, diff, add/remove/update
+      const currRes2 = await fetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' });
+      const currData = currRes2.ok ? await currRes2.json() : { curriculum_subjects: [] };
+      const currentSubjects: { id: string; subject_id: string }[] = currData.curriculum_subjects || [];
+      const currentSubjectIds = currentSubjects.map((cs) => cs.subject_id);
+      const selectedSubjectIds = selectedSubjects.map((s) => s.subject_id);
+
+      const subjectsToAdd = selectedSubjects.filter((s) => !currentSubjectIds.includes(s.subject_id));
+      const subjectsToRemove = currentSubjects.filter((cs) => !selectedSubjectIds.includes(cs.subject_id));
+      const subjectsToUpdate = selectedSubjects.filter((s) => currentSubjectIds.includes(s.subject_id));
+
+      await Promise.all([
+        ...subjectsToAdd.map((s, i) =>
+          fetch(`/api/v1/curriculums/${curriculumId}/subjects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              subject_id: s.subject_id,
+              weekly_frequency: s.weekly_frequency,
+              session_duration_minutes: s.session_duration_minutes,
+              scheduled_days: s.scheduled_days,
+              preferred_time_slot: s.preferred_time_slot,
+              goals_for_period: s.goals_for_period,
+              sort_order: selectedSubjects.indexOf(s),
+              notes: s.notes || null,
+            }),
+          })
+        ),
+        ...subjectsToRemove.map((cs) =>
+          fetch(`/api/v1/curriculums/subjects/${cs.id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          })
+        ),
+        ...subjectsToUpdate.map((s) => {
+          const existing = currentSubjects.find((cs) => cs.subject_id === s.subject_id);
+          if (!existing) return Promise.resolve();
+          return fetch(`/api/v1/curriculums/subjects/${existing.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              weekly_frequency: s.weekly_frequency,
+              session_duration_minutes: s.session_duration_minutes,
+              scheduled_days: s.scheduled_days,
+              preferred_time_slot: s.preferred_time_slot,
+              goals_for_period: s.goals_for_period,
+              sort_order: selectedSubjects.indexOf(s),
+              notes: s.notes || null,
+            }),
+          });
+        }),
+      ]);
+
+      router.push(`/curriculums/${curriculumId}`);
+    } else {
+      // Create mode
+      const body = {
+        name,
+        period_type: periodType,
+        start_date: startDate,
+        end_date: endDate,
+        academic_year: academicYear || null,
+        term_name: termName || null,
+        education_philosophy: getEffectivePhilosophy(),
+        overall_goals: goals,
+        notes: notes || null,
+        child_ids: selectedChildIds,
+        subjects: selectedSubjects.map((s, i) => ({
+          subject_id: s.subject_id,
+          weekly_frequency: s.weekly_frequency,
+          session_duration_minutes: s.session_duration_minutes,
+          scheduled_days: s.scheduled_days,
+          preferred_time_slot: s.preferred_time_slot,
+          goals_for_period: s.goals_for_period,
+          sort_order: i,
+          notes: s.notes || null,
+        })),
+      };
+
+      const res = await fetch('/api/v1/curriculums', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        setError(err?.detail || 'Something went wrong.');
+        setIsLoading(false);
+        return;
+      }
+
+      const created = await res.json();
+
+      if (activate) {
+        await fetch(`/api/v1/curriculums/${created.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ status: 'active' }),
+        });
+      }
+
+      router.push(`/curriculums/${created.id}`);
+    }
   }
 
   const filteredSubjects = availableSubjects.filter(
     (s) => !selectedSubjects.some((sel) => sel.subject_id === s.id) &&
            s.name.toLowerCase().includes(subjectSearch.toLowerCase())
   );
+
+  if (isFetchingCurriculum) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl">
@@ -731,17 +920,25 @@ export function CurriculumWizard() {
               {t('back')}
             </button>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => handleSubmit(false)}
-                disabled={isLoading}
-                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium disabled:opacity-50"
-              >
-                {t('saveAsDraft')}
-              </button>
-              <Button onClick={() => handleSubmit(true)} disabled={isLoading}>
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : t('activateCurriculum')}
-              </Button>
+              {isEditMode ? (
+                <Button onClick={() => handleSubmit(false)} disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : t('saveChanges')}
+                </Button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit(false)}
+                    disabled={isLoading}
+                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    {t('saveAsDraft')}
+                  </button>
+                  <Button onClick={() => handleSubmit(true)} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : t('activateCurriculum')}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

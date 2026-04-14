@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import { Plus, ArrowRight, User } from 'lucide-react';
 import { Button } from '@oikos/ui';

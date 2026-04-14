@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useRouter } from '../../../../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, Edit3, BookOpen, Library, ArrowLeft,

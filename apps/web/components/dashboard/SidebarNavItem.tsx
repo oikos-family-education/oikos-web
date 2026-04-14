@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '../../lib/navigation';
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavItemProps {
@@ -14,9 +13,7 @@ interface SidebarNavItemProps {
 
 export function SidebarNavItem({ href, label, icon: Icon, collapsed }: SidebarNavItemProps) {
   const pathname = usePathname();
-  // Strip locale prefix for comparison
-  const pathWithoutLocale = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, '');
-  const isActive = pathWithoutLocale === href || pathWithoutLocale.startsWith(href + '/');
+  const isActive = pathname === href || pathname.startsWith(href + '/');
 
   return (
     <Link

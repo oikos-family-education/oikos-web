@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import { WizardProgress } from './WizardProgress';
 import { WizardStep1 } from './WizardStep1';

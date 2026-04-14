@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import { ShieldBuilder, type ShieldConfig } from './ShieldBuilder';
 import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react';

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '../../lib/navigation';
 import {
   Loader2, Plus, Search, BookOpen, FileText, Video, GraduationCap,
   Headphones, Film, FileSpreadsheet, Globe, Package, HelpCircle, X,

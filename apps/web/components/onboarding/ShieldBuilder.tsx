@@ -530,7 +530,7 @@ const FONT_MAP: Record<string, string> = {
 
 /* ─────────────── Flourish Renderer ─────────────── */
 
-function renderFlourish(type: string, color: string): JSX.Element | null {
+export function renderFlourish(type: string, color: string): JSX.Element | null {
   if (type === 'none') return null;
   const c = color;
 

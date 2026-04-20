@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   DragEndEvent,
@@ -11,7 +12,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Printer, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
 import { useAuth } from '../../../../providers/AuthProvider';
@@ -21,6 +22,7 @@ import { RoutineEntryPopup } from '../../../../components/planner/RoutineEntryPo
 import { TemplateSelector } from '../../../../components/planner/TemplateSelector';
 import { ContextMenu } from '../../../../components/planner/ContextMenu';
 import { DuplicateDaysPopup } from '../../../../components/planner/DuplicateDaysPopup';
+import { PrintablePlanner } from '../../../../components/planner/PrintablePlanner';
 import {
   RoutineEntryData,
   WeekTemplateData,
@@ -449,6 +451,29 @@ export default function PlannerPage() {
 
   return (
     <div className="flex flex-col h-full -m-6 lg:-m-8">
+      <style jsx global>{`
+        .planner-print-root { display: none; }
+        @media print {
+          @page { size: landscape; margin: 8mm; }
+          body > *:not(.planner-print-root) { display: none !important; }
+          .planner-print-root {
+            display: block !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-page {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: always;
+            break-after: page;
+          }
+          .print-page:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+        }
+      `}</style>
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -467,6 +492,13 @@ export default function PlannerPage() {
               {t('setAsActive')}
             </Button>
           )}
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+          >
+            <Printer className="w-4 h-4" />
+            {t('printWeek')}
+          </button>
           {clearConfirm ? (
             <div className="flex items-center gap-1">
               <Button type="button" onClick={clearWeek} className="text-sm !px-3 !py-1.5 !bg-red-500 hover:!bg-red-600">
@@ -605,6 +637,28 @@ export default function PlannerPage() {
           {toast}
         </div>
       )}
+
+      {/* Print-only layout (portaled to <body> so it becomes a direct child — prevents Chrome from repeating fixed-positioned content across pages) */}
+      <PrintPortal>
+        <PrintablePlanner
+          entries={entries}
+          subjects={subjects}
+          childrenList={childrenData}
+          templateName={activeTemplate?.name}
+          familyName={family?.family_name}
+          shieldConfig={family?.shield_config as any}
+        />
+      </PrintPortal>
     </div>
+  );
+}
+
+function PrintPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(
+    <div className="planner-print-root">{children}</div>,
+    document.body
   );
 }

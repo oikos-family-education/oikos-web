@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ShieldConfig } from './ShieldBuilder';
+import { renderFlourish } from './ShieldBuilder';
 
 interface ShieldPreviewProps {
   config: ShieldConfig;
@@ -193,6 +194,9 @@ export function ShieldPreview({
       {/* Border accent */}
       <path d={shapePath} fill="none" stroke={config.accent_color} strokeWidth="1.5" opacity="0.5"
         transform="scale(0.9) translate(5.5, 5.5)" />
+
+      {/* Flourishes (around shield) */}
+      {config.flourish && config.flourish !== 'none' && renderFlourish(config.flourish, config.accent_color)}
 
       {/* Center Symbol */}
       {symbolPath && (

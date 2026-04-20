@@ -154,6 +154,7 @@ export default function ChildDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [enrolledCurriculums, setEnrolledCurriculums] = useState<EnrolledCurriculum[]>([]);
+  const [childProjects, setChildProjects] = useState<Array<{ id: string; title: string; status: string; due_date: string | null; milestone_count: number; completions: Array<{ child_id: string }> }>>([]);
 
   const fetchChild = useCallback(async () => {
     try {
@@ -187,10 +188,20 @@ export default function ChildDetailPage() {
     }
   }, [childId]);
 
+  const fetchChildProjects = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/projects?child_id=${childId}`, { credentials: 'include' });
+      if (res.ok) setChildProjects(await res.json());
+    } catch {
+      // silently fail
+    }
+  }, [childId]);
+
   useEffect(() => {
     fetchChild();
     fetchCurriculums();
-  }, [fetchChild, fetchCurriculums]);
+    fetchChildProjects();
+  }, [fetchChild, fetchCurriculums, fetchChildProjects]);
 
   const handleEditSuccess = (_child: ChildFormData & { id?: string }) => {
     setShowEdit(false);
@@ -447,7 +458,36 @@ export default function ChildDetailPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-800">{t('projects')}</h2>
         </div>
-        <p className="text-sm text-slate-400 italic mb-4">{t('noProjects')}</p>
+        {childProjects.length === 0 ? (
+          <p className="text-sm text-slate-400 italic mb-4">{t('noProjects')}</p>
+        ) : (
+          <div className="space-y-2 mb-4">
+            {childProjects.map((p) => {
+              const completed = p.completions.filter((c) => c.child_id === child.id).length;
+              const pct = p.milestone_count > 0 ? Math.round((completed / p.milestone_count) * 100) : 0;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => router.push(`/projects/${p.id}`)}
+                  className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-primary/30 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{p.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[p.status] || 'bg-slate-100 text-slate-600'}`}>{p.status}</span>
+                        {p.milestone_count > 0 && (
+                          <span className="text-xs text-slate-500">{completed}/{p.milestone_count} · {pct}%</span>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <button
           onClick={() => router.push(`/projects?child=${child.id}`)}
           className="text-sm text-primary font-medium hover:underline inline-flex items-center gap-1"

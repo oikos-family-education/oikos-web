@@ -17,6 +17,10 @@ from app.models.child import Child
 from app.models.subject import Subject
 from app.models.curriculum import Curriculum, ChildCurriculum, CurriculumSubject
 from app.models.week_planner import WeekTemplate, RoutineEntry
+from app.models.project import (
+    Project, ProjectChild, ProjectSubject, ProjectMilestone,
+    MilestoneCompletion, ProjectResource, PortfolioEntry, ChildAchievement,
+)
 
 config = context.config
 

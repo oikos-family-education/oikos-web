@@ -4,10 +4,11 @@ const withNextIntl = require('next-intl/plugin')('./i18n.ts');
 const nextConfig = {
   transpilePackages: ["@oikos/ui", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities", "@dnd-kit/accessibility"],
   async rewrites() {
+    const apiUrl = process.env.API_URL || 'http://api:8000';
     return [
       {
         source: '/api/:path*',
-        destination: 'http://api:8000/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },

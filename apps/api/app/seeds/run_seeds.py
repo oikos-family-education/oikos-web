@@ -7,8 +7,19 @@ import uuid
 from sqlalchemy.future import select
 
 from app.core.database import AsyncSessionLocal
+
+# Import all models so SQLAlchemy can resolve foreign-key relationships
+# when the seed script runs outside the FastAPI app lifecycle.
+from app.models.user import User  # noqa: F401
+from app.models.family import Family  # noqa: F401
+from app.models.child import Child  # noqa: F401
 from app.models.subject import Subject
-from app.models.curriculum import Curriculum, CurriculumSubject
+from app.models.curriculum import Curriculum, ChildCurriculum, CurriculumSubject  # noqa: F401
+from app.models.week_planner import WeekTemplate, RoutineEntry  # noqa: F401
+from app.models.project import (  # noqa: F401
+    Project, ProjectChild, ProjectSubject, ProjectMilestone,
+    MilestoneCompletion, ProjectResource, PortfolioEntry, ChildAchievement,
+)
 from app.seeds.subjects import PLATFORM_SUBJECTS
 from app.seeds.curriculums import PLATFORM_CURRICULUM_TEMPLATES
 

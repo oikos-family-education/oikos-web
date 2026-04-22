@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, families, subjects, curriculums, week_planner, resources, projects, calendar
+from app.routers import auth, families, subjects, curriculums, week_planner, resources, projects, calendar, progress
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ app.include_router(week_planner.router, prefix="/api/v1")
 app.include_router(resources.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(calendar.router, prefix="/api/v1")
+app.include_router(progress.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():

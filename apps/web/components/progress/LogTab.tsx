@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Plus, Loader2 } from 'lucide-react';
+import { Check, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { LogEntryRow, type TeachingLogEntry } from './LogEntryRow';
+import type { TeachingLogEntry } from './LogEntryRow';
 
 interface ChildMeta { id: string; first_name: string; nickname: string | null }
 interface SubjectMeta { id: string; name: string; color: string }
@@ -24,37 +24,41 @@ function formatToday(): string {
   return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+// Key used to look up "is there a log for (childFilter, subject)" in today's entries.
+function scopeKey(childId: string | null, subjectId: string | null): string {
+  return `${childId ?? '-'}::${subjectId ?? '-'}`;
+}
+
 export function LogTab({ children, subjects, onChanged }: LogTabProps) {
   const t = useTranslations('Progress');
 
   const [date, setDate] = useState<string>(todayIsoDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [todayEntries, setTodayEntries] = useState<TeachingLogEntry[]>([]);
+  const [entries, setEntries] = useState<TeachingLogEntry[]>([]);
   const [isLoadingEntries, setIsLoadingEntries] = useState(true);
-  const [isSavingQuick, setIsSavingQuick] = useState(false);
-  const [isSavingDetail, setIsSavingDetail] = useState(false);
+  const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const [childId, setChildId] = useState<string>('');
-  const [subjectId, setSubjectId] = useState<string>('');
-  const [minutes, setMinutes] = useState<string>('');
+  // Which child is the chip row logging for? null = every child (general-child scope).
+  const [childFilter, setChildFilter] = useState<string | null>(null);
+
+  // Inline note composer state.
+  const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState<string>('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
-  const childMeta = useMemo(
-    () => children.map((c) => ({ id: c.id, name: c.nickname || c.first_name })),
-    [children],
-  );
-
-  async function loadEntries() {
+  async function loadEntries(): Promise<TeachingLogEntry[]> {
     setIsLoadingEntries(true);
     try {
       const params = new URLSearchParams({ from: date, to: date });
       const res = await fetch(`/api/v1/progress/logs?${params}`, { credentials: 'include' });
       if (res.ok) {
         const all: TeachingLogEntry[] = await res.json();
-        setTodayEntries(all);
+        setEntries(all);
+        return all;
       }
+      return [];
     } finally {
       setIsLoadingEntries(false);
     }
@@ -62,7 +66,7 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
 
   useEffect(() => {
     loadEntries();
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   useEffect(() => {
@@ -71,11 +75,17 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const hasAnyGeneralToday = todayEntries.some(
-    (e) => e.child_id === null && e.subject_id === null,
-  );
+  // Map of (child_id|-, subject_id|-) -> existing log — used to toggle chips/buttons.
+  const entryMap = useMemo(() => {
+    const m = new Map<string, TeachingLogEntry>();
+    for (const e of entries) m.set(scopeKey(e.child_id, e.subject_id), e);
+    return m;
+  }, [entries]);
 
-  async function postLog(body: Record<string, unknown>): Promise<string | null> {
+  const generalEntry = entryMap.get(scopeKey(null, null));
+  const hasGeneral = !!generalEntry;
+
+  async function postLog(body: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
     try {
       const res = await fetch('/api/v1/progress/logs', {
         method: 'POST',
@@ -83,59 +93,118 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 409) return t('duplicateLogError');
-      if (!res.ok) return t('genericError');
-      return null;
+      if (res.status === 409) return { ok: false, message: t('duplicateLogError') };
+      if (!res.ok) return { ok: false, message: t('genericError') };
+      return { ok: true };
     } catch {
-      return t('genericError');
+      return { ok: false, message: t('genericError') };
     }
   }
 
-  async function handleQuickLog() {
-    setIsSavingQuick(true);
-    setError(null);
-    const err = await postLog({ taught_on: date, child_id: null, subject_id: null });
-    if (err) setError(err);
-    else {
-      setToast(t('dayLoggedToast'));
-      await loadEntries();
-      onChanged();
+  async function deleteLog(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/v1/progress/logs/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      return res.ok;
+    } catch {
+      return false;
     }
-    setIsSavingQuick(false);
   }
 
-  async function handleDetailSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSavingDetail(true);
-    setError(null);
-    const body: Record<string, unknown> = {
-      taught_on: date,
-      child_id: childId || null,
-      subject_id: subjectId || null,
-    };
-    if (minutes) {
-      const m = parseInt(minutes, 10);
-      if (!Number.isNaN(m)) body.minutes = m;
-    }
-    if (note.trim()) body.notes = note.trim();
-    const err = await postLog(body);
-    if (err) setError(err);
-    else {
-      setToast(t('dayLoggedToast'));
-      setMinutes('');
-      setNote('');
-      await loadEntries();
-      onChanged();
-    }
-    setIsSavingDetail(false);
-  }
-
-  async function handleDelete(id: string) {
-    const res = await fetch(`/api/v1/progress/logs/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
+  function setBusy(key: string, on: boolean) {
+    setBusyKeys((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
     });
-    if (res.ok) {
+  }
+
+  async function toggleGeneral() {
+    const key = scopeKey(null, null);
+    if (busyKeys.has(key)) return;
+    setBusy(key, true);
+    setError(null);
+
+    if (generalEntry) {
+      const ok = await deleteLog(generalEntry.id);
+      if (!ok) setError(t('genericError'));
+      else {
+        await loadEntries();
+        onChanged();
+      }
+    } else {
+      const { ok, message } = await postLog({ taught_on: date, child_id: null, subject_id: null });
+      if (!ok) setError(message ?? t('genericError'));
+      else {
+        setToast(t('dayLoggedToast'));
+        await loadEntries();
+        onChanged();
+      }
+    }
+    setBusy(key, false);
+  }
+
+  async function toggleSubjectChip(subjectId: string) {
+    const key = scopeKey(childFilter, subjectId);
+    if (busyKeys.has(key)) return;
+    setBusy(key, true);
+    setError(null);
+
+    const existing = entryMap.get(key);
+    if (existing) {
+      const ok = await deleteLog(existing.id);
+      if (!ok) setError(t('genericError'));
+      else {
+        await loadEntries();
+        onChanged();
+      }
+    } else {
+      const { ok, message } = await postLog({
+        taught_on: date,
+        child_id: childFilter,
+        subject_id: subjectId,
+      });
+      if (!ok) setError(message ?? t('genericError'));
+      else {
+        setToast(t('dayLoggedToast'));
+        await loadEntries();
+        onChanged();
+      }
+    }
+    setBusy(key, false);
+  }
+
+  async function handleSaveNote() {
+    if (!note.trim()) {
+      setNoteOpen(false);
+      return;
+    }
+    setIsSavingNote(true);
+    setError(null);
+    const { ok, message } = await postLog({
+      taught_on: date,
+      child_id: childFilter,
+      subject_id: null,
+      notes: note.trim(),
+    });
+    if (!ok) {
+      setError(message ?? t('genericError'));
+    } else {
+      setToast(t('noteSavedToast'));
+      setNote('');
+      setNoteOpen(false);
+      await loadEntries();
+      onChanged();
+    }
+    setIsSavingNote(false);
+  }
+
+  async function handleDeleteEntry(id: string) {
+    const ok = await deleteLog(id);
+    if (ok) {
       await loadEntries();
       onChanged();
     } else {
@@ -144,6 +213,27 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
   }
 
   const dateLabel = date === todayIsoDate() ? t('today', { date: formatToday() }) : date;
+
+  const childOptions: { id: string | null; name: string }[] = useMemo(
+    () => [
+      { id: null, name: t('everyone') },
+      ...children.map((c) => ({ id: c.id, name: c.nickname || c.first_name })),
+    ],
+    [children, t],
+  );
+
+  function childName(id: string | null): string {
+    if (!id) return t('allChildren');
+    const c = children.find((x) => x.id === id);
+    return c ? c.nickname || c.first_name : '';
+  }
+
+  function subjectMeta(id: string | null): SubjectMeta | null {
+    if (!id) return null;
+    return subjects.find((s) => s.id === id) ?? null;
+  }
+
+  const generalBusy = busyKeys.has(scopeKey(null, null));
 
   return (
     <div className="space-y-6">
@@ -184,97 +274,142 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
 
         <button
           type="button"
-          onClick={handleQuickLog}
-          disabled={isSavingQuick || hasAnyGeneralToday}
+          onClick={toggleGeneral}
+          disabled={generalBusy}
+          aria-pressed={hasGeneral}
           className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 rounded-lg font-medium text-sm transition-colors ${
-            hasAnyGeneralToday
-              ? 'bg-primary/10 text-primary cursor-default'
+            hasGeneral
+              ? 'bg-primary/10 text-primary hover:bg-primary/20'
               : 'bg-primary text-white hover:bg-primary-hover'
-          } ${isSavingQuick ? 'opacity-70' : ''}`}
+          } ${generalBusy ? 'opacity-70' : ''}`}
         >
-          {isSavingQuick ? (
+          {generalBusy ? (
             <Loader2 className="w-5 h-5 animate-spin" />
-          ) : hasAnyGeneralToday ? (
-            <>
-              <Check className="w-5 h-5" />
-              {t('youTaughtToday')}
-            </>
           ) : (
             <>
               <Check className="w-5 h-5" />
-              {t('yesITaughtToday')}
+              {hasGeneral ? t('youTaughtToday') : t('yesITaughtToday')}
             </>
           )}
         </button>
 
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <p className="text-sm font-semibold text-slate-700 mb-3">{t('addDetailOptional')}</p>
-          <form
-            onSubmit={handleDetailSubmit}
-            className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap"
-          >
-            <select
-              value={childId}
-              onChange={(e) => setChildId(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              aria-label={t('child')}
-            >
-              <option value="">{t('allChildren')}</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nickname || c.first_name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              aria-label={t('subject')}
-            >
-              <option value="">{t('generalTeaching')}</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={1}
-              max={720}
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-              placeholder={t('minutesPlaceholder')}
-              className="w-28 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              aria-label={t('minutesPlaceholder')}
-            />
-            <input
-              type="text"
-              maxLength={500}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t('notePlaceholder')}
-              className="flex-1 min-w-[180px] px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              aria-label={t('notePlaceholder')}
-            />
+        {subjects.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="flex-1 h-px bg-slate-100" />
+              <span className="text-xs uppercase tracking-widest text-slate-400">
+                {t('orSeparator')}
+              </span>
+              <span className="flex-1 h-px bg-slate-100" />
+            </div>
+            <p className="text-sm text-slate-500 mb-4">{t('tapSubjectsHint')}</p>
+
+            {children.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide mr-1">
+                  {t('forWhomLabel')}:
+                </span>
+                {childOptions.map((opt) => {
+                  const active = childFilter === opt.id;
+                  return (
+                    <button
+                      key={opt.id ?? 'all'}
+                      type="button"
+                      onClick={() => setChildFilter(opt.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-primary/40'
+                      }`}
+                    >
+                      {opt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {subjects.map((s) => {
+                const key = scopeKey(childFilter, s.id);
+                const logged = entryMap.has(key);
+                const busy = busyKeys.has(key);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggleSubjectChip(s.id)}
+                    disabled={busy}
+                    aria-pressed={logged}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border transition-colors ${
+                      logged
+                        ? 'text-white border-transparent shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    } ${busy ? 'opacity-70' : ''}`}
+                    style={logged ? { backgroundColor: s.color } : undefined}
+                  >
+                    <span
+                      className="inline-flex w-4 h-4 items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: logged ? 'rgba(255,255,255,0.25)' : s.color,
+                      }}
+                    >
+                      {logged ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : null}
+                    </span>
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {subjects.length === 0 && (
+          <p className="mt-6 text-sm text-slate-500">{t('noSubjectsYet')}</p>
+        )}
+
+        <div className="mt-6">
+          {!noteOpen ? (
             <button
-              type="submit"
-              disabled={isSavingDetail}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium text-sm"
+              type="button"
+              onClick={() => setNoteOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-800 font-medium"
             >
-              {isSavingDetail ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  {t('addEntry')}
-                </>
-              )}
+              <MessageSquarePlus className="w-4 h-4" />
+              {t('addNoteToggle')}
             </button>
-          </form>
-          {error && <p className="text-xs font-medium text-red-500 mt-2">{error}</p>}
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input
+                type="text"
+                maxLength={500}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t('notePlaceholder')}
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                aria-label={t('notePlaceholder')}
+              />
+              <button
+                type="button"
+                onClick={handleSaveNote}
+                disabled={isSavingNote || !note.trim()}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium text-sm disabled:opacity-60"
+              >
+                {isSavingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : t('noteSaveButton')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setNoteOpen(false); setNote(''); }}
+                className="inline-flex items-center justify-center p-2 text-slate-400 hover:text-slate-600"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
+
+        {error && <p className="text-xs font-medium text-red-500 mt-3">{error}</p>}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-6">
@@ -283,20 +418,48 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
           <div className="flex justify-center py-6">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
           </div>
-        ) : todayEntries.length === 0 ? (
+        ) : entries.length === 0 ? (
           <p className="text-sm text-slate-500">{t('noLogsYet')}</p>
         ) : (
-          <div className="space-y-1">
-            {todayEntries.map((e) => (
-              <LogEntryRow
-                key={e.id}
-                entry={e}
-                children={childMeta}
-                subjects={subjects}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          <ul className="divide-y divide-slate-100">
+            {entries.map((e) => {
+              const subj = subjectMeta(e.subject_id);
+              const isGeneral = e.child_id === null && e.subject_id === null;
+              return (
+                <li key={e.id} className="flex items-center gap-3 py-2.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: subj?.color ?? '#94A3B8' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-slate-800">
+                      {isGeneral ? (
+                        <span className="font-medium">{t('generalLogBadge')}</span>
+                      ) : (
+                        <>
+                          <span className="font-medium">
+                            {subj?.name ?? t('generalTeaching')}
+                          </span>
+                          <span className="text-slate-500"> · {childName(e.child_id)}</span>
+                        </>
+                      )}
+                    </div>
+                    {e.notes && (
+                      <p className="text-xs text-slate-500 mt-0.5 italic">{e.notes}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteEntry(e.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                    aria-label="Delete"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </div>

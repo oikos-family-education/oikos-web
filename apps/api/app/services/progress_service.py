@@ -315,19 +315,34 @@ class ProgressService:
         per_child_this_week: dict[uuid.UUID, int] = defaultdict(int)
         per_subject_this_week: dict[uuid.UUID, int] = defaultdict(int)
 
+        # Active children & tracked subjects — used to fan a "general" log (null child
+        # or null subject) out to every active child / tracked subject. Logging
+        # "General" means everything was taught that day.
+        children_for_scope = await self._get_family_children(family_id)
+        if child_filter_id:
+            children_for_scope = [c for c in children_for_scope if c.id == child_filter_id]
+        active_child_ids = [c.id for c in children_for_scope]
+        tracked_subject_ids = list(per_subject_targets.keys())
+
         for log in all_logs:
             wk = iso_week_start(log.taught_on)
             overall_weeks[wk] += 1
             if wk == this_week_start:
                 overall_this_week_count += 1
-            if log.child_id is not None:
-                per_child_weeks[log.child_id][wk] += 1
+
+            # Per-child: specific child → that child; general → all active children.
+            target_child_ids = [log.child_id] if log.child_id is not None else active_child_ids
+            for cid in target_child_ids:
+                per_child_weeks[cid][wk] += 1
                 if wk == this_week_start:
-                    per_child_this_week[log.child_id] += 1
-            if log.subject_id is not None:
-                per_subject_weeks[log.subject_id][wk] += 1
+                    per_child_this_week[cid] += 1
+
+            # Per-subject: specific subject → that subject; general → every tracked subject.
+            target_subject_ids = [log.subject_id] if log.subject_id is not None else tracked_subject_ids
+            for sid in target_subject_ids:
+                per_subject_weeks[sid][wk] += 1
                 if wk == this_week_start:
-                    per_subject_this_week[log.subject_id] += 1
+                    per_subject_this_week[sid] += 1
 
         # Overall streak.
         overall_current, overall_longest, overall_last_met = (None, None, None)
@@ -344,10 +359,8 @@ class ProgressService:
             "last_met_week_start": overall_last_met,
         }
 
-        # Per-child streaks.
-        children = await self._get_family_children(family_id)
-        if child_filter_id:
-            children = [c for c in children if c.id == child_filter_id]
+        # Per-child streaks (reuse children_for_scope loaded above).
+        children = children_for_scope
 
         per_child_streaks = []
         for c in children:

@@ -9,66 +9,9 @@ import { WizardStep2 } from './WizardStep2';
 import { WizardStep3 } from './WizardStep3';
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@oikos/ui';
+import { FamilyFormData, buildDefaultFormData } from '../family/familyFormTypes';
 
-const LANGUAGE_CODE_MAP: Record<string, string> = {
-  en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese',
-  de: 'German', it: 'Italian', nl: 'Dutch', ru: 'Russian',
-  zh: 'Mandarin', ja: 'Japanese', ko: 'Korean', ar: 'Arabic',
-  hi: 'Hindi', tr: 'Turkish', pl: 'Polish', sv: 'Swedish',
-};
-
-function detectBrowserLanguage(): string {
-  if (typeof navigator === 'undefined') return 'English';
-  const code = (navigator.language || 'en').split('-')[0].toLowerCase();
-  return LANGUAGE_CODE_MAP[code] ?? 'English';
-}
-
-export interface FamilyFormData {
-  // Step 1
-  family_name: string;
-  location_city: string;
-  location_region: string;
-  location_country: string;
-  location_country_code: string;
-  // Step 2
-  faith_tradition: string;
-  faith_denomination: string;
-  faith_community_name: string;
-  worldview_notes: string;
-  // Step 3
-  education_purpose: string;
-  education_methods: string[];
-  current_curriculum: string[];
-  diet: string;
-  screen_policy: string;
-  outdoor_orientation: string;
-  home_languages: string[];
-  family_culture: string;
-  visibility: string;
-}
-
-function buildDefaultFormData(): FamilyFormData {
-  return {
-    family_name: '',
-    location_city: '',
-    location_region: '',
-    location_country: '',
-    location_country_code: '',
-    faith_tradition: '',
-    faith_denomination: '',
-    faith_community_name: '',
-    worldview_notes: '',
-    education_purpose: '',
-    education_methods: [],
-    current_curriculum: [],
-    diet: '',
-    screen_policy: '',
-    outdoor_orientation: '',
-    home_languages: [detectBrowserLanguage()],
-    family_culture: '',
-    visibility: 'local',
-  };
-}
+export type { FamilyFormData } from '../family/familyFormTypes';
 
 const TOTAL_STEPS = 3;
 

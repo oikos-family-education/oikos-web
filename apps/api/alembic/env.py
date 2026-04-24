@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.models.user import User
 from app.models.family import Family
+from app.models.family_member import FamilyMember, FamilyInvitation
 from app.models.child import Child
 from app.models.subject import Subject
 from app.models.curriculum import Curriculum, ChildCurriculum, CurriculumSubject

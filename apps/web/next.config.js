@@ -12,6 +12,20 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/:locale/journal',
+        destination: '/:locale/notes',
+        permanent: true,
+      },
+      {
+        source: '/:locale/journal/:path*',
+        destination: '/:locale/notes/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = withNextIntl(nextConfig);

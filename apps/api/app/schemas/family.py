@@ -91,12 +91,72 @@ class FamilyResponse(BaseModel):
     family_name_slug: str
     shield_config: Optional[dict] = None
     location_city: Optional[str] = None
+    location_region: Optional[str] = None
     location_country: Optional[str] = None
+    location_country_code: Optional[str] = None
     faith_tradition: Optional[str] = None
+    faith_denomination: Optional[str] = None
+    faith_community_name: Optional[str] = None
+    worldview_notes: Optional[str] = None
     education_purpose: Optional[str] = None
     education_methods: list[str] = []
+    current_curriculum: list[str] = []
+    diet: Optional[str] = None
+    screen_policy: Optional[str] = None
+    outdoor_orientation: Optional[str] = None
+    home_languages: list[str] = []
+    family_culture: Optional[str] = None
     visibility: str = "private"
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MemberResponse(BaseModel):
+    kind: str  # 'member' | 'invitation'
+    id: UUID
+    user_id: Optional[UUID] = None
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: str  # 'primary' | 'co_parent'
+    status: str  # 'active' | 'pending' | 'expired'
+    joined_at: Optional[datetime] = None
+    invited_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
+
+class InvitationCreate(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        import re
+        v = v.strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Invalid email address")
+        return v
+
+
+class InvitationResponse(BaseModel):
+    id: UUID
+    family_id: UUID
+    email: str
+    expires_at: datetime
+    invited_by_user_id: UUID
+    created_at: datetime
+    # Only returned on creation/resend, never when listing
+    token: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class InvitationAccept(BaseModel):
+    token: str = Field(..., min_length=16, max_length=128)
+
+
+class ExportResponse(BaseModel):
+    status: str  # 'pending' | 'ready'
+    url: Optional[str] = None

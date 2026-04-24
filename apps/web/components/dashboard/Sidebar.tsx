@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Home, Users, Star, BookOpen, LayoutGrid, Calendar, Layers,
-  Library, PenTool, BarChart3, Sparkles, Globe, Settings,
+  Library, StickyNote, BarChart3, Sparkles, Globe, Settings,
   ChevronsLeft, ChevronsRight, GraduationCap,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -68,7 +68,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Record group */}
         <SidebarNavGroup label={t('groupRecord')} collapsed={collapsed}>
-          <SidebarNavItem href="/journal" label={t('journal')} icon={PenTool} collapsed={collapsed} />
+          <SidebarNavItem href="/notes" label={t('notes')} icon={StickyNote} collapsed={collapsed} />
           <SidebarNavItem href="/progress" label={t('progress')} icon={BarChart3} collapsed={collapsed} />
         </SidebarNavGroup>
 

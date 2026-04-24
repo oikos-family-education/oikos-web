@@ -8,6 +8,7 @@ import type { FamilyFormData } from './FamilyWizard';
 interface Props {
   data: FamilyFormData;
   onChange: (partial: Partial<FamilyFormData>) => void;
+  hideVisibility?: boolean;
 }
 
 const EDUCATION_PURPOSES = [
@@ -61,7 +62,7 @@ const VISIBILITY_OPTIONS = [
   { value: 'public', icon: Globe, label: 'Public', desc: 'Visible in the full family directory.' },
 ];
 
-export function WizardStep3({ data, onChange }: Props) {
+export function WizardStep3({ data, onChange, hideVisibility = false }: Props) {
   const t = useTranslations('Onboarding');
   const [curriculumInput, setCurriculumInput] = useState('');
   const [langInput, setLangInput] = useState('');
@@ -282,32 +283,36 @@ export function WizardStep3({ data, onChange }: Props) {
       </div>
 
       {/* Visibility */}
-      <div className="space-y-3">
-        <label className="text-sm font-semibold text-slate-700">{t('visibilityLabel')}</label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {VISIBILITY_OPTIONS.map(opt => {
-            const Icon = opt.icon;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChange({ visibility: opt.value })}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  data.visibility === opt.value
-                    ? 'border-primary bg-primary/5 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className={`w-5 h-5 mb-2 ${data.visibility === opt.value ? 'text-primary' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold text-slate-700 block">{opt.label}</span>
-                <span className="text-xs text-slate-400 mt-1 block">{opt.desc}</span>
-              </button>
-            );
-          })}
+      {!hideVisibility && (
+        <div className="space-y-3">
+          <label className="text-sm font-semibold text-slate-700">{t('visibilityLabel')}</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {VISIBILITY_OPTIONS.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChange({ visibility: opt.value })}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    data.visibility === opt.value
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 mb-2 ${data.visibility === opt.value ? 'text-primary' : 'text-slate-400'}`} />
+                  <span className="text-sm font-semibold text-slate-700 block">{opt.label}</span>
+                  <span className="text-xs text-slate-400 mt-1 block">{opt.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-400">{t('visibilityHelp')}</p>
         </div>
-        <p className="text-xs text-slate-400">{t('visibilityHelp')}</p>
-      </div>
+      )}
 
     </div>
   );
 }
+
+export const VISIBILITY_PICKER_OPTIONS = VISIBILITY_OPTIONS;

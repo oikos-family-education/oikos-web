@@ -2,9 +2,11 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete as sql_delete
 from fastapi import HTTPException
 
 from app.models.family import Family
+from app.models.family_member import FamilyMember
 from app.models.child import Child
 from app.models.user import User
 from app.schemas.family import FamilyCreate, FamilyUpdate
@@ -29,7 +31,21 @@ class FamilyService:
         return final_slug
 
     async def get_family_by_account(self, account_id: uuid.UUID) -> Family | None:
-        result = await self.db.execute(select(Family).where(Family.account_id == account_id))
+        """Return the family the given user belongs to via family_members."""
+        result = await self.db.execute(
+            select(Family)
+            .join(FamilyMember, FamilyMember.family_id == Family.id)
+            .where(FamilyMember.user_id == account_id)
+        )
+        return result.scalars().first()
+
+    async def get_member_role(self, user_id: uuid.UUID, family_id: uuid.UUID) -> str | None:
+        result = await self.db.execute(
+            select(FamilyMember.role).where(
+                FamilyMember.user_id == user_id,
+                FamilyMember.family_id == family_id,
+            )
+        )
         return result.scalars().first()
 
     async def create_family(self, account_id: uuid.UUID, data: FamilyCreate) -> Family:
@@ -64,6 +80,10 @@ class FamilyService:
             visibility="private" if data.visibility is None else data.visibility.value,
         )
         self.db.add(db_family)
+        await self.db.flush()
+
+        # Record the creator as the primary member
+        self.db.add(FamilyMember(family_id=db_family.id, user_id=account_id, role="primary"))
 
         # Update user.has_family = True
         result = await self.db.execute(select(User).where(User.id == account_id))
@@ -75,15 +95,43 @@ class FamilyService:
         await self.db.refresh(db_family)
         return db_family
 
-    async def update_shield(self, account_id: uuid.UUID, shield_config: dict) -> Family:
-        family = await self.get_family_by_account(account_id)
+    async def update_family(self, user_id: uuid.UUID, data: FamilyUpdate) -> Family:
+        family = await self.get_family_by_account(user_id)
+        if not family:
+            raise HTTPException(status_code=404, detail="Family not configured yet.")
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        # Handle visibility (Enum → string)
+        if "visibility" in update_data and update_data["visibility"] is not None:
+            val = update_data["visibility"]
+            update_data["visibility"] = val.value if hasattr(val, "value") else val
+
+        # Handle family_name rename → regenerate slug if changed
+        if "family_name" in update_data and update_data["family_name"] and update_data["family_name"] != family.family_name:
+            update_data["family_name_slug"] = await self._generate_slug(update_data["family_name"])
+
+        # shield_config update
+        if "shield_config" in update_data and update_data["shield_config"] is not None:
+            sc = update_data["shield_config"]
+            update_data["shield_config"] = sc.model_dump() if hasattr(sc, "model_dump") else sc
+
+        for key, value in update_data.items():
+            setattr(family, key, value)
+
+        await self.db.commit()
+        await self.db.refresh(family)
+        return family
+
+    async def update_shield(self, user_id: uuid.UUID, shield_config: dict) -> Family:
+        family = await self.get_family_by_account(user_id)
         if not family:
             raise HTTPException(status_code=404, detail="Family not configured yet.")
 
         family.shield_config = shield_config
 
         # Set has_coat_of_arms flag on user
-        result = await self.db.execute(select(User).where(User.id == account_id))
+        result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalars().first()
         if user:
             user.has_coat_of_arms = True
@@ -91,6 +139,35 @@ class FamilyService:
         await self.db.commit()
         await self.db.refresh(family)
         return family
+
+    async def delete_family(self, user_id: uuid.UUID) -> None:
+        family = await self.get_family_by_account(user_id)
+        if not family:
+            raise HTTPException(status_code=404, detail="Family not configured yet.")
+        if family.account_id != user_id:
+            raise HTTPException(status_code=403, detail="Only the primary account holder can delete this family.")
+
+        family_id = family.id
+
+        # Clear has_family on every member, then cascade-delete family
+        members_result = await self.db.execute(select(FamilyMember).where(FamilyMember.family_id == family_id))
+        members = list(members_result.scalars().all())
+        member_user_ids = [m.user_id for m in members]
+
+        await self.db.delete(family)
+
+        # Recompute has_family for each former member
+        for uid in member_user_ids:
+            still_member = await self.db.execute(
+                select(FamilyMember.id).where(FamilyMember.user_id == uid)
+            )
+            if not still_member.scalars().first():
+                ures = await self.db.execute(select(User).where(User.id == uid))
+                u = ures.scalars().first()
+                if u:
+                    u.has_family = False
+
+        await self.db.commit()
 
     async def get_children(self, family_id: uuid.UUID, include_archived: bool = False) -> list[Child]:
         query = select(Child).where(Child.family_id == family_id)

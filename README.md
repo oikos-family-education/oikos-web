@@ -157,13 +157,82 @@ npm run lint   # eslint
 
 ```bash
 cd apps/api
-source venv/bin/activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 uvicorn app.main:app --reload   # dev server on port 8000
 pytest                          # run all tests
 pytest tests/test_auth.py       # run a single test file
 alembic upgrade head            # apply pending migrations
 alembic revision --autogenerate -m "description"  # create a new migration
 ```
+
+---
+
+## Testing
+
+The API and frontend have separate test suites. Both need the backing services running.
+
+### Prerequisites
+
+```bash
+# Backing services must be up for all API tests
+docker compose up -d db redis
+```
+
+---
+
+### API tests (`apps/api`)
+
+Tests use a real PostgreSQL database — no mocks. The venv created during setup
+must be active.
+
+```bash
+cd apps/api
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+```
+
+| Command | What it does |
+|---|---|
+| `pytest` | Run all tests, terminal summary |
+| `pytest tests/test_auth.py` | Run a single test file |
+| `pytest -k "test_login"` | Run tests matching a keyword |
+| `pytest --cov` | Run all tests + print coverage table |
+| `pytest --cov --cov-report=html` | Run all tests + generate HTML report |
+
+The HTML report is written to `apps/api/htmlcov/index.html` — open it in a
+browser for a line-by-line view.
+
+> **Note:** if you set up your venv as `venv/` instead of `.venv/`, substitute
+> `source venv/bin/activate` above.
+
+---
+
+### Frontend tests (`apps/web`)
+
+No database needed. Runs entirely in-process with jsdom.
+
+```bash
+cd apps/web
+```
+
+| Command | What it does |
+|---|---|
+| `npm run test` | Single-run, exit when done |
+| `npm run test:watch` | Watch mode — re-runs on file save |
+| `npm run test:coverage` | Single-run + generate coverage report |
+
+The HTML report is written to `apps/web/coverage/index.html`.
+
+---
+
+### All tests from the monorepo root
+
+```bash
+npm run test            # run all frontend tests (API has no package.json)
+npm run test:coverage   # run all frontend tests with coverage
+```
+
+The API has no `package.json`, so run its tests directly from `apps/api` as
+shown above.
 
 ---
 

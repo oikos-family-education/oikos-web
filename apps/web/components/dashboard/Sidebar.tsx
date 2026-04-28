@@ -47,14 +47,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-4 overflow-y-auto py-2">
-        {/* Dashboard - ungrouped */}
-        <SidebarNavItem href="/dashboard" label={t('dashboard')} icon={Home} collapsed={collapsed} />
-
-        {/* Family group */}
-        <SidebarNavGroup label={t('groupFamily')} collapsed={collapsed}>
-          <SidebarNavItem href="/family" label={t('family')} icon={Users} collapsed={collapsed} />
-          <SidebarNavItem href="/children" label={t('children')} icon={Star} collapsed={collapsed} />
-        </SidebarNavGroup>
+        {/* Top — quick daily access */}
+        <div className="space-y-0.5">
+          <SidebarNavItem href="/dashboard" label={t('dashboard')} icon={Home} collapsed={collapsed} />
+          <SidebarNavItem href="/notes" label={t('notes')} icon={StickyNote} collapsed={collapsed} />
+          <SidebarNavItem href="/progress" label={t('progress')} icon={BarChart3} collapsed={collapsed} />
+        </div>
 
         {/* Educate group */}
         <SidebarNavGroup label={t('groupEducate')} collapsed={collapsed}>
@@ -66,16 +64,16 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <SidebarNavItem href="/resources" label={t('resources')} icon={Library} collapsed={collapsed} />
         </SidebarNavGroup>
 
-        {/* Record group */}
-        <SidebarNavGroup label={t('groupRecord')} collapsed={collapsed}>
-          <SidebarNavItem href="/notes" label={t('notes')} icon={StickyNote} collapsed={collapsed} />
-          <SidebarNavItem href="/progress" label={t('progress')} icon={BarChart3} collapsed={collapsed} />
+        {/* Family group */}
+        <SidebarNavGroup label={t('groupFamily')} collapsed={collapsed}>
+          <SidebarNavItem href="/children" label={t('children')} icon={Star} collapsed={collapsed} />
+          <SidebarNavItem href="/family" label={t('family')} icon={Users} collapsed={collapsed} />
         </SidebarNavGroup>
 
         {/* Support group */}
         <SidebarNavGroup label={t('groupSupport')} collapsed={collapsed}>
-          <SidebarNavItem href="/assistant" label={t('assistant')} icon={Sparkles} collapsed={collapsed} />
-          <SidebarNavItem href="/community" label={t('community')} icon={Globe} collapsed={collapsed} />
+          <SidebarNavItem href="/community" label={t('community')} icon={Globe} collapsed={collapsed} soon />
+          <SidebarNavItem href="/assistant" label={t('assistant')} icon={Sparkles} collapsed={collapsed} soon />
         </SidebarNavGroup>
 
         {/* Settings - ungrouped */}

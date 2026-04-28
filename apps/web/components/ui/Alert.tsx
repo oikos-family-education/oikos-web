@@ -9,7 +9,7 @@ interface AlertProps {
 export const Alert: React.FC<AlertProps> = ({ type, message }) => {
   const isError = type === 'error';
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-xl shadow-sm mb-6 ${
+    <div role="alert" className={`flex items-start gap-3 p-4 rounded-xl shadow-sm mb-6 ${
       isError ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
     }`}>
       {isError ? (

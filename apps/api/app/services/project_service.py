@@ -426,6 +426,32 @@ class ProjectService:
 
     # ── Achievements ──
 
+    async def list_recent_achievements(self, family_id: uuid.UUID, limit: int = 10) -> list[dict]:
+        """Family-wide recent achievements, enriched with child first name and project title."""
+        from app.models.child import Child  # local import to avoid circulars
+
+        result = await self.db.execute(
+            select(ChildAchievement, Child, Project)
+            .join(Project, ChildAchievement.project_id == Project.id)
+            .join(Child, ChildAchievement.child_id == Child.id)
+            .where(Project.family_id == family_id)
+            .order_by(ChildAchievement.awarded_at.desc())
+            .limit(limit)
+        )
+        rows = result.all()
+        return [
+            {
+                "achievement_id": ach.id,
+                "child_id": ach.child_id,
+                "child_name": child.nickname or child.first_name,
+                "project_id": project.id,
+                "project_title": project.title,
+                "completed_at": ach.awarded_at,
+                "certificate_number": ach.certificate_number,
+            }
+            for ach, child, project in rows
+        ]
+
     async def list_achievements_by_child(self, child_id: uuid.UUID, family_id: uuid.UUID) -> list[ChildAchievement]:
         result = await self.db.execute(
             select(ChildAchievement)

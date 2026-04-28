@@ -11,7 +11,7 @@ from app.schemas.project import (
     MilestoneCreate, MilestoneUpdate, MilestoneResponse, MilestoneCompletionResponse,
     ProjectResourceCreate, ProjectResourceResponse,
     PortfolioEntryUpdate, PortfolioEntryResponse,
-    AchievementResponse,
+    AchievementResponse, RecentAchievementResponse,
 )
 from app.services.project_service import ProjectService
 from app.services.family_service import FamilyService
@@ -47,6 +47,20 @@ async def list_projects(
 ):
     family_id = await _get_family_id(current_user, family_service)
     return await service.list_projects(family_id, status=status_filter, child_id=child_id, subject_id=subject_id)
+
+
+# Static-prefix routes (must come before /{project_id} so FastAPI doesn't try to coerce
+# the path segment into a UUID).
+
+@router.get("/achievements", response_model=list[RecentAchievementResponse])
+async def list_recent_achievements(
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.list_recent_achievements(family_id, limit=limit)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)

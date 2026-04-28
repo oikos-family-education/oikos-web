@@ -49,8 +49,15 @@ class CalendarEventUpdate(BaseModel):
 
 
 class CalendarEventResponse(BaseModel):
-    id: UUID
+    # User events have a UUID id; system events use prefixed string ids like
+    # "milestone-<uuid>" or "curriculum-start-<uuid>".
+    id: str
     family_id: Optional[UUID] = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v):
+        return str(v)
     title: str
     description: Optional[str] = None
     event_type: EventType

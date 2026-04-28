@@ -103,6 +103,17 @@ class ProgressSummaryResponse(BaseModel):
     heatmap: list[HeatmapCell] = []
 
 
+# --- Neglected subjects ---
+
+class NeglectedSubjectResponse(BaseModel):
+    subject_id: UUID
+    subject_name: str
+    color: Optional[str] = None
+    days_since_last_log: Optional[int] = None
+    last_taught_on: Optional[date] = None
+    assigned_child_names: list[str] = []
+
+
 # --- Report schemas ---
 
 class ReportFamily(BaseModel):

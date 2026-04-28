@@ -1,6 +1,7 @@
 import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes
@@ -12,7 +13,7 @@ app = FastAPI(title="Oikos API", version="1.0.0")
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error("Validation error on %s %s: %d error(s)", request.method, request.url.path, len(exc.errors()))
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
 app.add_middleware(
     CORSMiddleware,

@@ -83,3 +83,19 @@ class WeekTemplateSummary(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TodayRoutineEntryResponse(BaseModel):
+    """Routine entry for today, enriched with subject and child names for the dashboard."""
+    id: UUID
+    subject_id: Optional[UUID] = None
+    subject_name: Optional[str] = None
+    is_free_time: bool
+    child_ids: list[UUID]
+    child_names: list[str]
+    day_of_week: int
+    start_minute: int
+    duration_minutes: int
+    priority: str
+    color: Optional[str] = None
+    notes: Optional[str] = None

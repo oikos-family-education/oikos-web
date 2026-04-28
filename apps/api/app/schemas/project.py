@@ -110,6 +110,17 @@ class AchievementResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RecentAchievementResponse(BaseModel):
+    """Family-wide recent achievement, enriched with child name and project title for the dashboard."""
+    achievement_id: UUID
+    child_id: UUID
+    child_name: str
+    project_id: UUID
+    project_title: str
+    completed_at: datetime
+    certificate_number: str
+
+
 # --- Project schemas ---
 
 class ProjectCreate(BaseModel):

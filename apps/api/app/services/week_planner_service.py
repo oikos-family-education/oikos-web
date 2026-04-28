@@ -1,9 +1,12 @@
 import uuid
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 
+from app.models.child import Child
+from app.models.subject import Subject
 from app.models.week_planner import WeekTemplate, RoutineEntry
 from app.schemas.week_planner import (
     WeekTemplateCreate,
@@ -192,6 +195,76 @@ class WeekPlannerService:
         for entry in result.scalars().all():
             await self.db.delete(entry)
         await self.db.commit()
+
+    # --- Today (dashboard) ---
+
+    async def get_today_routine(self, family_id: uuid.UUID) -> list[dict]:
+        """Return today's routine entries enriched with subject and child names.
+
+        Returns an empty list if no active template exists.
+        """
+        # Today's day_of_week using Python's weekday() (0=Monday..6=Sunday)
+        day_of_week = date.today().weekday()
+
+        # Find the active template for this family.
+        tpl_result = await self.db.execute(
+            select(WeekTemplate).where(
+                WeekTemplate.family_id == family_id,
+                WeekTemplate.is_active.is_(True),
+            )
+        )
+        template = tpl_result.scalars().first()
+        if not template:
+            return []
+
+        entries_result = await self.db.execute(
+            select(RoutineEntry)
+            .where(
+                RoutineEntry.template_id == template.id,
+                RoutineEntry.day_of_week == day_of_week,
+            )
+            .order_by(RoutineEntry.start_minute.asc())
+        )
+        entries = list(entries_result.scalars().all())
+        if not entries:
+            return []
+
+        # Resolve subject names.
+        subject_ids = {e.subject_id for e in entries if e.subject_id is not None}
+        subject_map: dict[uuid.UUID, str] = {}
+        if subject_ids:
+            sres = await self.db.execute(select(Subject).where(Subject.id.in_(subject_ids)))
+            for s in sres.scalars().all():
+                subject_map[s.id] = s.name
+
+        # Resolve child names (across the whole family — only need first names).
+        child_ids: set[uuid.UUID] = set()
+        for e in entries:
+            for cid in (e.child_ids or []):
+                child_ids.add(cid)
+        child_map: dict[uuid.UUID, str] = {}
+        if child_ids:
+            cres = await self.db.execute(select(Child).where(Child.id.in_(child_ids)))
+            for c in cres.scalars().all():
+                child_map[c.id] = c.nickname or c.first_name
+
+        return [
+            {
+                "id": e.id,
+                "subject_id": e.subject_id,
+                "subject_name": subject_map.get(e.subject_id) if e.subject_id else None,
+                "is_free_time": e.is_free_time,
+                "child_ids": list(e.child_ids or []),
+                "child_names": [child_map[cid] for cid in (e.child_ids or []) if cid in child_map],
+                "day_of_week": e.day_of_week,
+                "start_minute": e.start_minute,
+                "duration_minutes": e.duration_minutes,
+                "priority": e.priority,
+                "color": e.color,
+                "notes": e.notes,
+            }
+            for e in entries
+        ]
 
     # --- Helpers ---
 

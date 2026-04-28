@@ -13,6 +13,7 @@ from app.schemas.progress import (
     TeachingLogResponse,
     ProgressSummaryResponse,
     ProgressReportResponse,
+    NeglectedSubjectResponse,
 )
 from app.services.progress_service import ProgressService
 from app.services.family_service import FamilyService
@@ -99,6 +100,19 @@ async def get_summary(
 ):
     family_id = await _get_family_id(current_user, family_service)
     return await service.get_summary(family_id, from_date=from_, to_date=to, child_filter_id=child_id)
+
+
+# ── Neglected subjects ──
+
+@router.get("/neglected", response_model=list[NeglectedSubjectResponse])
+async def get_neglected_subjects(
+    threshold_days: int = Query(14, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
+    service: ProgressService = Depends(get_progress_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.get_neglected_subjects(family_id, threshold_days=threshold_days)
 
 
 # ── Report ──

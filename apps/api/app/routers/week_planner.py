@@ -14,6 +14,7 @@ from app.schemas.week_planner import (
     RoutineEntryUpdate,
     RoutineEntryResponse,
     RoutineEntryDuplicate,
+    TodayRoutineEntryResponse,
 )
 from app.services.week_planner_service import WeekPlannerService
 from app.services.family_service import FamilyService
@@ -34,6 +35,18 @@ async def _get_family_id(current_user: User, family_service: FamilyService) -> U
     if not family:
         raise HTTPException(status_code=400, detail="Must create a family first.")
     return family.id
+
+
+# --- Today (dashboard) ---
+
+@router.get("/today", response_model=list[TodayRoutineEntryResponse])
+async def get_today_routine(
+    current_user: User = Depends(get_current_user),
+    service: WeekPlannerService = Depends(get_planner_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.get_today_routine(family_id)
 
 
 # --- Templates ---

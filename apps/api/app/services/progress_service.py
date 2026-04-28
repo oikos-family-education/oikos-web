@@ -456,6 +456,94 @@ class ProgressService:
             "heatmap": heatmap,
         }
 
+    # ── Neglected subjects ──
+
+    async def get_neglected_subjects(
+        self, family_id: uuid.UUID, threshold_days: int = 14
+    ) -> list[dict]:
+        """Subjects from active curricula whose most recent teaching log is older than
+        `threshold_days` (or which have no logs at all)."""
+        today = date.today()
+        cutoff = today - timedelta(days=threshold_days)
+
+        active_rows = await self._active_child_curriculum_subjects(family_id)
+        if not active_rows:
+            return []
+
+        # Group child names per subject (preserving uniqueness).
+        subject_to_children: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+        subject_meta: dict[uuid.UUID, dict] = {}
+        for r in active_rows:
+            sid = r["subject_id"]
+            if sid not in subject_meta:
+                subject_meta[sid] = {"name": r["name"], "color": r["color"]}
+            if r["child_id"] not in subject_to_children[sid]:
+                subject_to_children[sid].append(r["child_id"])
+
+        # Resolve child first names.
+        all_child_ids = {cid for cids in subject_to_children.values() for cid in cids}
+        child_name_map: dict[uuid.UUID, str] = {}
+        if all_child_ids:
+            cres = await self.db.execute(select(Child).where(Child.id.in_(all_child_ids)))
+            for c in cres.scalars().all():
+                child_name_map[c.id] = c.nickname or c.first_name
+
+        # Most recent teaching_log per subject. We include both specific-subject logs and
+        # general logs (subject_id IS NULL): a general "I taught today" log is treated as
+        # covering every tracked subject — matching the streak logic in get_summary().
+        subject_ids = list(subject_meta.keys())
+        log_q = select(TeachingLog).where(
+            TeachingLog.family_id == family_id,
+            or_(
+                TeachingLog.subject_id.in_(subject_ids),
+                TeachingLog.subject_id.is_(None),
+            ),
+        )
+        logs = list((await self.db.execute(log_q)).scalars().all())
+
+        last_taught: dict[uuid.UUID, date] = {}
+        # General logs (subject_id is None) count for every tracked subject.
+        latest_general: date | None = None
+        for log in logs:
+            if log.subject_id is None:
+                if latest_general is None or log.taught_on > latest_general:
+                    latest_general = log.taught_on
+                continue
+            cur = last_taught.get(log.subject_id)
+            if cur is None or log.taught_on > cur:
+                last_taught[log.subject_id] = log.taught_on
+
+        if latest_general is not None:
+            for sid in subject_meta.keys():
+                cur = last_taught.get(sid)
+                if cur is None or latest_general > cur:
+                    last_taught[sid] = latest_general
+
+        results: list[dict] = []
+        for sid, meta in subject_meta.items():
+            last = last_taught.get(sid)
+            if last is None:
+                days = None  # never taught
+                neglected = True
+            else:
+                days = (today - last).days
+                neglected = last < cutoff
+            if not neglected:
+                continue
+            child_names = [child_name_map[cid] for cid in subject_to_children[sid] if cid in child_name_map]
+            results.append({
+                "subject_id": sid,
+                "subject_name": meta["name"],
+                "color": meta["color"],
+                "days_since_last_log": days,
+                "last_taught_on": last,
+                "assigned_child_names": child_names,
+            })
+
+        # Sort: never-taught first (None treated as +inf), then most-neglected first.
+        results.sort(key=lambda r: (r["days_since_last_log"] is not None, -(r["days_since_last_log"] or 0)))
+        return results
+
     # ── Report ──
 
     async def get_report(

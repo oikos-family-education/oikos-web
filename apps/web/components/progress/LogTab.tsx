@@ -9,7 +9,7 @@ interface ChildMeta { id: string; first_name: string; nickname: string | null }
 interface SubjectMeta { id: string; name: string; color: string }
 
 interface LogTabProps {
-  children: ChildMeta[];
+  childrenList: ChildMeta[];
   subjects: SubjectMeta[];
   onChanged: () => void;
 }
@@ -29,7 +29,7 @@ function scopeKey(childId: string | null, subjectId: string | null): string {
   return `${childId ?? '-'}::${subjectId ?? '-'}`;
 }
 
-export function LogTab({ children, subjects, onChanged }: LogTabProps) {
+export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
   const t = useTranslations('Progress');
 
   const [date, setDate] = useState<string>(todayIsoDate());
@@ -217,14 +217,14 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
   const childOptions: { id: string | null; name: string }[] = useMemo(
     () => [
       { id: null, name: t('everyone') },
-      ...children.map((c) => ({ id: c.id, name: c.nickname || c.first_name })),
+      ...childrenList.map((c) => ({ id: c.id, name: c.nickname || c.first_name })),
     ],
-    [children, t],
+    [childrenList, t],
   );
 
   function childName(id: string | null): string {
     if (!id) return t('allChildren');
-    const c = children.find((x) => x.id === id);
+    const c = childrenList.find((x) => x.id === id);
     return c ? c.nickname || c.first_name : '';
   }
 
@@ -304,7 +304,7 @@ export function LogTab({ children, subjects, onChanged }: LogTabProps) {
             </div>
             <p className="text-sm text-slate-500 mb-4">{t('tapSubjectsHint')}</p>
 
-            {children.length > 0 && (
+            {childrenList.length > 0 && (
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide mr-1">
                   {t('forWhomLabel')}:

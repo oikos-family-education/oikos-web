@@ -53,6 +53,7 @@ export default function SubjectsPage() {
 
   useEffect(() => {
     fetchSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, category, debouncedSearch]);
 
   async function fetchSubjects() {

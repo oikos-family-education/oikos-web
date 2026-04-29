@@ -60,6 +60,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
 
   useEffect(() => {
     fetchResources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
   async function fetchResources() {

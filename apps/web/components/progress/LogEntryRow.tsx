@@ -18,18 +18,18 @@ interface SubjectMeta { id: string; name: string; color: string }
 
 interface LogEntryRowProps {
   entry: TeachingLogEntry;
-  children: ChildMeta[];
+  childrenList: ChildMeta[];
   subjects: SubjectMeta[];
   onDelete: (id: string) => Promise<void>;
 }
 
-export function LogEntryRow({ entry, children, subjects, onDelete }: LogEntryRowProps) {
+export function LogEntryRow({ entry, childrenList, subjects, onDelete }: LogEntryRowProps) {
   const t = useTranslations('Progress');
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const subject = entry.subject_id ? subjects.find((s) => s.id === entry.subject_id) : null;
-  const child = entry.child_id ? children.find((c) => c.id === entry.child_id) : null;
+  const child = entry.child_id ? childrenList.find((c) => c.id === entry.child_id) : null;
 
   const subjectLabel = subject?.name || t('generalTeaching');
   const subjectColor = subject?.color || '#94a3b8';

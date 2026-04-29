@@ -99,7 +99,6 @@ interface Fixtures {
 export const test = base.extend<Fixtures>({
   // Loaded once per worker; subsequent tests in the same worker reuse the
   // parsed object.
-  // eslint-disable-next-line no-empty-pattern
   fixtureData: async ({}, use) => {
     await use(loadFixtures());
   },

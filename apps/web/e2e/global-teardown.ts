@@ -26,11 +26,9 @@ async function globalTeardown(): Promise<void> {
       });
       if (!res.ok) {
         // Log but don't throw — keep teardown idempotent.
-        // eslint-disable-next-line no-console
         console.warn(`E2E reset returned ${res.status}; continuing teardown.`);
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('E2E reset request failed; continuing teardown:', err);
     }
   }

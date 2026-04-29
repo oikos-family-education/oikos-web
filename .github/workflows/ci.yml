@@ -1,46 +1,85 @@
 name: CI
 
+# ─── Triggers ─────────────────────────────────────────────────────────────────
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   push:
-    branches: [ main ]
+    branches: [main]
 
+# ─── Concurrency ──────────────────────────────────────────────────────────────
+# When a new commit is pushed to the same PR / branch, cancel the still-running
+# workflow for the previous commit. This keeps queues short without wasting
+# minutes on stale builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Shared defaults ──────────────────────────────────────────────────────────
+env:
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.12"
+
+# ══════════════════════════════════════════════════════════════════════════════
 jobs:
-  lint-and-typecheck:
+
+  # ── 1. Lint + Type-check ───────────────────────────────────────────────────
+  # Cheapest gate — catches syntax, style, and type errors first so slower
+  # jobs don't waste minutes on obviously broken code.
+  lint:
+    name: Lint & type-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JS dependencies
         run: npm ci
-      - name: Lint
+
+      - name: Lint (all workspaces)
         run: npx turbo run lint
-      - name: Type Check
+
+      - name: Type-check (all workspaces)
         run: npx turbo run type-check
 
+  # ── 2. Web unit tests (Vitest + jsdom, no services needed) ────────────────
   test-web:
+    name: Web unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JS dependencies
         run: npm ci
-      - name: Test (web)
+
+      - name: Run Vitest
         run: npx turbo run test --filter=web
 
+      - name: Upload web coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: apps/web/coverage/
+          retention-days: 14
+
+  # ── 3. API unit tests (pytest + live PostgreSQL + Redis) ──────────────────
   test-api:
+    name: API unit tests
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: oikos
           POSTGRES_PASSWORD: oikos
@@ -48,13 +87,13 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U oikos"
+          --health-cmd "pg_isready -U oikos -d oikos_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
       redis:
-        image: redis:7
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -68,33 +107,187 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
           cache-dependency-path: apps/api/requirements.txt
 
       - name: Install Python dependencies
         run: pip install -r apps/api/requirements.txt
 
-      - name: Write .env for tests
+      # Write .env directly into apps/api/ so pydantic-settings finds it when
+      # pytest is run from that working directory.
+      - name: Write API .env for tests
         run: |
-          cat > .env <<'EOF'
+          cat > apps/api/.env <<'EOF'
           DATABASE_URL=postgresql+asyncpg://oikos:oikos@localhost:5432/oikos_test
           DATABASE_SYNC_URL=postgresql+psycopg2://oikos:oikos@localhost:5432/oikos_test
           REDIS_URL=redis://localhost:6379/0
-          JWT_SECRET_KEY=ci-test-secret-key-do-not-use-in-production
+          JWT_SECRET_KEY=ci-test-secret-key-not-for-production
           JWT_ALGORITHM=HS256
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
           JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+          EMAIL_PROVIDER=resend
+          RESEND_API_KEY=re_ci_placeholder
+          EMAIL_FROM_ADDRESS=no-reply@oikos.test
+          EMAIL_FROM_NAME=Oikos CI
+          APP_BASE_URL=http://localhost:3000
+          APP_ENV=testing
           EOF
 
-      - name: Run API tests
+      - name: Run pytest
         working-directory: apps/api
         run: pytest --cov=app --cov-report=xml --cov-report=term-missing -q
 
-      - name: Upload coverage report
+      - name: Upload API coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-coverage
           path: apps/api/coverage.xml
           retention-days: 14
+
+  # ── 4. E2E tests (Playwright + full Docker Compose stack) ─────────────────
+  # Runs after all unit jobs pass — saves cloud minutes when code is already
+  # broken before even booting the full stack.
+  #
+  # Required repository secret:
+  #   E2E_SEED_SECRET — any non-empty string; must match the value the API
+  #                     container is started with. Set in GitHub → Settings →
+  #                     Secrets and variables → Actions.
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    needs: [lint, test-web, test-api]
+
+    env:
+      E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET || 'ci-e2e-secret' }}
+      E2E_BASE_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Node + JS deps ────────────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      # ── Playwright browser cache ──────────────────────────────────────────
+      # Chromium + headless shell ≈ 260 MB. Caching saves ~60 s every run
+      # after the first cache population.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/web
+        run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/web
+        run: npx playwright install-deps chromium
+
+      # ── Docker Buildx (enables GHA layer cache for faster image builds) ───
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Compose .env ──────────────────────────────────────────────────────
+      # The full stack reads a root .env via `env_file:`. We generate it here
+      # from CI values — no secrets are hardcoded in this file.
+      - name: Write Docker Compose .env
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=postgresql+asyncpg://oikos:oikos@db:5432/oikos_e2e
+          DATABASE_SYNC_URL=postgresql+psycopg2://oikos:oikos@db:5432/oikos_e2e
+          REDIS_URL=redis://redis:6379/0
+          JWT_SECRET_KEY=ci-e2e-jwt-not-for-production
+          JWT_ALGORITHM=HS256
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+          JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+          EMAIL_PROVIDER=resend
+          RESEND_API_KEY=re_ci_placeholder
+          EMAIL_FROM_ADDRESS=no-reply@oikos.test
+          EMAIL_FROM_NAME=Oikos CI
+          APP_BASE_URL=http://localhost:3001
+          APP_ENV=testing
+          POSTGRES_PASSWORD=oikos
+          E2E_SEED_SECRET=${E2E_SEED_SECRET}
+          EOF
+
+      # ── Start the E2E stack ───────────────────────────────────────────────
+      # --build ensures images are always rebuilt from the current commit.
+      # BuildKit layer caching (set up by setup-buildx-action) keeps this fast
+      # after the first run.
+      - name: Build and start E2E stack
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.e2e.yml \
+            up --build --detach
+        timeout-minutes: 10
+
+      # ── Wait for readiness ────────────────────────────────────────────────
+      # `docker compose up -d` returns immediately; the actual services need
+      # time to start (migrations, Next.js compilation, etc.).
+      # We poll two endpoints:
+      #   • /en/login  — proves Next.js SSR + routing is up
+      #   • /health    — proves FastAPI + DB migration completed
+      - name: Wait for services
+        run: |
+          npx wait-on \
+            "http://localhost:3001/en/login" \
+            "http://localhost:8001/health" \
+            --timeout 120000 \
+            --interval 2000 \
+            --verbose
+        timeout-minutes: 3
+
+      # ── Run Playwright ────────────────────────────────────────────────────
+      - name: Run E2E tests
+        working-directory: apps/web
+        run: npx playwright test
+        env:
+          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          E2E_SEED_SECRET: ${{ env.E2E_SEED_SECRET }}
+
+      # ── Artifacts on failure ──────────────────────────────────────────────
+      # Playwright writes its HTML report (with embedded screenshots + video)
+      # to playwright-report/ and raw traces to test-results/. Both are
+      # uploaded so you can open the report locally to debug failures.
+      - name: Upload Playwright HTML report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
+      # ── Debug aid ─────────────────────────────────────────────────────────
+      # Dump container logs on failure so you can see what the API or web
+      # server was doing when the tests ran.
+      - name: Dump Docker Compose logs
+        if: failure()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.e2e.yml \
+            logs --no-color --timestamps

@@ -9,12 +9,18 @@ interface WidgetCardProps {
   /** Section description below the title. */
   subtitle?: string;
   className?: string;
+  /**
+   * Forwarded to the outer <section> as `data-testid` for end-to-end tests.
+   * See doc/12-e2e-testing-plan.md §8 — convention is `<widget-name>-widget`.
+   */
+  testId?: string;
   children: React.ReactNode;
 }
 
-export function WidgetCard({ title, actions, subtitle, className = '', children }: WidgetCardProps) {
+export function WidgetCard({ title, actions, subtitle, className = '', testId, children }: WidgetCardProps) {
   return (
     <section
+      data-testid={testId}
       className={`bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-sm ${className}`}
     >
       <header className="flex items-start justify-between gap-3 mb-4">

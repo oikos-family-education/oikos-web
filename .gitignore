@@ -21,6 +21,13 @@ __pycache__/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.e2e
+
+# Playwright (E2E tests — see doc/12-e2e-testing-plan.md)
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/e2e/.auth.json
+apps/web/e2e/.fixtures.json
 
 # OS / Logs
 .DS_Store

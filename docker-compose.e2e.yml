@@ -1,0 +1,48 @@
+# docker-compose.e2e.yml
+#
+# Brings up a fully isolated stack for E2E tests. The database, API, and web
+# servers all run on different ports and against a separate Postgres database
+# (`oikos_e2e`) so they never collide with the dev stack from docker-compose.yml.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+#
+# See doc/12-e2e-testing-plan.md §3 for context.
+
+services:
+  db:
+    environment:
+      # Override the dev database name. The `oikos_e2e` database is created
+      # automatically on first container start.
+      POSTGRES_DB: oikos_e2e
+    # Use a different host port so an existing dev DB on 5432 keeps working.
+    ports:
+      - "5433:5432"
+
+  migrate:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://oikos:oikos@db:5432/oikos_e2e
+      DATABASE_SYNC_URL: postgresql://oikos:oikos@db:5432/oikos_e2e
+
+  api:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://oikos:oikos@db:5432/oikos_e2e
+      DATABASE_SYNC_URL: postgresql://oikos:oikos@db:5432/oikos_e2e
+      # Presence of this variable is what activates the /api/v1/e2e/* router.
+      # Tests pass the same value in the `x-e2e-secret` header to authenticate
+      # seed/reset calls. Override via the host shell or .env.e2e.
+      E2E_SEED_SECRET: ${E2E_SEED_SECRET:-e2e-local-secret}
+    ports:
+      # Avoid colliding with the dev API on 8000.
+      - "8001:8000"
+
+  web:
+    environment:
+      # next.config.js reads `API_URL` for the server-side /api/* proxy rewrite.
+      # Inside Docker the web container reaches the api container on the internal
+      # network at port 8000 (not the host-exposed 8001). The host-side Playwright
+      # process uses http://localhost:8001 (set in apps/web/.env.e2e).
+      API_URL: http://api:8000
+    ports:
+      # Avoid colliding with the dev frontend on 3000.
+      - "3001:3000"

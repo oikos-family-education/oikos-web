@@ -43,7 +43,7 @@ describe('Button', () => {
   });
 
   it('is disabled when disabled prop is set', () => {
-    render(<Button disabled>Can\'t touch this</Button>);
+    render(<Button disabled>{"Can't touch this"}</Button>);
     expect(screen.getByRole('button')).toBeDisabled();
   });
 

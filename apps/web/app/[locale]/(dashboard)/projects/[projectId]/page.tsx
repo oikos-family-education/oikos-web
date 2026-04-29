@@ -167,6 +167,7 @@ export default function ProjectDetailPage() {
       loadProjectResources();
       loadAllResources();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, project?.status]);
 
   async function loadPortfolio() {

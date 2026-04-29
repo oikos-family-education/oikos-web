@@ -14,7 +14,7 @@ const baseEntry = {
   notes: null,
 };
 
-const children = [{ id: 'c1', name: 'Alice' }];
+const childrenList = [{ id: 'c1', name: 'Alice' }];
 const subjects = [{ id: 's1', name: 'Mathematics', color: '#4f46e5' }];
 
 describe('LogEntryRow', () => {
@@ -22,7 +22,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={baseEntry}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -35,7 +35,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={baseEntry}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -47,7 +47,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={{ ...baseEntry, minutes: null }}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -59,7 +59,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={{ ...baseEntry, notes: 'Great session today' }}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -71,7 +71,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={{ ...baseEntry, subject_id: null }}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -84,7 +84,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={{ ...baseEntry, child_id: null }}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,
@@ -97,7 +97,7 @@ describe('LogEntryRow', () => {
     renderWithProviders(
       <LogEntryRow
         entry={baseEntry}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={onDelete}
       />,
@@ -118,7 +118,7 @@ describe('LogEntryRow', () => {
     const { container } = renderWithProviders(
       <LogEntryRow
         entry={baseEntry}
-        children={children}
+        childrenList={childrenList}
         subjects={subjects}
         onDelete={async () => {}}
       />,

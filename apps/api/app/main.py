@@ -1,4 +1,5 @@
 import logging
+import os
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
@@ -34,6 +35,19 @@ app.include_router(projects.router, prefix="/api/v1")
 app.include_router(calendar.router, prefix="/api/v1")
 app.include_router(progress.router, prefix="/api/v1")
 app.include_router(notes.router, prefix="/api/v1")
+
+# E2E test-seed router — only mounted when the secret is configured.
+# This guard is deliberately at the include site (not inside the router file)
+# so a production image without the secret never imports the seed code path.
+# See doc/12-e2e-testing-plan.md §4.
+if os.getenv("E2E_SEED_SECRET"):
+    from app.routers import e2e_seed  # noqa: WPS433 (in-function import is intentional)
+
+    app.include_router(e2e_seed.router)
+    logger.warning(
+        "E2E_SEED_SECRET is set — /api/v1/e2e/* endpoints are EXPOSED. "
+        "Never run with this variable set in production."
+    )
 
 @app.get("/health")
 async def health():

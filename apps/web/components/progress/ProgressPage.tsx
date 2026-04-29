@@ -239,7 +239,7 @@ export function ProgressPage() {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-          <LogTab children={children} subjects={subjects} onChanged={onLogChanged} />
+          <LogTab childrenList={children} subjects={subjects} onChanged={onLogChanged} />
         )
       )}
 

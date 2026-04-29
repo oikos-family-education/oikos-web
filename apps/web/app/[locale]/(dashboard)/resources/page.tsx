@@ -30,6 +30,7 @@ export default function ResourcesPage() {
 
   useEffect(() => {
     fetchResources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, subjectFilter]);
 
   useEffect(() => {

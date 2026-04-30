@@ -36,8 +36,8 @@ interface CalendarEvent {
 }
 
 type ScheduleItem =
-  | { kind: 'routine'; data: RoutineEntry; sortKey: number }
-  | { kind: 'event'; data: CalendarEvent; sortKey: number };
+  | { kind: 'routine'; data: RoutineEntry; sortKey: number; startMinute: number }
+  | { kind: 'event'; data: CalendarEvent; sortKey: number; startMinute: number };
 
 function formatMinuteOfDay(min: number): string {
   const h = Math.floor(min / 60);
@@ -128,24 +128,35 @@ export function TodaySchedule() {
     load();
   }, [load]);
 
-  const items: ScheduleItem[] = useMemo(() => {
-    const list: ScheduleItem[] = [];
+  const { allDayEvents, timedItems } = useMemo(() => {
+    const allDay: CalendarEvent[] = [];
+    const timed: ScheduleItem[] = [];
     if (routine) {
       for (const r of routine) {
-        list.push({ kind: 'routine', data: r, sortKey: r.start_minute });
+        timed.push({
+          kind: 'routine',
+          data: r,
+          sortKey: r.start_minute,
+          startMinute: r.start_minute,
+        });
       }
     }
     if (events) {
       for (const ev of events) {
+        if (ev.all_day) {
+          allDay.push(ev);
+          continue;
+        }
         const start = new Date(ev.start_at);
-        // Use minutes-of-day for sort consistency with routine entries.
-        const sortKey = ev.all_day ? -1 : start.getHours() * 60 + start.getMinutes();
-        list.push({ kind: 'event', data: ev, sortKey });
+        const minute = start.getHours() * 60 + start.getMinutes();
+        timed.push({ kind: 'event', data: ev, sortKey: minute, startMinute: minute });
       }
     }
-    list.sort((a, b) => a.sortKey - b.sortKey);
-    return list;
+    timed.sort((a, b) => a.sortKey - b.sortKey);
+    return { allDayEvents: allDay, timedItems: timed };
   }, [routine, events]);
+
+  const hasItems = allDayEvents.length > 0 || timedItems.length > 0;
 
   const headerActions = (
     <>
@@ -170,76 +181,120 @@ export function TodaySchedule() {
     <WidgetCard title={t('todayTitle')} actions={headerActions}>
       {loading && <WidgetSkeleton rows={4} />}
       {!loading && error && <WidgetError onRetry={load} />}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && !hasItems && (
         <WidgetEmpty
           icon={<CalendarDays className="h-8 w-8" />}
           title={t('todayEmpty')}
           hint={t('todayEmptyHint')}
         />
       )}
-      {!loading && !error && items.length > 0 && (
-        <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-          {items.map((item) => {
-            if (item.kind === 'routine') {
-              const r = item.data;
-              const title = r.is_free_time
-                ? 'Free time'
-                : r.subject_name || 'Untitled';
-              const dotColor = r.color || (r.is_free_time ? '#94a3b8' : '#6366f1');
-              const opacity = r.is_free_time ? 'opacity-60' : '';
-              return (
-                <li key={`routine-${r.id}`} className={`group ${opacity}`}>
-                  <Link
-                    href="/planner"
-                    className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 hover:border-primary/30 hover:bg-slate-50 transition-colors"
-                  >
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: dotColor }}
-                      aria-hidden
-                    />
-                    <span className="text-xs font-mono tabular-nums text-slate-500 w-12 flex-shrink-0">
-                      {formatMinuteOfDay(r.start_minute)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {title}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {r.duration_minutes} min · {t('sourceWeekPlanner')}
-                      </p>
-                    </div>
-                    <ChildBadges names={r.child_names} />
-                  </Link>
-                </li>
-              );
-            }
-            const ev = item.data;
-            const dotColor = ev.color || '#22c55e';
-            const timeLabel = ev.all_day ? 'All day' : formatDateTime(ev.start_at);
-            return (
-              <li key={`event-${ev.id}`} className="group">
-                <Link
-                  href={`/calendar?event=${ev.id}`}
-                  className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 hover:border-primary/30 hover:bg-slate-50 transition-colors"
-                >
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: dotColor }}
-                    aria-hidden
-                  />
-                  <span className="text-xs font-mono tabular-nums text-slate-500 w-12 flex-shrink-0">
-                    {timeLabel}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{ev.title}</p>
-                    <p className="text-[11px] text-slate-500">{t('sourceCalendar')}</p>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      {!loading && !error && hasItems && (
+        <div className="space-y-4">
+          {allDayEvents.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {allDayEvents.map((ev) => {
+                const accent = ev.color || '#22c55e';
+                return (
+                  <li key={`allday-${ev.id}`}>
+                    <Link
+                      href={`/calendar?event=${ev.id}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-primary/30 hover:bg-white transition-colors"
+                    >
+                      <span
+                        className="inline-block h-2 w-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: accent }}
+                        aria-hidden
+                      />
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                        All day
+                      </span>
+                      <span className="truncate max-w-[14rem]">{ev.title}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {timedItems.length > 0 && (
+            <ol className="relative space-y-1.5">
+              {timedItems.map((item, idx) => {
+                const prevHour =
+                  idx > 0 ? Math.floor(timedItems[idx - 1].startMinute / 60) : -1;
+                const currHour = Math.floor(item.startMinute / 60);
+                const newHour = currHour !== prevHour;
+
+                if (item.kind === 'routine') {
+                  const r = item.data;
+                  const title = r.is_free_time ? 'Free time' : r.subject_name || 'Untitled';
+                  const accent = r.color || (r.is_free_time ? '#94a3b8' : '#6366f1');
+                  const dim = r.is_free_time ? 'opacity-70' : '';
+                  return (
+                    <li key={`routine-${r.id}`}>
+                      {newHour && idx > 0 && <div className="h-2" aria-hidden />}
+                      <Link
+                        href="/planner"
+                        className={`flex items-stretch gap-3 rounded-lg border border-slate-200 bg-white hover:border-primary/40 hover:shadow-sm transition-all ${dim}`}
+                      >
+                        <span
+                          className="w-1 rounded-l-lg flex-shrink-0"
+                          style={{ backgroundColor: accent }}
+                          aria-hidden
+                        />
+                        <div className="flex items-center gap-3 px-2 py-2.5 flex-1 min-w-0">
+                          <div className="w-16 flex-shrink-0 text-right">
+                            <p className="text-xs font-mono tabular-nums text-slate-700 whitespace-nowrap leading-tight">
+                              {formatMinuteOfDay(r.start_minute)}
+                            </p>
+                            <p className="text-[10px] text-slate-400 whitespace-nowrap leading-tight">
+                              {r.duration_minutes} min
+                            </p>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {t('sourceWeekPlanner')}
+                            </p>
+                          </div>
+                          <ChildBadges names={r.child_names} />
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                }
+                const ev = item.data;
+                const accent = ev.color || '#22c55e';
+                return (
+                  <li key={`event-${ev.id}`}>
+                    {newHour && idx > 0 && <div className="h-2" aria-hidden />}
+                    <Link
+                      href={`/calendar?event=${ev.id}`}
+                      className="flex items-stretch gap-3 rounded-lg border border-slate-200 bg-white hover:border-primary/40 hover:shadow-sm transition-all"
+                    >
+                      <span
+                        className="w-1 rounded-l-lg flex-shrink-0"
+                        style={{ backgroundColor: accent }}
+                        aria-hidden
+                      />
+                      <div className="flex items-center gap-3 px-2 py-2.5 flex-1 min-w-0">
+                        <div className="w-16 flex-shrink-0 text-right">
+                          <p className="text-xs font-mono tabular-nums text-slate-700 whitespace-nowrap leading-tight">
+                            {formatDateTime(ev.start_at)}
+                          </p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{ev.title}</p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {t('sourceCalendar')}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
       )}
     </WidgetCard>
   );

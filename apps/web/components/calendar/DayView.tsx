@@ -10,6 +10,8 @@ import {
   HOURS_END,
   ROW_HEIGHT,
   isSameDay,
+  layoutRoutineBlocks,
+  layoutTimedEvents,
   parseServerDate,
 } from './types';
 import { RoutineProjectionBlockView } from './RoutineProjectionBlock';
@@ -74,7 +76,7 @@ export function DayView({
       <div className="relative grid" style={{ gridTemplateColumns: '60px 1fr' }}>
         <div className="border-r border-slate-200">
           {hours.map((h) => (
-            <div key={h} style={{ height: ROW_HEIGHT }} className="text-[10px] text-slate-400 pr-2 text-right -mt-1.5">
+            <div key={h} style={{ height: ROW_HEIGHT }} className="text-[10px] text-slate-400 pr-2 text-right">
               {String(h).padStart(2, '0')}:00
             </div>
           ))}
@@ -90,29 +92,33 @@ export function DayView({
             />
           ))}
 
-          {dayRoutines.map((b) => (
-            <RoutineProjectionBlockView key={b.entry_id} block={b} />
+          {layoutRoutineBlocks(dayRoutines).map(({ block, column, columns }) => (
+            <RoutineProjectionBlockView
+              key={block.entry_id}
+              block={block}
+              column={column}
+              columns={columns}
+            />
           ))}
 
-          {timed.map((event) => {
-            const start = parseServerDate(event.start_at);
-            const end = parseServerDate(event.end_at);
-            const startMin = start.getHours() * 60 + start.getMinutes();
-            const endMin = end.getHours() * 60 + end.getMinutes();
+          {layoutTimedEvents(timed).map(({ event, startMin, endMin, column, columns }) => {
             const top = ((startMin - HOURS_START * 60) / 60) * ROW_HEIGHT;
-            const heightMin = Math.max(15, endMin - startMin);
-            const height = (heightMin / 60) * ROW_HEIGHT;
+            const height = ((endMin - startMin) / 60) * ROW_HEIGHT;
+            const widthPct = 100 / columns;
+            const leftPct = column * widthPct;
             return (
               <button
                 key={`${event.id}-${event.start_at}`}
                 type="button"
                 onClick={() => onEventClick(event)}
-                className={`absolute left-2 right-2 rounded px-2 py-1 text-sm font-medium text-white text-left hover:opacity-90 ${
+                className={`absolute rounded px-2 py-1 text-sm font-medium text-white text-left hover:opacity-90 ${
                   event.is_system ? 'border border-dashed border-white/60' : ''
                 }`}
                 style={{
                   top: `${top}px`,
                   height: `${height}px`,
+                  left: `calc(${leftPct}% + 4px)`,
+                  width: `calc(${widthPct}% - 8px)`,
                   backgroundColor: getEventColor(event),
                 }}
               >

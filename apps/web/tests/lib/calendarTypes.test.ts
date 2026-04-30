@@ -21,7 +21,10 @@ import {
   buildWeekDays,
   parseServerDate,
   dayInEventRange,
+  layoutTimedEvents,
+  layoutRoutineBlocks,
   type CalendarEvent,
+  type RoutineProjectionBlock,
 } from '../../components/calendar/types';
 
 const baseEvent = (overrides: Partial<CalendarEvent> = {}): CalendarEvent => ({
@@ -267,5 +270,122 @@ describe('dayInEventRange', () => {
       end_at: new Date(2024, 5, 15, 23).toISOString(),
     });
     expect(dayInEventRange(new Date(2024, 5, 16), event)).toBe(false);
+  });
+});
+
+describe('layoutTimedEvents', () => {
+  // Build a local-time event at the given hours on 2024-06-15.
+  const at = (id: string, startH: number, endH: number, startM = 0, endM = 0): CalendarEvent =>
+    baseEvent({
+      id,
+      title: id,
+      start_at: `2024-06-15T${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`,
+      end_at: `2024-06-15T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`,
+    });
+
+  function byId(layouts: ReturnType<typeof layoutTimedEvents>) {
+    return Object.fromEntries(layouts.map((l) => [l.event.id, l]));
+  }
+
+  it('places non-overlapping events in column 0 with columns=1', () => {
+    const layouts = layoutTimedEvents([at('a', 9, 10), at('b', 11, 12), at('c', 14, 15)]);
+    expect(layouts).toHaveLength(3);
+    for (const l of layouts) {
+      expect(l.column).toBe(0);
+      expect(l.columns).toBe(1);
+    }
+  });
+
+  it('splits two overlapping events into two columns of equal width', () => {
+    const layouts = byId(layoutTimedEvents([at('a', 9, 11), at('b', 10, 12)]));
+    expect(layouts.a.columns).toBe(2);
+    expect(layouts.b.columns).toBe(2);
+    expect(new Set([layouts.a.column, layouts.b.column])).toEqual(new Set([0, 1]));
+  });
+
+  it('splits three events overlapping in the same slot into three columns', () => {
+    const layouts = byId(
+      layoutTimedEvents([at('a', 11, 12), at('b', 11, 12), at('c', 11, 12)]),
+    );
+    expect(layouts.a.columns).toBe(3);
+    expect(layouts.b.columns).toBe(3);
+    expect(layouts.c.columns).toBe(3);
+    expect(new Set([layouts.a.column, layouts.b.column, layouts.c.column])).toEqual(
+      new Set([0, 1, 2]),
+    );
+  });
+
+  it('reuses a freed column once the prior event has ended', () => {
+    // a: 9-10, b: 9-11 (overlap → 2 cols), c: 10-11 (only overlaps b — column 0 is free)
+    const layouts = byId(layoutTimedEvents([at('a', 9, 10), at('b', 9, 11), at('c', 10, 11)]));
+    // a, b, c all in one cluster (b extends through a and c)
+    expect(layouts.a.columns).toBe(2);
+    expect(layouts.b.columns).toBe(2);
+    expect(layouts.c.columns).toBe(2);
+    // c must take the column a vacated, not a third column
+    expect(layouts.c.column).toBe(layouts.a.column);
+    expect(layouts.c.column).not.toBe(layouts.b.column);
+  });
+
+  it('treats touching-but-non-overlapping events (a ends == b starts) as separate clusters', () => {
+    const layouts = byId(layoutTimedEvents([at('a', 9, 10), at('b', 10, 11)]));
+    expect(layouts.a.columns).toBe(1);
+    expect(layouts.b.columns).toBe(1);
+    expect(layouts.a.column).toBe(0);
+    expect(layouts.b.column).toBe(0);
+  });
+
+  it('keeps a minimum 15-minute height for zero/short-duration events', () => {
+    const layouts = layoutTimedEvents([at('a', 9, 9, 0, 5)]);
+    expect(layouts[0].endMin - layouts[0].startMin).toBe(15);
+  });
+});
+
+describe('layoutRoutineBlocks', () => {
+  const block = (
+    entry_id: string,
+    start_minute: number,
+    duration_minutes: number,
+  ): RoutineProjectionBlock => ({
+    entry_id,
+    date: '2024-06-15',
+    day_of_week: 5,
+    start_minute,
+    duration_minutes,
+    subject_id: null,
+    subject_name: entry_id,
+    is_free_time: false,
+    child_ids: [],
+    color: null,
+    notes: null,
+  });
+
+  function byId(layouts: ReturnType<typeof layoutRoutineBlocks>) {
+    return Object.fromEntries(layouts.map((l) => [l.block.entry_id, l]));
+  }
+
+  it('places non-overlapping blocks in column 0 with columns=1', () => {
+    // 09:00-10:00, 11:00-12:00
+    const layouts = layoutRoutineBlocks([block('a', 540, 60), block('b', 660, 60)]);
+    for (const l of layouts) {
+      expect(l.column).toBe(0);
+      expect(l.columns).toBe(1);
+    }
+  });
+
+  it('splits two overlapping routine blocks into two columns', () => {
+    // 11:00-12:00 and 11:30-12:30
+    const layouts = byId(layoutRoutineBlocks([block('a', 660, 60), block('b', 690, 60)]));
+    expect(layouts.a.columns).toBe(2);
+    expect(layouts.b.columns).toBe(2);
+    expect(new Set([layouts.a.column, layouts.b.column])).toEqual(new Set([0, 1]));
+  });
+
+  it('splits two routine blocks at the same time slot into two columns', () => {
+    // Both 11:00-12:00 — this is the bug shown in the user's screenshot
+    const layouts = byId(layoutRoutineBlocks([block('a', 660, 60), block('b', 660, 60)]));
+    expect(layouts.a.columns).toBe(2);
+    expect(layouts.b.columns).toBe(2);
+    expect(new Set([layouts.a.column, layouts.b.column])).toEqual(new Set([0, 1]));
   });
 });

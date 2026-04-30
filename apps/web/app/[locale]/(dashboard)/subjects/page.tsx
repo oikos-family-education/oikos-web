@@ -39,6 +39,9 @@ export default function SubjectsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<string>('mine');
   const [category, setCategory] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleSearchChange = useCallback((value: string) => {
@@ -79,6 +82,42 @@ export default function SubjectsPage() {
       const forked = await res.json();
       router.push(`/subjects/${forked.id}/edit`);
     }
+  }
+
+  function openDelete(subject: Subject) {
+    setDeleteTarget(subject);
+    setDeleteError(null);
+  }
+
+  function closeDelete() {
+    setDeleteTarget(null);
+    setDeleteError(null);
+    setIsDeleting(false);
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    const res = await fetch(`/api/v1/subjects/${deleteTarget.id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (res.status === 204) {
+      setSubjects((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      closeDelete();
+      return;
+    }
+    if (res.status === 409) {
+      const body = await res.json().catch(() => ({}));
+      const detail: string = body.detail || '';
+      const match = detail.match(/(\d+)/);
+      const count = match ? Number(match[1]) : 0;
+      setDeleteError(t('deleteConfirmInUse', { count }));
+    } else {
+      setDeleteError(t('deleteGenericError'));
+    }
+    setIsDeleting(false);
   }
 
   return (
@@ -160,8 +199,41 @@ export default function SubjectsPage() {
               subject={subject}
               onFork={() => handleFork(subject.id)}
               onEdit={() => router.push(`/subjects/${subject.id}/edit`)}
+              onDelete={() => openDelete(subject)}
             />
           ))}
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/30" onClick={closeDelete} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+              {t('deleteConfirmTitle')}
+            </h3>
+            <p className="text-sm text-slate-600 mb-2">
+              <span className="font-medium text-slate-800">{deleteTarget.name}</span>
+            </p>
+            <p className="text-sm text-slate-500 mb-4">
+              {deleteError || t('deleteConfirmMessage')}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeDelete}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting || Boolean(deleteError)}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('confirmDelete')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

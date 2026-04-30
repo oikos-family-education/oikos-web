@@ -182,6 +182,101 @@ export function parseServerDate(iso: string): Date {
   return new Date(iso);
 }
 
+export interface TimedEventLayout {
+  event: CalendarEvent;
+  startMin: number;
+  endMin: number;
+  column: number;
+  columns: number;
+}
+
+export interface RoutineBlockLayout {
+  block: RoutineProjectionBlock;
+  startMin: number;
+  endMin: number;
+  column: number;
+  columns: number;
+}
+
+// Generic column-packer for [startMin, endMin) intervals.
+function packIntervals<T>(
+  items: { value: T; startMin: number; endMin: number }[],
+): { value: T; startMin: number; endMin: number; column: number; columns: number }[] {
+  const sorted = [...items].sort(
+    (a, b) => a.startMin - b.startMin || b.endMin - a.endMin,
+  );
+  const result: { value: T; startMin: number; endMin: number; column: number; columns: number }[] = [];
+  let cluster: { item: typeof sorted[number]; column: number }[] = [];
+  let clusterEndMax = -Infinity;
+
+  const flush = () => {
+    if (cluster.length === 0) return;
+    const cols = Math.max(...cluster.map((c) => c.column)) + 1;
+    for (const c of cluster) {
+      result.push({
+        value: c.item.value,
+        startMin: c.item.startMin,
+        endMin: c.item.endMin,
+        column: c.column,
+        columns: cols,
+      });
+    }
+    cluster = [];
+    clusterEndMax = -Infinity;
+  };
+
+  for (const item of sorted) {
+    if (item.startMin >= clusterEndMax) flush();
+    const occupied = new Set(
+      cluster.filter((c) => c.item.endMin > item.startMin).map((c) => c.column),
+    );
+    let col = 0;
+    while (occupied.has(col)) col++;
+    cluster.push({ item, column: col });
+    clusterEndMax = Math.max(clusterEndMax, item.endMin);
+  }
+  flush();
+  return result;
+}
+
+// Lay out timed events in side-by-side columns when they overlap.
+// Algorithm: sort by start asc / end desc, then greedily pack each event into
+// the leftmost free column within its overlap cluster. A cluster ends when an
+// event starts at or after the latest end seen so far in the cluster.
+export function layoutTimedEvents(events: CalendarEvent[]): TimedEventLayout[] {
+  const items = events.map((event) => {
+    const start = parseServerDate(event.start_at);
+    const end = parseServerDate(event.end_at);
+    const startMin = start.getHours() * 60 + start.getMinutes();
+    const rawEndMin = end.getHours() * 60 + end.getMinutes();
+    const endMin = Math.max(rawEndMin, startMin + 15);
+    return { value: event, startMin, endMin };
+  });
+  return packIntervals(items).map(({ value, startMin, endMin, column, columns }) => ({
+    event: value,
+    startMin,
+    endMin,
+    column,
+    columns,
+  }));
+}
+
+// Lay out routine projection blocks in side-by-side columns when they overlap.
+export function layoutRoutineBlocks(blocks: RoutineProjectionBlock[]): RoutineBlockLayout[] {
+  const items = blocks.map((block) => ({
+    value: block,
+    startMin: block.start_minute,
+    endMin: block.start_minute + Math.max(block.duration_minutes, 15),
+  }));
+  return packIntervals(items).map(({ value, startMin, endMin, column, columns }) => ({
+    block: value,
+    startMin,
+    endMin,
+    column,
+    columns,
+  }));
+}
+
 // Is `day` within the [start, end] date range (day-granularity)?
 export function dayInEventRange(day: Date, event: CalendarEvent): boolean {
   const start = parseServerDate(event.start_at);

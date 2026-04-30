@@ -120,8 +120,8 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
     fetch('/api/v1/families/me/children', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then(setChildren);
-    // Fetch subjects
-    fetch('/api/v1/subjects', { credentials: 'include' })
+    // Fetch subjects (family-owned only — platform subjects must be forked first)
+    fetch('/api/v1/subjects?source=mine', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then(setAvailableSubjects);
     // Fetch active curriculums for conflict checking

@@ -45,6 +45,39 @@ describe('SubjectCard', () => {
     expect(onEdit).toHaveBeenCalledOnce();
   });
 
+  it('renders Delete button for family subjects when onDelete is provided', () => {
+    const onDelete = vi.fn();
+    renderWithProviders(
+      <SubjectCard
+        subject={baseSubject}
+        onFork={() => {}}
+        onEdit={() => {}}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+    expect(onDelete).toHaveBeenCalledOnce();
+  });
+
+  it('does not render Delete button when onDelete is not provided', () => {
+    renderWithProviders(
+      <SubjectCard subject={baseSubject} onFork={() => {}} onEdit={() => {}} />,
+    );
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render Delete button for platform subjects even when onDelete is provided', () => {
+    renderWithProviders(
+      <SubjectCard
+        subject={{ ...baseSubject, is_platform_subject: true, family_id: null }}
+        onFork={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+  });
+
   it('renders Fork button when subject is a platform subject', () => {
     const onFork = vi.fn();
     renderWithProviders(

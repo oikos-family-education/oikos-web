@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { icons, BookOpen, GitFork, Edit3, ChevronUp, Minus, ChevronDown } from 'lucide-react';
+import { icons, BookOpen, GitFork, Edit3, Trash2, ChevronUp, Minus, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { categoryKey } from '../../lib/categoryLabel';
 
@@ -24,6 +24,7 @@ interface SubjectCardProps {
   subject: Subject;
   onFork: () => void;
   onEdit: () => void;
+  onDelete?: () => void;
 }
 
 const PRIORITY_CONFIG: Record<number, { icon: React.ElementType; color: string; key: string }> = {
@@ -43,7 +44,7 @@ function SubjectIcon({ iconName, color }: { iconName: string | null; color: stri
   return <BookOpen className="w-5 h-5" style={{ color }} />;
 }
 
-export function SubjectCard({ subject, onFork, onEdit }: SubjectCardProps) {
+export function SubjectCard({ subject, onFork, onEdit, onDelete }: SubjectCardProps) {
   const t = useTranslations('Subjects');
   const priorityCfg = PRIORITY_CONFIG[subject.priority ?? 2];
 
@@ -101,13 +102,24 @@ export function SubjectCard({ subject, onFork, onEdit }: SubjectCardProps) {
             {t('forkAndCustomise')}
           </button>
         ) : subject.family_id ? (
-          <button
-            onClick={onEdit}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            {t('edit')}
-          </button>
+          <>
+            <button
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              {t('edit')}
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {t('delete')}
+              </button>
+            )}
+          </>
         ) : null}
       </div>
     </div>

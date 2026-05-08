@@ -25,7 +25,7 @@ test.describe('Dashboard — Active Curriculums widget', () => {
   test.beforeEach(async ({ page }) => {
     // The dashboard makes a few async fetches per widget. `networkidle` waits
     // for them to settle, which keeps assertions stable across machines.
-    await page.goto('/en/dashboard');
+    await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
   });
 

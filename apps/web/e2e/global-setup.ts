@@ -56,15 +56,15 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     const context = await browser.newContext({ baseURL: BASE });
     const page = await context.newPage();
 
-    await page.goto('/en/login');
+    await page.goto('/login');
     await page.getByLabel(/email/i).fill(fixtures.user.email);
     await page.getByLabel(/password/i).fill(fixtures.user.password);
     await page.getByRole('button', { name: /sign in/i }).click();
 
     // Wait for the post-login redirect. AuthProvider may bounce through
-    // /onboarding/* before landing on /dashboard, so match the locale-prefixed
-    // dashboard path.
-    await page.waitForURL(/\/[a-z]{2}\/dashboard(\?|$)/, { timeout: 15_000 });
+    // /onboarding/* before landing on /dashboard. With localePrefix='as-needed'
+    // the default locale (en) has no prefix; non-default locales would.
+    await page.waitForURL(/\/(?:[a-z]{2}(?:-[A-Z]{2})?\/)?dashboard(\?|$)/, { timeout: 15_000 });
 
     // storageState captures cookies (including httpOnly) and localStorage so
     // every test starts already authenticated.

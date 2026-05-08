@@ -12,8 +12,8 @@ vi.mock('next-intl/middleware', () => ({
   default: () => (req: unknown) => ({ type: 'intl', req }),
 }));
 
-// ── Stub i18n config (only `locales` is used by middleware) ────────────────
-vi.mock('../i18n', () => ({ locales: ['en'] }));
+// ── Stub i18n config (locales + defaultLocale used by middleware) ─────────
+vi.mock('../i18n', () => ({ locales: ['en', 'pt-BR'], defaultLocale: 'en' }));
 
 // ── Minimal NextRequest / NextResponse stubs ───────────────────────────────
 const mockRedirectResponse = { type: 'redirect' as const };
@@ -62,20 +62,17 @@ function makeReq(pathname: string, cookies: Record<string, string> = {}) {
 describe('middleware', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  describe('getPathnameWithoutLocale (internal logic)', () => {
-    it('removes /en/ prefix', () => {
-      // By calling the middleware with a protected path under /en/ we verify
-      // the locale-stripping works: /en/dashboard should be recognised as /dashboard.
-      const req = makeReq('/en/dashboard');            // no token
+  describe('locale stripping (internal logic)', () => {
+    it('recognises a protected path under a non-default locale prefix', () => {
+      // /pt-BR/dashboard should be recognised as /dashboard for the protected check.
+      const req = makeReq('/pt-BR/dashboard');         // no token
       const res = middleware(req as any);
-      // Middleware should redirect to login (protected, no token)
       expect(res).toMatchObject({ type: 'redirect' });
     });
 
-    it('passes non-protected /en/ paths through to intl middleware', () => {
-      const req = makeReq('/en/login');
+    it('passes non-protected localised paths through to intl middleware', () => {
+      const req = makeReq('/pt-BR/login');
       const res = middleware(req as any);
-      // /login is not protected → intl middleware (type: 'intl')
       expect(res).toMatchObject({ type: 'intl' });
     });
   });
@@ -124,8 +121,14 @@ describe('middleware', () => {
   });
 
   describe('root redirect', () => {
-    it('redirects / to /en/dashboard when user has access_token', () => {
+    it('redirects / to /dashboard when user has access_token (default locale, no prefix)', () => {
       const req = makeReq('/', { access_token: 'tok' });
+      const res = middleware(req as any);
+      expect(res).toMatchObject({ type: 'redirect' });
+    });
+
+    it('redirects /pt-BR to /pt-BR/dashboard when user has access_token', () => {
+      const req = makeReq('/pt-BR', { access_token: 'tok' });
       const res = middleware(req as any);
       expect(res).toMatchObject({ type: 'redirect' });
     });

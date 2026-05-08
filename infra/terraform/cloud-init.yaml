@@ -1,0 +1,42 @@
+#cloud-config
+# Runs once on first boot. Installs Docker, clones repo, sets up the server.
+
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+  - git
+  - ufw
+  - fail2ban
+
+runcmd:
+  # ── Docker ────────────────────────────────────────────────────────────────
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+
+  # ── Firewall (ufw) ────────────────────────────────────────────────────────
+  - ufw allow OpenSSH
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # ── Fail2ban (SSH brute-force protection) ─────────────────────────────────
+  - systemctl enable --now fail2ban
+
+  # ── Swap (helps on CX22 with 4 GB RAM) ───────────────────────────────────
+  - fallocate -l 2G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+  # ── Clone repo ────────────────────────────────────────────────────────────
+  - git clone ${repo_url} /opt/oikos
+  - chown -R root:root /opt/oikos
+
+  # ── Mark bootstrap complete ───────────────────────────────────────────────
+  - touch /opt/oikos/.cloud-init-done
+
+final_message: |
+  Oikos server is ready. SSH in and follow DEPLOY.md to finish setup.
+  Server bootstrapped in $UPTIME seconds.

@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # allow manual trigger from GitHub UI
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false   # never cancel a running deploy
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    environment: production   # requires environment approval in GitHub settings (optional)
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+
+            cd /opt/oikos
+
+            echo "── Pulling latest code ──"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "── Building & restarting containers ──"
+            docker compose \
+              -f infra/deploy/docker-compose.prod.yml \
+              --env-file infra/deploy/.env.production \
+              pull --ignore-pull-failures
+            docker compose \
+              -f infra/deploy/docker-compose.prod.yml \
+              --env-file infra/deploy/.env.production \
+              up -d --build --remove-orphans
+
+            echo "── Pruning unused images ──"
+            docker image prune -f
+
+            echo "── Deploy complete ──"
+            docker compose \
+              -f infra/deploy/docker-compose.prod.yml \
+              ps

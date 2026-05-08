@@ -1,7 +1,8 @@
 import {notFound} from 'next/navigation';
 import {getRequestConfig} from 'next-intl/server';
 
-export const locales = ['en'];
+export const locales = ['en', 'pt-BR'] as const;
+export const defaultLocale = 'en';
 
 export default getRequestConfig(async (context) => {
   const locale = (context as any).locale || (await (context as any).requestLocale);

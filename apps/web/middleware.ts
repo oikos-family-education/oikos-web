@@ -1,10 +1,11 @@
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
-import { locales } from './i18n';
+import { locales, defaultLocale } from './i18n';
 
 const intlMiddleware = createMiddleware({
-  locales,
-  defaultLocale: 'en'
+  locales: locales as unknown as string[],
+  defaultLocale,
+  localePrefix: 'as-needed'
 });
 
 const PROTECTED_PATHS = [
@@ -13,37 +14,40 @@ const PROTECTED_PATHS = [
   '/notes', '/progress', '/assistant', '/community', '/settings'
 ];
 
-function getPathnameWithoutLocale(pathname: string): string {
+function splitLocale(pathname: string): { locale: string | null; rest: string } {
   for (const locale of locales) {
+    if (pathname === `/${locale}`) return { locale, rest: '/' };
     if (pathname.startsWith(`/${locale}/`)) {
-      return pathname.slice(locale.length + 1);
-    }
-    if (pathname === `/${locale}`) {
-      return '/';
+      return { locale, rest: pathname.slice(locale.length + 1) };
     }
   }
-  return pathname;
+  return { locale: null, rest: pathname };
+}
+
+function withLocalePrefix(path: string, locale: string | null): string {
+  if (!locale || locale === defaultLocale) return path;
+  return `/${locale}${path === '/' ? '' : path}`;
 }
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const pathWithoutLocale = getPathnameWithoutLocale(pathname);
+  const { locale, rest } = splitLocale(pathname);
   const hasToken = request.cookies.has('access_token');
 
   // Authenticated user visiting root → redirect to dashboard
-  if (pathWithoutLocale === '/' && hasToken) {
+  if (rest === '/' && hasToken) {
     const url = request.nextUrl.clone();
-    url.pathname = '/en/dashboard';
+    url.pathname = withLocalePrefix('/dashboard', locale);
     return NextResponse.redirect(url);
   }
 
   // Protected route without token → redirect to login
   const isProtected = PROTECTED_PATHS.some(
-    p => pathWithoutLocale === p || pathWithoutLocale.startsWith(p + '/')
+    p => rest === p || rest.startsWith(p + '/')
   );
   if (isProtected && !hasToken) {
     const url = request.nextUrl.clone();
-    url.pathname = '/en/login';
+    url.pathname = withLocalePrefix('/login', locale);
     return NextResponse.redirect(url);
   }
 

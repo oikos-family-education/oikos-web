@@ -36,8 +36,20 @@ interface CalendarEvent {
 }
 
 type ScheduleItem =
-  | { kind: 'routine'; data: RoutineEntry; sortKey: number; startMinute: number }
-  | { kind: 'event'; data: CalendarEvent; sortKey: number; startMinute: number };
+  | {
+      kind: 'routine';
+      data: RoutineEntry;
+      sortKey: number;
+      startMinute: number;
+      endMinute: number;
+    }
+  | {
+      kind: 'event';
+      data: CalendarEvent;
+      sortKey: number;
+      startMinute: number;
+      endMinute: number;
+    };
 
 function formatMinuteOfDay(min: number): string {
   const h = Math.floor(min / 60);
@@ -138,6 +150,7 @@ export function TodaySchedule() {
           data: r,
           sortKey: r.start_minute,
           startMinute: r.start_minute,
+          endMinute: r.start_minute + r.duration_minutes,
         });
       }
     }
@@ -148,13 +161,50 @@ export function TodaySchedule() {
           continue;
         }
         const start = new Date(ev.start_at);
-        const minute = start.getHours() * 60 + start.getMinutes();
-        timed.push({ kind: 'event', data: ev, sortKey: minute, startMinute: minute });
+        const end = new Date(ev.end_at);
+        const startMin = start.getHours() * 60 + start.getMinutes();
+        const endMin = end.getHours() * 60 + end.getMinutes();
+        timed.push({
+          kind: 'event',
+          data: ev,
+          sortKey: startMin,
+          startMinute: startMin,
+          endMinute: endMin > startMin ? endMin : startMin,
+        });
       }
     }
     timed.sort((a, b) => a.sortKey - b.sortKey);
     return { allDayEvents: allDay, timedItems: timed };
   }, [routine, events]);
+
+  const [nowMinutes, setNowMinutes] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMinutes(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const { currentIdx, nextIdx } = useMemo(() => {
+    let cur = -1;
+    let nxt = -1;
+    for (let i = 0; i < timedItems.length; i++) {
+      const it = timedItems[i];
+      if (cur === -1 && nowMinutes >= it.startMinute && nowMinutes < it.endMinute) {
+        cur = i;
+      }
+      if (nxt === -1 && it.startMinute > nowMinutes) {
+        nxt = i;
+      }
+    }
+    return { currentIdx: cur, nextIdx: nxt };
+  }, [timedItems, nowMinutes]);
 
   const hasItems = allDayEvents.length > 0 || timedItems.length > 0;
 
@@ -222,18 +272,37 @@ export function TodaySchedule() {
                   idx > 0 ? Math.floor(timedItems[idx - 1].startMinute / 60) : -1;
                 const currHour = Math.floor(item.startMinute / 60);
                 const newHour = currHour !== prevHour;
+                const isCurrent = idx === currentIdx;
+                const isNext = idx === nextIdx;
+
+                const cardClass = isCurrent
+                  ? 'border-primary ring-2 ring-primary/20 bg-primary/5 shadow-sm'
+                  : isNext
+                    ? 'border-primary/40 bg-white shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-primary/40 hover:shadow-sm';
+
+                const StatusBadge = isCurrent ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white whitespace-nowrap">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-pulse" aria-hidden />
+                    {t('todayNow')}
+                  </span>
+                ) : isNext ? (
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary whitespace-nowrap">
+                    {t('todayUpNext')}
+                  </span>
+                ) : null;
 
                 if (item.kind === 'routine') {
                   const r = item.data;
                   const title = r.is_free_time ? 'Free time' : r.subject_name || 'Untitled';
                   const accent = r.color || (r.is_free_time ? '#94a3b8' : '#6366f1');
-                  const dim = r.is_free_time ? 'opacity-70' : '';
+                  const dim = r.is_free_time && !isCurrent && !isNext ? 'opacity-70' : '';
                   return (
                     <li key={`routine-${r.id}`}>
                       {newHour && idx > 0 && <div className="h-2" aria-hidden />}
                       <Link
                         href="/planner"
-                        className={`flex items-stretch gap-3 rounded-lg border border-slate-200 bg-white hover:border-primary/40 hover:shadow-sm transition-all ${dim}`}
+                        className={`flex items-stretch gap-3 rounded-lg border transition-all ${cardClass} ${dim}`}
                       >
                         <span
                           className="w-1 rounded-l-lg flex-shrink-0"
@@ -250,7 +319,10 @@ export function TodaySchedule() {
                             </p>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
+                              {StatusBadge}
+                            </div>
                             <p className="text-[11px] text-slate-500 truncate">
                               {t('sourceWeekPlanner')}
                             </p>
@@ -268,7 +340,7 @@ export function TodaySchedule() {
                     {newHour && idx > 0 && <div className="h-2" aria-hidden />}
                     <Link
                       href={`/calendar?event=${ev.id}`}
-                      className="flex items-stretch gap-3 rounded-lg border border-slate-200 bg-white hover:border-primary/40 hover:shadow-sm transition-all"
+                      className={`flex items-stretch gap-3 rounded-lg border transition-all ${cardClass}`}
                     >
                       <span
                         className="w-1 rounded-l-lg flex-shrink-0"
@@ -282,7 +354,10 @@ export function TodaySchedule() {
                           </p>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{ev.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-slate-800 truncate">{ev.title}</p>
+                            {StatusBadge}
+                          </div>
                           <p className="text-[11px] text-slate-500 truncate">
                             {t('sourceCalendar')}
                           </p>

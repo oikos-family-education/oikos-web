@@ -57,12 +57,38 @@ def _swap_db_name(url: str, new_name: str) -> str:
     return urlunparse(parsed._replace(path=new_path))
 
 
-_TEST_URL = os.environ.get("TEST_DATABASE_URL") or _swap_db_name(_DEV_URL, _TEST_DB_NAME)
-
-
 def _strip_async_driver(url: str) -> str:
     """asyncpg URLs aren't usable from psycopg2 — strip the driver suffix."""
     return re.sub(r"\+asyncpg", "", url)
+
+
+def _looks_like_test_db(db_name: str) -> bool:
+    """A name is considered a test DB if it equals TEST_DB_NAME or contains "test"."""
+    name = db_name.lower()
+    return name == _TEST_DB_NAME.lower() or "test" in name
+
+
+def _resolve_test_url() -> str:
+    """Decide which URL to use for the test database.
+
+    Priority:
+      1. Explicit TEST_DATABASE_URL — trust the developer.
+      2. If DATABASE_URL already targets a test-like DB (e.g. CI), reuse it
+         directly so we don't create a second DB pointlessly.
+      3. Otherwise (local dev), derive a sibling DB by swapping the name.
+    """
+    explicit = os.environ.get("TEST_DATABASE_URL")
+    if explicit:
+        return explicit
+
+    dev_db_name = urlparse(_DEV_URL).path.lstrip("/")
+    if _looks_like_test_db(dev_db_name):
+        return _DEV_URL
+
+    return _swap_db_name(_DEV_URL, _TEST_DB_NAME)
+
+
+_TEST_URL = _resolve_test_url()
 
 
 def _ensure_test_db_exists() -> None:
@@ -71,11 +97,18 @@ def _ensure_test_db_exists() -> None:
     Uses a sync psycopg2 connection to the `postgres` maintenance DB on
     the same host, because CREATE DATABASE cannot run inside a transaction
     and asyncpg makes that awkward.
+
+    Safety guard: if we somehow ended up pointed at a clearly non-test DB
+    that matches DATABASE_URL, refuse to proceed. In CI/local dev with the
+    resolver above, this is never hit — it's a belt-and-braces backstop.
     """
     target_name = urlparse(_TEST_URL).path.lstrip("/")
-    # Sanity guard: refuse to wipe / migrate the dev DB.
     dev_name = urlparse(_DEV_URL).path.lstrip("/")
-    if target_name == dev_name and _TEST_URL == _DEV_URL:
+    if (
+        _TEST_URL == _DEV_URL
+        and not _looks_like_test_db(target_name)
+        and not os.environ.get("TEST_DATABASE_URL")
+    ):
         sys.stderr.write(
             "\n\033[0;31mREFUSING TO RUN TESTS AGAINST DATABASE_URL "
             f"({dev_name}).\033[0m\n"
@@ -84,7 +117,13 @@ def _ensure_test_db_exists() -> None:
         sys.exit(2)
 
     admin_url = _strip_async_driver(_swap_db_name(_DEV_URL, "postgres"))
-    conn = psycopg2.connect(admin_url)
+    try:
+        conn = psycopg2.connect(admin_url)
+    except psycopg2.OperationalError:
+        # No access to the maintenance DB (some managed Postgres setups) —
+        # assume the test DB already exists and let the engine fail loudly
+        # later if it doesn't.
+        return
     conn.autocommit = True
     try:
         with conn.cursor() as cur:

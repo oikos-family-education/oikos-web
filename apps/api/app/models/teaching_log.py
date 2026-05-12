@@ -20,6 +20,7 @@ class TeachingLog(Base):
     taught_on = Column(Date, nullable=False, index=True)
     child_id = Column(UUID(as_uuid=True), ForeignKey("children.id", ondelete="CASCADE"), nullable=True)
     subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    lesson_id = Column(UUID(as_uuid=True), ForeignKey("lessons.id", ondelete="SET NULL"), nullable=True, index=True)
     minutes = Column(SmallInteger, nullable=True)
     notes = Column(String(500), nullable=True)
     logged_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

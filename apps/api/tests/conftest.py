@@ -1,14 +1,24 @@
 """
 Shared pytest fixtures for the API test suite.
 
-The DB fixtures hit a real PostgreSQL — see `apps/api/.env` (or `apps/api/pyproject.toml`
-for pytest config). Tables are dropped + recreated once per session, then truncated
-between tests for isolation. Tests should NOT be run against the production database.
+The DB fixtures hit a real PostgreSQL, but ALWAYS against a SEPARATE test
+database (default name: ``oikos_test``) — never the dev/prod DATABASE_URL.
+
+The test DB name is derived from DATABASE_URL by swapping the final
+path segment, or can be overridden by setting TEST_DATABASE_URL.
+
+If the test DB does not exist, it is created automatically the first time
+the suite runs. Tables are dropped + recreated once per session and then
+truncated between tests for isolation.
 """
 import os
+import re
+import sys
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlparse, urlunparse
 
+import psycopg2
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -28,9 +38,110 @@ from app.models.child import Child
 from app.models.subject import Subject
 
 
-# ── Engine ──────────────────────────────────────────────────────────────────
+# ── Test DB isolation ───────────────────────────────────────────────────────
+#
+# CRITICAL: tests must never touch the dev DATABASE_URL. We derive a
+# separate database name (default `oikos_test`) on the same Postgres
+# instance, refuse to run if it collides with DATABASE_URL, and create
+# it on demand if missing.
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+_DEV_URL = settings.DATABASE_URL
+_TEST_DB_NAME = os.environ.get("TEST_DB_NAME", "oikos_test")
+
+
+def _swap_db_name(url: str, new_name: str) -> str:
+    """Return ``url`` with its database path component replaced by ``new_name``."""
+    parsed = urlparse(url)
+    # path is "/<dbname>"; query string is preserved.
+    new_path = "/" + new_name.lstrip("/")
+    return urlunparse(parsed._replace(path=new_path))
+
+
+def _strip_async_driver(url: str) -> str:
+    """asyncpg URLs aren't usable from psycopg2 — strip the driver suffix."""
+    return re.sub(r"\+asyncpg", "", url)
+
+
+def _looks_like_test_db(db_name: str) -> bool:
+    """A name is considered a test DB if it equals TEST_DB_NAME or contains "test"."""
+    name = db_name.lower()
+    return name == _TEST_DB_NAME.lower() or "test" in name
+
+
+def _resolve_test_url() -> str:
+    """Decide which URL to use for the test database.
+
+    Priority:
+      1. Explicit TEST_DATABASE_URL — trust the developer.
+      2. If DATABASE_URL already targets a test-like DB (e.g. CI), reuse it
+         directly so we don't create a second DB pointlessly.
+      3. Otherwise (local dev), derive a sibling DB by swapping the name.
+    """
+    explicit = os.environ.get("TEST_DATABASE_URL")
+    if explicit:
+        return explicit
+
+    dev_db_name = urlparse(_DEV_URL).path.lstrip("/")
+    if _looks_like_test_db(dev_db_name):
+        return _DEV_URL
+
+    return _swap_db_name(_DEV_URL, _TEST_DB_NAME)
+
+
+_TEST_URL = _resolve_test_url()
+
+
+def _ensure_test_db_exists() -> None:
+    """Create the test database if it does not yet exist.
+
+    Uses a sync psycopg2 connection to the `postgres` maintenance DB on
+    the same host, because CREATE DATABASE cannot run inside a transaction
+    and asyncpg makes that awkward.
+
+    Safety guard: if we somehow ended up pointed at a clearly non-test DB
+    that matches DATABASE_URL, refuse to proceed. In CI/local dev with the
+    resolver above, this is never hit — it's a belt-and-braces backstop.
+    """
+    target_name = urlparse(_TEST_URL).path.lstrip("/")
+    dev_name = urlparse(_DEV_URL).path.lstrip("/")
+    if (
+        _TEST_URL == _DEV_URL
+        and not _looks_like_test_db(target_name)
+        and not os.environ.get("TEST_DATABASE_URL")
+    ):
+        sys.stderr.write(
+            "\n\033[0;31mREFUSING TO RUN TESTS AGAINST DATABASE_URL "
+            f"({dev_name}).\033[0m\n"
+            "Set TEST_DATABASE_URL or TEST_DB_NAME to a separate database.\n\n"
+        )
+        sys.exit(2)
+
+    admin_url = _strip_async_driver(_swap_db_name(_DEV_URL, "postgres"))
+    try:
+        conn = psycopg2.connect(admin_url)
+    except psycopg2.OperationalError:
+        # No access to the maintenance DB (some managed Postgres setups) —
+        # assume the test DB already exists and let the engine fail loudly
+        # later if it doesn't.
+        return
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (target_name,))
+            if cur.fetchone() is None:
+                # Identifier — safe to interpolate because TEST_DB_NAME is
+                # developer-controlled, but quote it anyway.
+                cur.execute(f'CREATE DATABASE "{target_name}";')
+    finally:
+        conn.close()
+
+
+_ensure_test_db_exists()
+
+
+# ── Engine (test DB only — never DATABASE_URL) ──────────────────────────────
+
+engine = create_async_engine(_TEST_URL, echo=False, poolclass=NullPool)
 TestingSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -57,6 +168,8 @@ async def setup_db():
 TRUNCATE_TABLES_SQL = """
 TRUNCATE TABLE
     teaching_logs,
+    lesson_blocks,
+    lessons,
     routine_entries,
     week_templates,
     portfolio_entries,

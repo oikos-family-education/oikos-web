@@ -10,7 +10,7 @@ const intlMiddleware = createMiddleware({
 
 const PROTECTED_PATHS = [
   '/dashboard', '/family', '/children', '/subjects', '/curriculums',
-  '/planner', '/calendar', '/projects', '/resources',
+  '/planner', '/calendar', '/projects', '/lessons', '/resources',
   '/notes', '/progress', '/assistant', '/community', '/settings'
 ];
 

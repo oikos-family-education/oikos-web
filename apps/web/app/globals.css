@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────
+   CSS Custom Properties — light mode defaults
+   ───────────────────────────────────────────── */
+:root {
+  --color-primary:       99 102 241;   /* #6366f1 */
+  --color-primary-hover: 79  70 229;   /* #4f46e5 */
+  --color-primary-light: 224 231 255;  /* #e0e7ff */
+  --color-primary-dark:  55  48 163;   /* #3730a3 */
+  --color-secondary:     244  63  94;  /* #f43f5e */
+  --color-background:    248 250 252;  /* #f8fafc */
+  --color-surface:       255 255 255;  /* #ffffff */
+  --color-border:        226 232 240;  /* #e2e8f0 */
+  --color-error:         239  68  68;  /* #ef4444 */
+  --color-success:        34 197  94;  /* #22c55e */
+}
+
 @layer base {
   body {
     @apply bg-background text-slate-900 antialiased;
@@ -9,7 +25,139 @@
   }
 }
 
-/* Base styling for modern vibe */
+/* ─────────────────────────────────────────────
+   Dark mode — CSS variable overrides
+   ───────────────────────────────────────────── */
+html.dark {
+  --color-background: 15  23  42;  /* slate-950 */
+  --color-surface:    30  41  59;  /* slate-800 */
+  --color-border:     51  65  85;  /* slate-700 */
+}
+
+/* Body gradient */
+html.dark body {
+  background-image: linear-gradient(to bottom right, #0f172a, #1e293b, #0f1f35) !important;
+  color: #f1f5f9;
+}
+
+/* Card / panel backgrounds */
+html.dark .bg-white { background-color: rgb(30 41 59) !important; }
+html.dark .bg-slate-50 { background-color: rgb(15 23 42) !important; }
+html.dark .bg-slate-100 { background-color: rgb(30 41 59) !important; }
+
+/* Borders */
+html.dark .border-slate-200 { border-color: rgb(51 65 85) !important; }
+html.dark .border-slate-100 { border-color: rgb(30 41 59) !important; }
+html.dark .border-white { border-color: rgb(51 65 85) !important; }
+
+/* Text */
+html.dark .text-slate-800 { color: rgb(241 245 249) !important; }
+html.dark .text-slate-700 { color: rgb(203 213 225) !important; }
+html.dark .text-slate-600 { color: rgb(148 163 184) !important; }
+html.dark .text-slate-500 { color: rgb(100 116 139) !important; }
+html.dark .text-slate-400 { color: rgb(71  85 105) !important; }
+html.dark .text-slate-900 { color: rgb(241 245 249) !important; }
+
+/* Hover / interactive */
+html.dark .hover\:bg-slate-50:hover { background-color: rgb(30 41 59) !important; }
+html.dark .hover\:border-slate-300:hover { border-color: rgb(71 85 105) !important; }
+
+/* Inputs and selects */
+html.dark input:not([type="radio"]):not([type="checkbox"]),
+html.dark select,
+html.dark textarea {
+  background-color: rgb(15 23 42) !important;
+  border-color: rgb(51 65 85) !important;
+  color: rgb(241 245 249) !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: rgb(100 116 139) !important;
+}
+
+/* Sidebar / nav */
+html.dark .glass {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(51, 65, 85, 0.4);
+}
+
+/* Red danger zone card in dark */
+html.dark .bg-red-50 { background-color: rgb(30 10 10) !important; }
+html.dark .border-red-100 { border-color: rgb(60 20 20) !important; }
+html.dark .border-red-200 { border-color: rgb(80 30 30) !important; }
+
+/* Amber warning in dark */
+html.dark .bg-amber-50 { background-color: rgb(28 20 10) !important; }
+html.dark .border-amber-200 { border-color: rgb(70 50 10) !important; }
+html.dark .text-amber-800 { color: rgb(252 211 77) !important; }
+
+/* ─────────────────────────────────────────────
+   Font size scaling
+   rem-based: changing :root font-size scales all rem units
+   ───────────────────────────────────────────── */
+html.font-large { font-size: 18px; }
+html.font-xl    { font-size: 20px; }
+
+/* ─────────────────────────────────────────────
+   Reduce motion
+   ───────────────────────────────────────────── */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ─────────────────────────────────────────────
+   High contrast
+   ───────────────────────────────────────────── */
+html.high-contrast {
+  --color-border: 30 30 30;
+}
+html.high-contrast .text-slate-600,
+html.high-contrast .text-slate-500 {
+  color: rgb(15 23 42) !important;
+}
+html.high-contrast.dark .text-slate-600,
+html.high-contrast.dark .text-slate-500 {
+  color: rgb(248 250 252) !important;
+}
+html.high-contrast .border-slate-200,
+html.high-contrast .border-slate-100 {
+  border-color: rgb(30 30 30) !important;
+}
+html.high-contrast.dark .border-slate-200,
+html.high-contrast.dark .border-slate-100 {
+  border-color: rgb(248 250 252) !important;
+}
+
+/* ─────────────────────────────────────────────
+   Dyslexia-friendly font (OpenDyslexic via CDN)
+   ───────────────────────────────────────────── */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/opendyslexic@latest/fonts/OpenDyslexic-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html.dyslexia-font body,
+html.dyslexia-font input,
+html.dyslexia-font button,
+html.dyslexia-font select,
+html.dyslexia-font textarea,
+html.dyslexia-font label {
+  font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────────
+   Existing utilities
+   ───────────────────────────────────────────── */
 .glass {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
@@ -18,23 +166,15 @@
 }
 
 @keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(30px, -50px) scale(1.1); }
+  66%  { transform: translate(-20px, 20px) scale(0.9); }
   100% { transform: translate(0px, 0px) scale(1); }
 }
 
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 
 @media print {
   body.printing-report > *:not(.progress-report-sheet) {
@@ -52,18 +192,10 @@
     box-shadow: none !important;
     background: white !important;
   }
-  .progress-report-sheet .page-break {
-    break-before: page;
-  }
-  .progress-report-sheet a {
-    color: inherit;
-    text-decoration: none;
-  }
+  .progress-report-sheet .page-break { break-before: page; }
+  .progress-report-sheet a { color: inherit; text-decoration: none; }
 }
 
 @media print {
-  @page {
-    size: A4;
-    margin: 0;
-  }
+  @page { size: A4; margin: 0; }
 }

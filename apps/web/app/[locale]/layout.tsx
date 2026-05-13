@@ -22,6 +22,22 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        {/* Apply UI preferences before React hydrates to prevent flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: `
+(function(){try{
+  var p=JSON.parse(localStorage.getItem('oikos:ui-prefs')||'{}');
+  var h=document.documentElement;
+  var theme=p.theme||'system';
+  if(theme==='dark'||(theme==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){h.classList.add('dark');}
+  if(p.font_size==='large'){h.classList.add('font-large');}
+  else if(p.font_size==='xl'){h.classList.add('font-xl');}
+  if(p.reduce_motion){h.classList.add('reduce-motion');}
+  if(p.high_contrast){h.classList.add('high-contrast');}
+  if(p.dyslexia_font){h.classList.add('dyslexia-font');}
+}catch(e){}}());
+        `}} />
+      </head>
       <body className={`${inter.className} min-h-screen bg-gradient-to-br from-indigo-50 via-white to-orange-50 relative overflow-x-hidden`}>
         <NextIntlClientProvider messages={messages}>
           {/* Decorative background blobs */}

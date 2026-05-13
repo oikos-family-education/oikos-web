@@ -8,7 +8,10 @@ from app.schemas.auth import (
     LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest,
     LoginResponse, MessageResponse
 )
-from app.services.auth_service import AuthService, check_rate_limit
+from app.services.auth_service import (
+    AuthService, check_rate_limit,
+    store_refresh_token, validate_refresh_token, rotate_refresh_token, revoke_refresh_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,7 +21,8 @@ def get_auth_service(db: AsyncSession = Depends(get_db)):
 def _is_secure() -> bool:
     return settings.APP_BASE_URL.startswith("https")
 
-def set_auth_cookies(response: Response, user_id: str):
+def set_auth_cookies(response: Response, user_id: str) -> str:
+    """Set auth cookies and return the raw refresh token for Redis storage."""
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
     secure = _is_secure()
@@ -38,6 +42,7 @@ def set_auth_cookies(response: Response, user_id: str):
         samesite="strict",
         max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
+    return refresh_token
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
@@ -50,7 +55,8 @@ async def login(
     await check_rate_limit(f"ratelimit:login:{ip}", 10, 900)
     
     user = await service.authenticate_user(req)
-    set_auth_cookies(response, str(user.id))
+    refresh_token = set_auth_cookies(response, str(user.id))
+    await store_refresh_token(str(user.id), refresh_token)
     return LoginResponse(user=user)
 
 @router.post("/register", response_model=LoginResponse, status_code=201)
@@ -64,7 +70,8 @@ async def register(
     await check_rate_limit(f"ratelimit:register:{ip}", 5, 3600)
     
     user = await service.register_user(req)
-    set_auth_cookies(response, str(user.id))
+    refresh_token = set_auth_cookies(response, str(user.id))
+    await store_refresh_token(str(user.id), refresh_token)
     return LoginResponse(user=user)
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -97,7 +104,8 @@ async def reset_password(
     await check_rate_limit(f"ratelimit:reset:{ip}", 5, 3600)
     
     user = await service.reset_password(req)
-    set_auth_cookies(response, str(user.id))
+    refresh_token = set_auth_cookies(response, str(user.id))
+    await store_refresh_token(str(user.id), refresh_token)
     return LoginResponse(message="Password reset successfully.", user=user)
 
 @router.get("/me", response_model=LoginResponse)
@@ -105,7 +113,10 @@ async def get_me(current_user=Depends(get_current_user)):
     return LoginResponse(user=current_user)
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(response: Response, current_user: User = Depends(get_current_user)):
+async def logout(request: Request, response: Response, current_user: User = Depends(get_current_user)):
+    token = request.cookies.get("refresh_token")
+    if token:
+        await revoke_refresh_token(token, str(current_user.id))
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return MessageResponse(message="Logged out successfully.")
@@ -115,36 +126,22 @@ async def refresh(request: Request, response: Response):
     ip = request.client.host if request.client else "127.0.0.1"
     await check_rate_limit(f"ratelimit:refresh:{ip}", 30, 900)
 
-    refresh_token = request.cookies.get("refresh_token")
-    if not refresh_token:
+    old_refresh_token = request.cookies.get("refresh_token")
+    if not old_refresh_token:
         raise HTTPException(status_code=401, detail={"detail": "Refresh token is missing.", "code": "invalid_refresh_token"})
 
     from jose import jwt, JWTError
     try:
-        payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(old_refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
         if user_id is None:
             raise JWTError()
     except JWTError:
         raise HTTPException(status_code=401, detail={"detail": "Refresh token is invalid or expired.", "code": "invalid_refresh_token"})
 
-    secure = _is_secure()
-    access_token = create_access_token(user_id)
-    new_refresh_token = create_refresh_token(user_id)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=secure,
-        samesite="strict",
-        max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=secure,
-        samesite="strict",
-        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-    )
+    if not await validate_refresh_token(old_refresh_token, user_id):
+        raise HTTPException(status_code=401, detail={"detail": "Refresh token has been revoked.", "code": "invalid_refresh_token"})
+
+    new_refresh_token = set_auth_cookies(response, user_id)
+    await rotate_refresh_token(old_refresh_token, new_refresh_token, user_id)
     return MessageResponse(message="Token refreshed.")

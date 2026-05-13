@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from '../lib/navigation';
 
 interface User {
@@ -45,11 +45,22 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// Refresh 10 minutes before the 60-minute access token expires
+const SILENT_REFRESH_INTERVAL_MS = 50 * 60 * 1000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [family, setFamily] = useState<Family | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startSilentRefresh = useCallback(() => {
+    if (refreshIntervalRef.current) return;
+    refreshIntervalRef.current = setInterval(async () => {
+      await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' });
+    }, SILENT_REFRESH_INTERVAL_MS);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (cancelled) return;
         setUser(userData);
+        startSilentRefresh();
 
         // Fetch family data
         const familyRes = await fetch('/api/v1/families/me', { credentials: 'include' });
@@ -101,10 +113,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = useCallback(async () => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
     await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
     router.replace('/login');
   }, [router]);

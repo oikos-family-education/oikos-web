@@ -69,6 +69,8 @@ services:
       api:
         condition: service_started
     env_file: .env
+    environment:
+      WATCHPACK_POLLING: "true"
     volumes:
       - .:/app
       - /app/node_modules
@@ -76,6 +78,7 @@ services:
       - /app/packages/ui/node_modules
       - /app/packages/config/node_modules
       - /app/packages/types/node_modules
+      - /app/apps/web/.next
 
 volumes:
   postgres_data:

@@ -56,7 +56,13 @@ export function CalendarPage() {
   const t = useTranslations('Calendar');
   const router = useRouter();
 
-  const [view, setView] = React.useState<CalendarView>('month');
+  const [view, setView] = React.useState<CalendarView>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      if (stored === 'month' || stored === 'week' || stored === 'day') return stored as CalendarView;
+    }
+    return 'month';
+  });
   const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
   const [events, setEvents] = React.useState<CalendarEvent[]>([]);
   const [routineBlocks, setRoutineBlocks] = React.useState<RoutineProjectionBlock[]>([]);
@@ -74,10 +80,12 @@ export function CalendarPage() {
   const [isCreating, setIsCreating] = React.useState(false);
   const [createDefaults, setCreateDefaults] = React.useState<{ date?: Date; hour?: number }>({});
 
+  // Fallback for SSR hydration: server renders with view='month' (window undefined),
+  // so after mount we correct to the stored value if the lazy initializer returned the wrong default.
   React.useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(VIEW_STORAGE_KEY) : null;
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
     if (stored === 'month' || stored === 'week' || stored === 'day') {
-      setView(stored);
+      setView(stored as CalendarView);
     }
   }, []);
 
@@ -130,28 +138,44 @@ export function CalendarPage() {
     };
   }, []);
 
-  const fetchEvents = React.useCallback(async () => {
-    setIsLoading(true);
-    const { from, to } = computeRange(view, currentDate);
-    const params = new URLSearchParams();
-    params.set('from', toISODate(from));
-    params.set('to', toISODate(to));
-    if (view !== 'month') params.set('include_routine', 'true');
-    const res = await fetch(`/api/v1/calendar/events?${params}`, { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      setEvents(data.events || []);
-      setRoutineBlocks(data.routine_projections || []);
-    } else {
-      setEvents([]);
-      setRoutineBlocks([]);
-    }
-    setIsLoading(false);
-  }, [view, currentDate]);
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const refresh = React.useCallback(() => setRefreshKey((k: number) => k + 1), []);
 
   React.useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    const controller = new AbortController();
+    setIsLoading(true);
+
+    async function fetchData() {
+      const { from, to } = computeRange(view, currentDate);
+      const params = new URLSearchParams();
+      params.set('from', toISODate(from));
+      params.set('to', toISODate(to));
+      if (view !== 'month') params.set('include_routine', 'true');
+      try {
+        const res = await fetch(`/api/v1/calendar/events?${params}`, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEvents(data.events || []);
+          setRoutineBlocks(data.routine_projections || []);
+        } else {
+          setEvents([]);
+          setRoutineBlocks([]);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name !== 'AbortError') {
+          setEvents([]);
+          setRoutineBlocks([]);
+        }
+      }
+      setIsLoading(false);
+    }
+
+    fetchData();
+    return () => controller.abort();
+  }, [view, currentDate, refreshKey]);
 
   const filteredEvents = React.useMemo(() => {
     return events.filter((e) => {
@@ -234,7 +258,7 @@ export function CalendarPage() {
     });
     if (res.ok) {
       setSelectedEvent(null);
-      fetchEvents();
+      refresh();
     }
   }
 
@@ -347,6 +371,7 @@ export function CalendarPage() {
         />
 
         <div className="flex-1 overflow-hidden bg-white relative">
+
           {isLoading && (
             <div className="absolute top-4 right-4 z-10">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />

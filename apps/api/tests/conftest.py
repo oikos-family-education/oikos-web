@@ -362,15 +362,30 @@ async def make_subject(db: AsyncSession):
     return _make
 
 
-# ── Mock the rate limiter so tests don't depend on Redis state ──────────────
+# ── Mock Redis so tests don't depend on a live Redis instance ───────────────
 
 @pytest.fixture(autouse=True)
 def mock_rate_limit(monkeypatch):
     async def _noop(*args, **kwargs):
         return None
 
+    async def _valid(*args, **kwargs):
+        return True
+
     import app.services.auth_service as auth_service
     import app.routers.auth as auth_router
 
     monkeypatch.setattr(auth_service, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_router, "check_rate_limit", _noop)
+
+    # Token store — no-ops; validate always returns True so refresh tests pass
+    for fn, replacement in (
+        ("store_refresh_token", _noop),
+        ("validate_refresh_token", _valid),
+        ("rotate_refresh_token", _noop),
+        ("revoke_refresh_token", _noop),
+        ("revoke_all_refresh_tokens", _noop),
+    ):
+        monkeypatch.setattr(auth_service, fn, replacement)
+        if hasattr(auth_router, fn):
+            monkeypatch.setattr(auth_router, fn, replacement)

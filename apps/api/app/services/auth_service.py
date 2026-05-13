@@ -12,6 +12,48 @@ from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordReques
 
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
+_REFRESH_TTL = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+async def store_refresh_token(user_id: str, token: str) -> None:
+    hashed = hash_token(token)
+    pipe = redis_client.pipeline()
+    pipe.setex(f"rt:{hashed}", _REFRESH_TTL, user_id)
+    pipe.sadd(f"rt_user:{user_id}", hashed)
+    pipe.expire(f"rt_user:{user_id}", _REFRESH_TTL)
+    await pipe.execute()
+
+async def validate_refresh_token(token: str, user_id: str) -> bool:
+    hashed = hash_token(token)
+    stored = await redis_client.get(f"rt:{hashed}")
+    return stored == user_id
+
+async def rotate_refresh_token(old_token: str, new_token: str, user_id: str) -> None:
+    old_hashed = hash_token(old_token)
+    new_hashed = hash_token(new_token)
+    pipe = redis_client.pipeline()
+    pipe.delete(f"rt:{old_hashed}")
+    pipe.srem(f"rt_user:{user_id}", old_hashed)
+    pipe.setex(f"rt:{new_hashed}", _REFRESH_TTL, user_id)
+    pipe.sadd(f"rt_user:{user_id}", new_hashed)
+    pipe.expire(f"rt_user:{user_id}", _REFRESH_TTL)
+    await pipe.execute()
+
+async def revoke_refresh_token(token: str, user_id: str) -> None:
+    hashed = hash_token(token)
+    pipe = redis_client.pipeline()
+    pipe.delete(f"rt:{hashed}")
+    pipe.srem(f"rt_user:{user_id}", hashed)
+    await pipe.execute()
+
+async def revoke_all_refresh_tokens(user_id: str) -> None:
+    hashes = await redis_client.smembers(f"rt_user:{user_id}")
+    if hashes:
+        pipe = redis_client.pipeline()
+        for h in hashes:
+            pipe.delete(f"rt:{h}")
+        pipe.delete(f"rt_user:{user_id}")
+        await pipe.execute()
+
 async def check_rate_limit(key: str, limit: int, window_seconds: int):
     val = await redis_client.get(key)
     if val and int(val) >= limit:
@@ -96,4 +138,5 @@ class AuthService:
         user.failed_login_attempts = 0
         user.locked_until = None
         await self.db.commit()
+        await revoke_all_refresh_tokens(str(user.id))
         return user

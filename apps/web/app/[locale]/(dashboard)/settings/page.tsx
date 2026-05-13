@@ -1,11 +1,10 @@
-'use client';
-
-import { Settings } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { PlaceholderPage } from '../../../../components/dashboard/PlaceholderPage';
+import { Suspense } from 'react';
+import { SettingsPageClient } from '../../../../components/settings/SettingsPageClient';
 
 export default function SettingsPage() {
-  const t = useTranslations('Placeholder');
-  const tNav = useTranslations('Navigation');
-  return <PlaceholderPage title={tNav('settings')} description={t('settingsDesc')} icon={Settings} />;
+  return (
+    <Suspense>
+      <SettingsPageClient />
+    </Suspense>
+  );
 }

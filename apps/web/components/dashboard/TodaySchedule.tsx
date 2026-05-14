@@ -314,7 +314,11 @@ export function TodaySchedule() {
     </>
   );
 
-  function renderLessonRow(lesson: LessonSummary, accentOverride?: string) {
+  function renderLessonRow(
+    lesson: LessonSummary,
+    opts: { accentOverride?: string; compact?: boolean } = {},
+  ) {
+    const { accentOverride, compact = false } = opts;
     const accent = accentOverride || lesson.subject.color || '#6366f1';
     return (
       <li
@@ -334,12 +338,14 @@ export function TodaySchedule() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
               <p className="text-sm font-medium text-slate-800 truncate flex-1">{lesson.title}</p>
-              <LessonStatusBadge status={lesson.status} />
+              {!compact && <LessonStatusBadge status={lesson.status} />}
             </div>
-            <p className="text-[11px] text-slate-500 truncate">
-              {lesson.subject.name}
-              {lesson.estimated_duration_minutes ? ` · ${formatDuration(lesson.estimated_duration_minutes)}` : ''}
-            </p>
+            {!compact && (
+              <p className="text-[11px] text-slate-500 truncate">
+                {lesson.subject.name}
+                {lesson.estimated_duration_minutes ? ` · ${formatDuration(lesson.estimated_duration_minutes)}` : ''}
+              </p>
+            )}
           </div>
         </Link>
         {isLessonActionable(lesson.status) && (
@@ -463,8 +469,10 @@ export function TodaySchedule() {
                         </div>
                       </Link>
                       {matchingLessons.length > 0 && (
-                        <ul className="mt-1.5 ml-[5.25rem] space-y-1.5">
-                          {matchingLessons.map((lesson) => renderLessonRow(lesson, accent))}
+                        <ul className="mt-1.5 ml-4 space-y-1.5">
+                          {matchingLessons.map((lesson) =>
+                            renderLessonRow(lesson, { accentOverride: accent, compact: true }),
+                          )}
                         </ul>
                       )}
                     </li>

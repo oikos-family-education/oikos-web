@@ -79,13 +79,15 @@ async def list_lessons(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
     subject_id: Optional[UUID] = None,
-    status: Optional[str] = None,
+    status: Optional[list[str]] = Query(None),
     child_id: Optional[UUID] = None,
     curriculum_id: Optional[UUID] = None,
     project_id: Optional[UUID] = None,
     q: Optional[str] = None,
+    order: str = Query("asc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    include_content: bool = Query(False),
     current_user: User = Depends(get_current_user),
     service: LessonService = Depends(get_lesson_service),
     family_service: FamilyService = Depends(get_family_service),
@@ -101,8 +103,10 @@ async def list_lessons(
         curriculum_id=curriculum_id,
         project_id=project_id,
         q=q,
+        order=order,
         limit=limit,
         offset=offset,
+        include_content=include_content,
     )
 
 

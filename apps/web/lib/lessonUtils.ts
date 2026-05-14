@@ -33,8 +33,12 @@ export interface LessonSummary {
   status: LessonStatus;
   scheduled_for: string;          // ISO yyyy-MM-dd
   estimated_duration_minutes: number | null;
+  reference_number: string | null;
+  sequence_number: number;
   subject: SubjectMinimal;
   tags: string[];
+  /** Only populated when the list endpoint was called with include_content=true. */
+  content_html?: string | null;
 }
 
 export type LessonBlockType =
@@ -68,11 +72,27 @@ export interface LessonDetail extends LessonSummary {
   actual_duration_minutes: number | null;
   completion_notes: string | null;
   taught_on: string | null;
+  content_html: string | null;
   blocks: LessonBlock[];
   family_id: string;
   created_by_user_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Human-readable identifier shown in the UI:
+ *   "Math #007" — pad sequence_number to 3 digits for visual rhythm.
+ *   When a user-supplied reference number is set, prefer it.
+ */
+export function formatLessonIdentifier(
+  subjectName: string,
+  sequenceNumber: number,
+  referenceNumber: string | null,
+): string {
+  if (referenceNumber && referenceNumber.trim()) return referenceNumber;
+  const padded = String(sequenceNumber).padStart(3, '0');
+  return `${subjectName} #${padded}`;
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────

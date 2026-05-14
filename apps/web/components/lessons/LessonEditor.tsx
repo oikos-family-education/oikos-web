@@ -1,29 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import React from 'react';
 import {
-  ArrowLeft, BookOpen, Calendar as CalendarIcon, CheckCircle2,
-  Clock, Copy, Heading1, Image as ImageIcon, Link2, ListChecks,
-  Minus, MessageSquare, Plus, Save, Trash2, Type, Video,
+  AlertTriangle, ArrowLeft, BookOpen, Calendar as CalendarIcon, CheckCircle2,
+  ChevronDown, Clock, Hash, Printer, Save, Trash2, icons as lucideIcons,
 } from 'lucide-react';
 import { Button } from '@oikos/ui';
-import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, useSortable, verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Link, useRouter } from '../../lib/navigation';
 import {
-  LESSON_BLOCK_TYPES, todayISO,
-  type LessonBlock, type LessonBlockType, type LessonDetail, type LessonStatus,
+  formatLessonIdentifier, todayISO,
+  type LessonDetail, type LessonStatus,
 } from '../../lib/lessonUtils';
+import { useAuth } from '../../providers/AuthProvider';
 import { LessonStatusBadge } from './LessonStatusBadge';
-import { LessonBlockEditor } from './LessonBlockEditor';
+import { RichTextEditor } from './RichTextEditor';
+import { ShieldPreview } from '../onboarding/ShieldPreview';
+import type { ShieldConfig } from '../onboarding/ShieldBuilder';
 
 interface SubjectOption {
   id: string;
@@ -42,25 +36,29 @@ interface LessonEditorProps {
   defaultDateISO?: string;
 }
 
-const BLOCK_PICKER: Array<{
-  type: LessonBlockType;
-  icon: React.ReactNode;
-  labelKey: string;
-  defaultContent: Record<string, unknown>;
-}> = [
-  { type: 'text',         icon: <Type className="w-4 h-4" />,         labelKey: 'blockText',        defaultContent: { html: '' } },
-  { type: 'heading',      icon: <Heading1 className="w-4 h-4" />,     labelKey: 'blockHeading',     defaultContent: { level: 2, text: '' } },
-  { type: 'link',         icon: <Link2 className="w-4 h-4" />,        labelKey: 'blockLink',        defaultContent: { url: '' } },
-  { type: 'checklist',    icon: <ListChecks className="w-4 h-4" />,   labelKey: 'blockChecklist',   defaultContent: { items: [] } },
-  { type: 'image_url',    icon: <ImageIcon className="w-4 h-4" />,    labelKey: 'blockImageUrl',    defaultContent: { url: '' } },
-  { type: 'video_embed',  icon: <Video className="w-4 h-4" />,        labelKey: 'blockVideoEmbed',  defaultContent: { url: '' } },
-  { type: 'callout',      icon: <MessageSquare className="w-4 h-4" />, labelKey: 'blockCallout',     defaultContent: { icon: '💡', text: '', color: 'blue' } },
-  { type: 'divider',      icon: <Minus className="w-4 h-4" />,         labelKey: 'blockDivider',     defaultContent: {} },
-];
+// Status transitions exposed in the header dropdown. Mirrors the server's
+// _ALLOWED_TRANSITIONS map but excludes self-transitions and `completed`
+// (handled by the dedicated CompletionDialog).
+const STATUS_ACTIONS: Record<LessonStatus, LessonStatus[]> = {
+  draft:       ['scheduled', 'in_progress', 'cancelled'],
+  scheduled:   ['in_progress', 'draft', 'cancelled'],
+  in_progress: ['scheduled', 'cancelled'],
+  completed:   [],
+  cancelled:   [],
+};
+
+const STATUS_ACTION_KEY: Record<LessonStatus, string> = {
+  draft:       'statusActionDraft',
+  scheduled:   'statusActionScheduled',
+  in_progress: 'statusActionInProgress',
+  completed:   'statusCompleted',
+  cancelled:   'statusActionCancelled',
+};
 
 export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
   const t = useTranslations('Lessons');
   const router = useRouter();
+  const { family } = useAuth();
   const isNew = lessonId === null;
 
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
@@ -78,8 +76,12 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
   const [draftSubjectId, setDraftSubjectId] = useState('');
   const [draftScheduledFor, setDraftScheduledFor] = useState(defaultDateISO || todayISO());
   const [draftDuration, setDraftDuration] = useState<number | ''>('');
+  const [draftReference, setDraftReference] = useState('');
   const [draftObjectives, setDraftObjectives] = useState<string[]>([]);
   const [draftTags, setDraftTags] = useState<string[]>([]);
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   // ── Initial loads ────────────────────────────────────────────────────
 
@@ -154,6 +156,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
           subject_id: draftSubjectId,
           scheduled_for: draftScheduledFor,
           estimated_duration_minutes: draftDuration === '' ? null : Number(draftDuration),
+          reference_number: draftReference.trim() || null,
           objectives: draftObjectives,
           tags: draftTags,
         }),
@@ -191,13 +194,24 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     }
   }
 
-  async function handleDelete() {
+  async function confirmDelete() {
     if (!lesson) return;
-    if (!window.confirm(t('deleteConfirm'))) return;
     const res = await fetch(`/api/v1/lessons/${lesson.id}`, {
       method: 'DELETE', credentials: 'include',
     });
     if (res.ok) router.push('/lessons');
+  }
+
+  function handlePrint() {
+    // Toggle a body class that the print stylesheet keys off of; clean up
+    // once the print dialog closes so the page renders normally again.
+    document.body.classList.add('printing-lesson');
+    const cleanup = () => {
+      document.body.classList.remove('printing-lesson');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
   }
 
   async function handleStatusChange(
@@ -217,76 +231,23 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     }
   }
 
-  // ── Block mutations ───────────────────────────────────────────────────
+  // ── Rich-text content (debounced PATCH) ──────────────────────────────
 
-  async function addBlock(type: LessonBlockType) {
+  const contentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleContentChange(html: string) {
     if (!lesson) return;
-    const def = BLOCK_PICKER.find((b) => b.type === type);
-    if (!def) return;
-    const res = await fetch(`/api/v1/lessons/${lesson.id}/blocks`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, content: def.defaultContent }),
-    });
-    if (res.ok) {
-      const created: LessonBlock = await res.json();
-      setLesson({ ...lesson, blocks: [...lesson.blocks, created] });
-    }
+    // Optimistic in-memory update so the editor stays responsive.
+    setLesson({ ...lesson, content_html: html });
+    if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current);
+    contentSaveTimer.current = setTimeout(() => {
+      patchLesson({ content_html: html });
+    }, 600);
   }
 
-  async function patchBlock(blockId: string, content: Record<string, unknown>) {
-    if (!lesson) return;
-    setLesson({
-      ...lesson,
-      blocks: lesson.blocks.map((b) => (b.id === blockId ? { ...b, content } : b)),
-    });
-    await fetch(`/api/v1/lessons/${lesson.id}/blocks/${blockId}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
-  }
-
-  async function deleteBlock(blockId: string) {
-    if (!lesson) return;
-    setLesson({ ...lesson, blocks: lesson.blocks.filter((b) => b.id !== blockId) });
-    await fetch(`/api/v1/lessons/${lesson.id}/blocks/${blockId}`, {
-      method: 'DELETE', credentials: 'include',
-    });
-  }
-
-  async function duplicateBlock(blockId: string) {
-    if (!lesson) return;
-    const original = lesson.blocks.find((b) => b.id === blockId);
-    if (!original) return;
-    const res = await fetch(`/api/v1/lessons/${lesson.id}/blocks`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: original.type, content: original.content }),
-    });
-    if (res.ok) {
-      const created: LessonBlock = await res.json();
-      setLesson({ ...lesson, blocks: [...lesson.blocks, created] });
-    }
-  }
-
-  async function reorderBlocks(newOrder: string[]) {
-    if (!lesson) return;
-    const lookup = new Map(lesson.blocks.map((b) => [b.id, b]));
-    setLesson({
-      ...lesson,
-      blocks: newOrder.map((id, idx) => ({ ...(lookup.get(id) as LessonBlock), sort_order: idx })),
-    });
-    await fetch(`/api/v1/lessons/${lesson.id}/blocks/reorder`, {
-      method: 'PUT',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: newOrder }),
-    });
-  }
+  useEffect(() => () => {
+    if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current);
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -348,6 +309,17 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
               />
             </FieldRow>
           </div>
+          <FieldRow label={t('referenceNumber')}>
+            <input
+              type="text"
+              value={draftReference}
+              onChange={(e) => setDraftReference(e.target.value)}
+              maxLength={64}
+              placeholder={t('referenceNumberPlaceholder')}
+              className="w-full text-sm rounded border border-slate-200 px-3 py-2 focus:outline-none focus:border-primary"
+            />
+            <p className="mt-1 text-xs text-slate-500">{t('referenceNumberHint')}</p>
+          </FieldRow>
           <FieldRow label={t('objectives')}>
             <TagInput value={draftObjectives} onChange={setDraftObjectives} placeholder={t('objectivePlaceholder')} />
           </FieldRow>
@@ -373,33 +345,109 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
 
   if (!lesson) return null;
 
+  const subjectColor = lesson.subject.color || '#6366f1';
+  const subjectIcon = lesson.subject.icon;
+  const identifier = formatLessonIdentifier(
+    lesson.subject.name, lesson.sequence_number, lesson.reference_number,
+  );
+  const statusActions = STATUS_ACTIONS[lesson.status];
+  const canComplete = lesson.status !== 'completed' && lesson.status !== 'cancelled';
+
   return (
     <div className="max-w-6xl">
       <BackLink />
 
+      {/* Print-only header — Oikos brand on the left, family shield on the
+          right. `hidden print:flex` keeps it off the screen view entirely. */}
+      <div className="lesson-print-header hidden print:flex items-center justify-between mb-6 pb-4 border-b border-slate-300">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary to-indigo-500 rounded-xl flex items-center justify-center">
+            <BookOpen className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-slate-800 leading-none">Oikos</p>
+            <p className="text-xs text-slate-500 mt-1">Family Education Platform</p>
+          </div>
+        </div>
+        {family?.shield_config ? (
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-slate-800 leading-tight">{family.family_name}</p>
+            </div>
+            <ShieldPreview
+              config={family.shield_config as unknown as ShieldConfig}
+              familyName={family.family_name}
+              width={56}
+              height={56}
+              showMotto={false}
+            />
+          </div>
+        ) : null}
+      </div>
+
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
+        <div className="min-w-0">
+          {/* Subject pill — colored by subject, links to the subject detail page */}
+          <Link
+            href={`/subjects/${lesson.subject.id}`}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border mb-2 hover:opacity-80 transition-opacity"
+            style={{
+              backgroundColor: `${subjectColor}1a`,
+              color: subjectColor,
+              borderColor: `${subjectColor}33`,
+            }}
+            aria-label={`${t('subject')}: ${lesson.subject.name}`}
+          >
+            <SubjectIcon name={subjectIcon} />
+            {lesson.subject.name}
+          </Link>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-slate-800">{lesson.title}</h1>
-            <LessonStatusBadge status={lesson.status} />
+            <span data-print-hide>
+              <LessonStatusBadge status={lesson.status} />
+            </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            {lesson.subject.name} · <CalendarIcon className="inline w-3 h-3" /> {lesson.scheduled_for}
-            {lesson.estimated_duration_minutes
-              ? <> · <Clock className="inline w-3 h-3" /> {lesson.estimated_duration_minutes} min</>
-              : null}
+          <p className="text-sm text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+            <span className="inline-flex items-center gap-1 font-medium text-slate-600">
+              <Hash className="w-3 h-3" aria-hidden /> {identifier}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CalendarIcon className="w-3 h-3" aria-hidden /> {lesson.scheduled_for}
+            </span>
+            {lesson.estimated_duration_minutes ? (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3" aria-hidden /> {lesson.estimated_duration_minutes} min
+              </span>
+            ) : null}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {lesson.status !== 'completed' && lesson.status !== 'cancelled' && (
+        <div className="flex items-center gap-2" data-print-hide>
+          {statusActions.length > 0 && (
+            <StatusMenu
+              open={showStatusMenu}
+              onOpenChange={setShowStatusMenu}
+              actions={statusActions}
+              onSelect={(s) => { setShowStatusMenu(false); handleStatusChange(s); }}
+            />
+          )}
+          {canComplete && (
             <Button onClick={() => setShowCompleteDialog(true)}>
               <CheckCircle2 className="w-4 h-4 mr-1" /> {t('markComplete')}
             </Button>
           )}
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={handlePrint}
+            aria-label={t('printLesson')}
+            title={t('printLesson')}
+            className="inline-flex w-9 h-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-primary hover:border-primary/30 hover:bg-primary/5"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDeleteDialog(true)}
             aria-label={t('delete')}
             className="inline-flex w-9 h-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
           >
@@ -410,13 +458,25 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sidebar — metadata */}
-        <aside className="lg:col-span-4 space-y-4">
+        <aside className="lg:col-span-4 space-y-4" data-print-hide>
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
             <SidebarField label={t('lessonTitle')}>
               <input
                 type="text"
                 defaultValue={lesson.title}
                 onBlur={(e) => patchLesson({ title: e.target.value })}
+                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
+              />
+            </SidebarField>
+            <SidebarField label={t('referenceNumber')}>
+              <input
+                type="text"
+                defaultValue={lesson.reference_number ?? ''}
+                maxLength={64}
+                placeholder={t('referenceNumberPlaceholder')}
+                onBlur={(e) => patchLesson({
+                  reference_number: e.target.value.trim() || null,
+                })}
                 className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
               />
             </SidebarField>
@@ -481,17 +541,17 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
           </div>
         </aside>
 
-        {/* Main — block editor */}
-        <main className="lg:col-span-8">
-          <BlockListEditor
-            blocks={lesson.blocks}
-            onAdd={addBlock}
-            onPatch={patchBlock}
-            onDelete={deleteBlock}
-            onDuplicate={duplicateBlock}
-            onReorder={reorderBlocks}
-          />
-          <div className="mt-3 flex justify-end">
+        {/* Main — rich text content */}
+        <main className="lg:col-span-8 print:col-span-12">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <p className="text-sm font-semibold text-slate-700 mb-3" data-print-hide>{t('content')}</p>
+            <RichTextEditor
+              value={lesson.content_html ?? ''}
+              onChange={handleContentChange}
+              placeholder={t('contentPlaceholder')}
+            />
+          </div>
+          <div className="mt-3 flex justify-end" data-print-hide>
             <span className="text-[11px] text-slate-400">
               {saving ? t('saving') : t('saved')}
             </span>
@@ -509,6 +569,147 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
           }}
         />
       )}
+
+      {showDeleteDialog && (
+        <ConfirmDialog
+          title={t('deleteDialogTitle')}
+          body={t('deleteDialogBody', { title: lesson.title })}
+          confirmLabel={t('deleteDialogConfirm')}
+          onCancel={() => setShowDeleteDialog(false)}
+          onConfirm={async () => {
+            setShowDeleteDialog(false);
+            await confirmDelete();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Subject icon (resolves a lucide icon name from subject.icon) ──────────
+
+function SubjectIcon({ name }: { name: string | null }) {
+  // subject.icon stores a lucide-react icon name (e.g. "Calculator"). Look it
+  // up dynamically; fall back to BookOpen for unknown / missing values.
+  const key = name && name in lucideIcons ? (name as keyof typeof lucideIcons) : null;
+  if (key) {
+    return React.createElement(lucideIcons[key], {
+      className: 'w-3.5 h-3.5',
+      'aria-hidden': true,
+    });
+  }
+  return <BookOpen className="w-3.5 h-3.5" aria-hidden />;
+}
+
+// ── Status menu (header dropdown) ──────────────────────────────────────────
+
+function StatusMenu({
+  open, onOpenChange, actions, onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  actions: LessonStatus[];
+  onSelect: (status: LessonStatus) => void;
+}) {
+  const t = useTranslations('Lessons');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOpenChange(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') onOpenChange(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        {t('changeStatus')}
+        <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 z-30 min-w-[14rem] rounded-lg border border-slate-200 bg-white shadow-lg py-1"
+        >
+          {actions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="menuitem"
+              onClick={() => onSelect(s)}
+              className="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              {t(STATUS_ACTION_KEY[s] as never)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Themed confirm dialog (delete) ─────────────────────────────────────────
+
+function ConfirmDialog({
+  title, body, confirmLabel, onCancel, onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const t = useTranslations('Lessons');
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+    >
+      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200 p-6">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-red-50 text-red-600 flex-shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-800">{title}</h2>
+            <p className="text-sm text-slate-600 mt-1">{body}</p>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100"
+          >
+            {t('completionCancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -517,6 +718,7 @@ function BackLink() {
   return (
     <Link
       href="/lessons"
+      data-print-hide
       className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary mb-4"
     >
       <ArrowLeft className="w-4 h-4" /> Lessons
@@ -614,96 +816,6 @@ function DerivedList({
           </span>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ── Block list with DnD ────────────────────────────────────────────────────
-
-function BlockListEditor({
-  blocks, onAdd, onPatch, onDelete, onDuplicate, onReorder,
-}: {
-  blocks: LessonBlock[];
-  onAdd: (type: LessonBlockType) => void;
-  onPatch: (id: string, content: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onDuplicate: (id: string) => void;
-  onReorder: (newOrder: string[]) => void;
-}) {
-  const t = useTranslations('Lessons');
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const ids = useMemo(() => blocks.map((b) => b.id), [blocks]);
-
-  function handleDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const oldIndex = ids.indexOf(String(active.id));
-    const newIndex = ids.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-    onReorder(arrayMove(ids, oldIndex, newIndex));
-  }
-
-  return (
-    <div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {blocks.map((block) => (
-              <SortableBlock
-                key={block.id}
-                block={block}
-                onPatch={(content) => onPatch(block.id, content)}
-                onDelete={() => onDelete(block.id)}
-                onDuplicate={() => onDuplicate(block.id)}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white/50 p-3">
-        <p className="text-xs font-semibold text-slate-600 mb-2">{t('addBlock')}</p>
-        <div className="flex flex-wrap gap-2">
-          {BLOCK_PICKER.map((b) => (
-            <button
-              key={b.type}
-              type="button"
-              onClick={() => onAdd(b.type)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-primary/40 hover:text-primary"
-            >
-              {b.icon}
-              {t(b.labelKey as never)}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SortableBlock({
-  block, onPatch, onDelete, onDuplicate,
-}: {
-  block: LessonBlock;
-  onPatch: (content: Record<string, unknown>) => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-  };
-  return (
-    <div ref={setNodeRef} style={style}>
-      <LessonBlockEditor
-        block={block}
-        onChange={onPatch}
-        onDelete={onDelete}
-        onDuplicate={onDuplicate}
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
     </div>
   );
 }

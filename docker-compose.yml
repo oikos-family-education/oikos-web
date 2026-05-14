@@ -69,8 +69,14 @@ services:
       api:
         condition: service_started
     env_file: .env
-    environment:
-      WATCHPACK_POLLING: "true"
+    # File-watch polling is configured in apps/web/next.config.js
+    # (config.watchOptions.poll). Native inotify events don't propagate
+    # from the Windows host bind mount into the Linux container, so
+    # polling is required for HMR to work.
+    # Always start from a clean .next build cache. Without this, stale
+    # compiled chunks from a previous container persist across restarts
+    # and the browser keeps seeing old code even after source changes.
+    command: sh -c "rm -rf apps/web/.next && exec npx turbo run dev --filter=web"
     volumes:
       - .:/app
       - /app/node_modules
@@ -78,7 +84,6 @@ services:
       - /app/packages/ui/node_modules
       - /app/packages/config/node_modules
       - /app/packages/types/node_modules
-      - /app/apps/web/.next
 
 volumes:
   postgres_data:

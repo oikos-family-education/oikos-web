@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Text, DateTime, Date, ForeignKey, SmallInteger, CheckConstraint,
+    Column, Integer, String, Text, DateTime, Date, ForeignKey, SmallInteger,
+    CheckConstraint, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import relationship
@@ -32,12 +33,20 @@ class Lesson(Base):
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     title = Column(String(255), nullable=False)
+    reference_number = Column(String(64), nullable=True)
+    # Monotonically increasing per (family_id, subject_id). Assigned by the
+    # service layer on create; surfaces as a human-readable "Subject #007" id.
+    sequence_number = Column(Integer, nullable=False)
     scheduled_for = Column(Date, nullable=False)
     estimated_duration_minutes = Column(SmallInteger, nullable=True)
 
     status = Column(String(20), nullable=False, default="draft")
     objectives = Column(ARRAY(String), nullable=False, default=list)
     tags = Column(ARRAY(String), nullable=False, default=list)
+    # Rich-text body (sanitised HTML). Replaces the older block-based content
+    # model; lesson_blocks rows remain in the database for back-compat but
+    # are no longer rendered by the editor.
+    content_html = Column(Text, nullable=True)
 
     actual_duration_minutes = Column(SmallInteger, nullable=True)
     completion_notes = Column(Text, nullable=True)
@@ -66,6 +75,10 @@ class Lesson(Base):
         CheckConstraint(
             "actual_duration_minutes IS NULL OR (actual_duration_minutes > 0 AND actual_duration_minutes <= 720)",
             name="ck_lessons_actual_duration_range",
+        ),
+        UniqueConstraint(
+            "family_id", "subject_id", "sequence_number",
+            name="uq_lessons_family_subject_sequence",
         ),
     )
 

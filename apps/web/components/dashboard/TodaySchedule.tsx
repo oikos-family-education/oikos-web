@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
 import {
   BookOpen, CalendarDays, Calendar as CalendarIcon,
-  CheckCircle2, LayoutGrid, Plus, Users,
+  CheckCircle2, LayoutGrid, NotebookPen, Plus, Users,
 } from 'lucide-react';
 import { WidgetCard, WidgetSkeleton, WidgetError, WidgetEmpty } from './WidgetCard';
 import {
@@ -334,7 +334,7 @@ export function TodaySchedule() {
           href={`/lessons/${lesson.id}`}
           className="flex-1 min-w-0 px-2 py-2 flex items-center gap-2"
         >
-          <BookOpen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" aria-hidden />
+          <NotebookPen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" aria-hidden />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
               <p className="text-sm font-medium text-slate-800 truncate flex-1">{lesson.title}</p>

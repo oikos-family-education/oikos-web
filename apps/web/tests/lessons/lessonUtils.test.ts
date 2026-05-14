@@ -18,6 +18,8 @@ function makeLesson(overrides: Partial<LessonSummary> = {}): LessonSummary {
     status: overrides.status || 'draft',
     scheduled_for: overrides.scheduled_for || '2026-05-08',
     estimated_duration_minutes: overrides.estimated_duration_minutes ?? null,
+    reference_number: overrides.reference_number ?? null,
+    sequence_number: overrides.sequence_number ?? 1,
     subject: overrides.subject || {
       id: 's1', name: 'Math', color: null, icon: null,
       curriculum_ids: [], child_ids: [], project_ids: [],

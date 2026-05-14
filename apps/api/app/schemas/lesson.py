@@ -74,16 +74,20 @@ class LessonCreate(BaseModel):
     subject_id: UUID
     scheduled_for: date
     estimated_duration_minutes: Optional[int] = Field(None, ge=1, le=720)
+    reference_number: Optional[str] = Field(None, max_length=64)
     objectives: list[str] = []
     tags: list[str] = []
+    content_html: Optional[str] = None
 
 
 class LessonUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     scheduled_for: Optional[date] = None
     estimated_duration_minutes: Optional[int] = Field(None, ge=1, le=720)
+    reference_number: Optional[str] = Field(None, max_length=64)
     objectives: Optional[list[str]] = None
     tags: Optional[list[str]] = None
+    content_html: Optional[str] = None
 
 
 class LessonStatusUpdate(BaseModel):
@@ -108,8 +112,13 @@ class LessonSummary(BaseModel):
     status: str
     scheduled_for: date
     estimated_duration_minutes: Optional[int] = None
+    reference_number: Optional[str] = None
+    sequence_number: int
     subject: SubjectMinimal
     tags: list[str] = []
+    # Only populated when the list endpoint is called with
+    # `include_content=true` (used by the bulk-print flow).
+    content_html: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -120,6 +129,7 @@ class LessonResponse(LessonSummary):
     actual_duration_minutes: Optional[int] = None
     completion_notes: Optional[str] = None
     taught_on: Optional[date] = None
+    content_html: Optional[str] = None
     blocks: list[LessonBlockResponse] = []
     created_by_user_id: Optional[UUID] = None
     family_id: UUID

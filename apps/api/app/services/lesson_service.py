@@ -166,6 +166,8 @@ class LessonService:
             "status": lesson.status,
             "scheduled_for": lesson.scheduled_for,
             "estimated_duration_minutes": lesson.estimated_duration_minutes,
+            "reference_number": lesson.reference_number,
+            "sequence_number": lesson.sequence_number,
             "subject": {
                 "id": subject.id,
                 "name": subject.name,
@@ -194,6 +196,7 @@ class LessonService:
             "actual_duration_minutes": lesson.actual_duration_minutes,
             "completion_notes": lesson.completion_notes,
             "taught_on": lesson.taught_on,
+            "content_html": lesson.content_html,
             "blocks": [
                 {
                     "id": b.id,
@@ -237,16 +240,22 @@ class LessonService:
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
         subject_id: Optional[uuid.UUID] = None,
-        status: Optional[str] = None,
+        status: Optional[list[str]] = None,
         child_id: Optional[uuid.UUID] = None,
         curriculum_id: Optional[uuid.UUID] = None,
         project_id: Optional[uuid.UUID] = None,
         q: Optional[str] = None,
+        order: str = "asc",
         limit: int = 50,
         offset: int = 0,
+        include_content: bool = False,
     ) -> dict:
-        if status is not None and status not in VALID_LESSON_STATUSES:
-            raise HTTPException(status_code=422, detail=f"Invalid status: {status}")
+        if status:
+            invalid = [s for s in status if s not in VALID_LESSON_STATUSES]
+            if invalid:
+                raise HTTPException(
+                    status_code=422, detail=f"Invalid status: {invalid[0]}"
+                )
 
         query = select(Lesson).where(Lesson.family_id == family_id)
         if from_date:
@@ -256,7 +265,7 @@ class LessonService:
         if subject_id:
             query = query.where(Lesson.subject_id == subject_id)
         if status:
-            query = query.where(Lesson.status == status)
+            query = query.where(Lesson.status.in_(status))
         if q:
             like = f"%{q}%"
             query = query.where(Lesson.title.ilike(like))
@@ -289,15 +298,22 @@ class LessonService:
         count_query = select(func.count()).select_from(query.subquery())
         total = int((await self.db.execute(count_query)).scalar_one() or 0)
 
-        query = (
-            query
-            .order_by(Lesson.scheduled_for.asc(), Lesson.created_at.asc())
-            .limit(limit)
-            .offset(offset)
-        )
+        if order == "desc":
+            query = query.order_by(
+                Lesson.scheduled_for.desc(), Lesson.created_at.desc()
+            )
+        else:
+            query = query.order_by(
+                Lesson.scheduled_for.asc(), Lesson.created_at.asc()
+            )
+        query = query.limit(limit).offset(offset)
         result = await self.db.execute(query)
         lessons = list(result.scalars().all())
         items = await self._hydrate_summaries(lessons, family_id)
+        if include_content:
+            content_by_id = {l.id: l.content_html for l in lessons}
+            for item in items:
+                item["content_html"] = content_by_id.get(item["id"])
         return {"items": items, "total": total}
 
     async def list_today(self, family_id: uuid.UUID) -> list[dict]:
@@ -353,6 +369,17 @@ class LessonService:
         self, family_id: uuid.UUID, user_id: uuid.UUID, data: LessonCreate
     ) -> dict:
         subject = await self._validate_subject(data.subject_id, family_id)
+        # Next sequence per (family, subject). The unique constraint on the
+        # triple guarantees correctness even under concurrent inserts: a race
+        # will fail with IntegrityError rather than produce duplicates, and
+        # the caller can retry.
+        max_seq = (
+            await self.db.execute(
+                select(func.coalesce(func.max(Lesson.sequence_number), 0))
+                .where(Lesson.family_id == family_id)
+                .where(Lesson.subject_id == subject.id)
+            )
+        ).scalar_one()
         lesson = Lesson(
             family_id=family_id,
             subject_id=subject.id,
@@ -360,8 +387,11 @@ class LessonService:
             title=data.title,
             scheduled_for=data.scheduled_for,
             estimated_duration_minutes=data.estimated_duration_minutes,
+            reference_number=data.reference_number,
+            sequence_number=int(max_seq) + 1,
             objectives=list(data.objectives or []),
             tags=list(data.tags or []),
+            content_html=data.content_html,
             status="draft",
         )
         self.db.add(lesson)
@@ -470,6 +500,13 @@ class LessonService:
         scheduled_for: date,
     ) -> dict:
         original = await self._get_owned(lesson_id, family_id)
+        max_seq = (
+            await self.db.execute(
+                select(func.coalesce(func.max(Lesson.sequence_number), 0))
+                .where(Lesson.family_id == family_id)
+                .where(Lesson.subject_id == original.subject_id)
+            )
+        ).scalar_one()
         new_lesson = Lesson(
             family_id=family_id,
             subject_id=original.subject_id,
@@ -477,8 +514,11 @@ class LessonService:
             title=original.title,
             scheduled_for=scheduled_for,
             estimated_duration_minutes=original.estimated_duration_minutes,
+            reference_number=original.reference_number,
+            sequence_number=int(max_seq) + 1,
             objectives=list(original.objectives or []),
             tags=list(original.tags or []),
+            content_html=original.content_html,
             status="draft",
         )
         self.db.add(new_lesson)

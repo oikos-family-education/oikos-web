@@ -119,3 +119,106 @@ Full-page loading:
 </div>
 ```
 
+## Dialogs, Popups & Confirmations
+
+**NEVER use the browser's native dialogs** — `window.alert`, `window.confirm`, `window.prompt`. They look unstyled, can't be themed, block the page, and lack i18n. Always replace with a themed component.
+
+### Reusable Modal primitive
+
+`apps/web/components/dashboard/Modal.tsx` — handles backdrop dismiss, Escape key, body scroll lock, and mobile-friendly bottom-sheet on small screens. Use this as the foundation for any new dialog.
+
+```tsx
+import { Modal } from '../dashboard/Modal';
+
+<Modal
+  open={open}
+  onClose={onClose}
+  title={t('dialogTitle')}
+  footer={
+    <>
+      <button onClick={onClose} className="... text-slate-600 hover:bg-slate-100">
+        {t('cancel')}
+      </button>
+      <Button onClick={onSubmit}>{t('confirm')}</Button>
+    </>
+  }
+>
+  {/* body */}
+</Modal>
+```
+
+### When to use which pattern
+
+| Pattern | When | Example in repo |
+|---------|------|-----------------|
+| **Modal** (general) | Any dialog with a form, settings, or rich content | `LinkDialog` in `RichTextEditor.tsx` |
+| **ConfirmDialog** (destructive) | Asking the user to confirm a destructive action (delete, cancel, reset). Always use a red icon badge + red confirm button | `ConfirmDialog` in `LessonEditor.tsx` |
+| **Popover** (inline) | Small contextual menus (status menu, color picker, emoji picker) — does NOT need a backdrop, closes on outside click | `StatusMenu` in `LessonEditor.tsx`, `ToolbarPopover` in `RichTextEditor.tsx` |
+
+### Destructive confirm dialog template
+
+Use this exact shape for any "Are you sure?" delete/cancel dialog so the visual language stays consistent:
+
+```tsx
+function ConfirmDialog({ title, body, confirmLabel, onCancel, onConfirm }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+    >
+      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200 p-6">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-red-50 text-red-600 flex-shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-800">{title}</h2>
+            <p className="text-sm text-slate-600 mt-1">{body}</p>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="... text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button onClick={onConfirm} className="... bg-red-600 text-white hover:bg-red-700">
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Form-style prompt dialog (replacement for `window.prompt`)
+
+For dialogs that collect a value (URL, name, etc.):
+- Use the `Modal` primitive with a labelled input in the body
+- **Validate inline** — show errors via a `text-xs font-medium text-red-500` paragraph under the input and a red border on the field; never use `window.alert`
+- Submit on **Enter**, cancel on **Escape** (Modal handles Escape automatically)
+- Auto-focus the input on open with `setTimeout(() => inputRef.current?.focus(), 50)` (timeout needed so focus lands after the open animation)
+- If a text editor's selection matters (e.g., inserting a link around selected text), **save the `Range` before opening** and restore it before running the edit command
+
+### Backdrop & z-index
+
+- All themed dialogs use `fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4` (Modal does this internally)
+- Always use `z-50` for dialogs, `z-30` or `z-20` for popovers — never higher than `z-50`
+- Backdrop colour: `bg-slate-900/40` (or `bg-black/40` for slightly stronger contrast). Optionally `backdrop-blur-sm`
+
+### Accessibility checklist
+
+- `role="dialog"` and `aria-modal="true"` on the dialog root
+- `aria-labelledby` pointing to the title element (or `aria-label` if no visible title)
+- Escape closes the dialog (Modal handles this; popovers must add their own listener)
+- Outside-click closes the dialog/popover
+- Focus the first interactive element on open
+- Return focus to the trigger when closing (Modal/Popover does this implicitly through React's focus management)
+
+### Translations
+
+Every dialog string must go through `useTranslations` — no hard-coded labels, no hard-coded error messages. Standard keys per dialog:
+- `<feature>DialogTitle`
+- `<feature>DialogBody` (for confirms)
+- `<feature>DialogConfirm` (for the destructive button)
+- `cancel` or `completionCancel` (reuse where possible)
+

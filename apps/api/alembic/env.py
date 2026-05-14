@@ -22,6 +22,8 @@ from app.models.project import (
     Project, ProjectChild, ProjectSubject, ProjectMilestone,
     MilestoneCompletion, ProjectResource, PortfolioEntry, ChildAchievement,
 )
+from app.models.resource import Resource
+from app.models.lesson import Lesson, LessonBlock
 
 config = context.config
 

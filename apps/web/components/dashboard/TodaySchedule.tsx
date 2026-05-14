@@ -3,8 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
-import { CalendarDays, LayoutGrid, Calendar as CalendarIcon, Users } from 'lucide-react';
+import {
+  BookOpen, CalendarDays, Calendar as CalendarIcon,
+  CheckCircle2, LayoutGrid, NotebookPen, Plus, Users,
+} from 'lucide-react';
 import { WidgetCard, WidgetSkeleton, WidgetError, WidgetEmpty } from './WidgetCard';
+import {
+  formatDuration,
+  isLessonActionable,
+  type LessonSummary,
+} from '../../lib/lessonUtils';
+import { LessonStatusBadge } from '../lessons/LessonStatusBadge';
 
 interface RoutineEntry {
   id: string;
@@ -107,19 +116,29 @@ function ChildBadges({ names }: { names: string[] }) {
 
 export function TodaySchedule() {
   const t = useTranslations('Dashboard');
+  const tL = useTranslations('Lessons');
   const [routine, setRoutine] = useState<RoutineEntry[] | null>(null);
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [lessons, setLessons] = useState<LessonSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const loadLessons = useCallback(async () => {
+    const res = await fetch('/api/v1/lessons/today', { credentials: 'include' });
+    if (!res.ok) throw new Error('lessons');
+    return (await res.json()) as LessonSummary[];
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
       const today = todayISO();
-      const [r, e] = await Promise.all([
+      const [r, e, l] = await Promise.all([
         fetch('/api/v1/week-planner/today', { credentials: 'include' }),
         fetch(`/api/v1/calendar/events?from=${today}&to=${today}`, { credentials: 'include' }),
+        loadLessons().catch(() => [] as LessonSummary[]),
       ]);
       if (!r.ok || !e.ok) {
         setError(true);
@@ -129,16 +148,38 @@ export function TodaySchedule() {
       const eData = await e.json();
       setRoutine(rData);
       setEvents(eData?.events || []);
+      setLessons(l);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadLessons]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  async function markComplete(lesson: LessonSummary) {
+    setCompletingId(lesson.id);
+    try {
+      const res = await fetch(`/api/v1/lessons/${lesson.id}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          create_teaching_log: true,
+        }),
+      });
+      if (res.ok) {
+        const next = await loadLessons().catch(() => null);
+        if (next) setLessons(next);
+      }
+    } finally {
+      setCompletingId(null);
+    }
+  }
 
   const { allDayEvents, timedItems } = useMemo(() => {
     const allDay: CalendarEvent[] = [];
@@ -177,6 +218,42 @@ export function TodaySchedule() {
     return { allDayEvents: allDay, timedItems: timed };
   }, [routine, events]);
 
+  // Bucket today's lessons by subject id so each routine can pick up the
+  // lessons that share its subject. Lessons are consumed by the first
+  // matching routine in the timeline so they appear only once.
+  const { lessonsForRoutine, unscheduledLessons } = useMemo(() => {
+    const byRoutineId = new Map<string, LessonSummary[]>();
+    const unmatched: LessonSummary[] = [];
+    if (!lessons || lessons.length === 0) {
+      return { lessonsForRoutine: byRoutineId, unscheduledLessons: unmatched };
+    }
+    const bySubject = new Map<string, LessonSummary[]>();
+    for (const l of lessons) {
+      const sid = l.subject?.id;
+      if (!sid) continue;
+      const list = bySubject.get(sid) || [];
+      list.push(l);
+      bySubject.set(sid, list);
+    }
+    // First routine occurrence wins for each subject.
+    const consumed = new Set<string>();
+    for (const item of timedItems) {
+      if (item.kind !== 'routine') continue;
+      const sid = item.data.subject_id;
+      if (!sid) continue;
+      const matching = bySubject.get(sid);
+      if (!matching || matching.length === 0) continue;
+      if (consumed.has(sid)) continue;
+      byRoutineId.set(item.data.id, matching);
+      consumed.add(sid);
+    }
+    for (const l of lessons) {
+      const sid = l.subject?.id;
+      if (!sid || !consumed.has(sid)) unmatched.push(l);
+    }
+    return { lessonsForRoutine: byRoutineId, unscheduledLessons: unmatched };
+  }, [lessons, timedItems]);
+
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
@@ -206,7 +283,10 @@ export function TodaySchedule() {
     return { currentIdx: cur, nextIdx: nxt };
   }, [timedItems, nowMinutes]);
 
-  const hasItems = allDayEvents.length > 0 || timedItems.length > 0;
+  const hasItems =
+    allDayEvents.length > 0
+    || timedItems.length > 0
+    || (lessons !== null && lessons.length > 0);
 
   const headerActions = (
     <>
@@ -224,8 +304,65 @@ export function TodaySchedule() {
         <LayoutGrid className="h-3.5 w-3.5" />
         {t('linkPlanner')}
       </Link>
+      <Link
+        href="/lessons"
+        className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-primary"
+      >
+        <BookOpen className="h-3.5 w-3.5" />
+        {t('linkLessons')}
+      </Link>
     </>
   );
+
+  function renderLessonRow(
+    lesson: LessonSummary,
+    opts: { accentOverride?: string; compact?: boolean } = {},
+  ) {
+    const { accentOverride, compact = false } = opts;
+    const accent = accentOverride || lesson.subject.color || '#6366f1';
+    return (
+      <li
+        key={`lesson-${lesson.id}`}
+        className="flex items-stretch gap-3 rounded-lg border border-slate-200 bg-white hover:border-primary/40 transition-colors"
+      >
+        <span
+          className="w-1 rounded-l-lg flex-shrink-0"
+          style={{ backgroundColor: accent }}
+          aria-hidden
+        />
+        <Link
+          href={`/lessons/${lesson.id}`}
+          className="flex-1 min-w-0 px-2 py-2 flex items-center gap-2"
+        >
+          <NotebookPen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" aria-hidden />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate flex-1">{lesson.title}</p>
+              {!compact && <LessonStatusBadge status={lesson.status} />}
+            </div>
+            {!compact && (
+              <p className="text-[11px] text-slate-500 truncate">
+                {lesson.subject.name}
+                {lesson.estimated_duration_minutes ? ` · ${formatDuration(lesson.estimated_duration_minutes)}` : ''}
+              </p>
+            )}
+          </div>
+        </Link>
+        {isLessonActionable(lesson.status) && (
+          <button
+            type="button"
+            onClick={() => markComplete(lesson)}
+            disabled={completingId === lesson.id}
+            className="self-center mr-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-success/30 hover:bg-success/5 hover:text-success disabled:opacity-50"
+            aria-label={t('todayLessonsMarkComplete')}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {t('todayLessonsMarkComplete')}
+          </button>
+        )}
+      </li>
+    );
+  }
 
   return (
     <WidgetCard title={t('todayTitle')} actions={headerActions}>
@@ -297,6 +434,7 @@ export function TodaySchedule() {
                   const title = r.is_free_time ? 'Free time' : r.subject_name || 'Untitled';
                   const accent = r.color || (r.is_free_time ? '#94a3b8' : '#6366f1');
                   const dim = r.is_free_time && !isCurrent && !isNext ? 'opacity-70' : '';
+                  const matchingLessons = lessonsForRoutine.get(r.id) || [];
                   return (
                     <li key={`routine-${r.id}`}>
                       {newHour && idx > 0 && <div className="h-2" aria-hidden />}
@@ -330,6 +468,13 @@ export function TodaySchedule() {
                           <ChildBadges names={r.child_names} />
                         </div>
                       </Link>
+                      {matchingLessons.length > 0 && (
+                        <ul className="mt-1.5 ml-4 space-y-1.5">
+                          {matchingLessons.map((lesson) =>
+                            renderLessonRow(lesson, { accentOverride: accent, compact: true }),
+                          )}
+                        </ul>
+                      )}
                     </li>
                   );
                 }
@@ -368,6 +513,25 @@ export function TodaySchedule() {
                 );
               })}
             </ol>
+          )}
+          {unscheduledLessons.length > 0 && (
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                  {t('todayLessonsOutsideSchedule')}
+                </p>
+                <Link
+                  href="/lessons/new"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-primary"
+                >
+                  <Plus className="h-3 w-3" />
+                  {tL('newLesson')}
+                </Link>
+              </div>
+              <ul className="space-y-1.5">
+                {unscheduledLessons.map((lesson) => renderLessonRow(lesson))}
+              </ul>
+            </div>
           )}
         </div>
       )}

@@ -331,6 +331,7 @@ async def test_get_lesson_other_family_404(
     foreign = Lesson(
         family_id=other.id, subject_id=other_sub.id,
         title="Foreign", scheduled_for=date.today(), status="draft",
+        sequence_number=1,
     )
     db.add(foreign)
     await db.commit()
@@ -652,6 +653,7 @@ async def test_blocks_for_other_family_lesson_404(
     foreign = Lesson(
         family_id=other.id, subject_id=other_sub.id,
         title="Foreign", scheduled_for=date.today(), status="draft",
+        sequence_number=1,
     )
     db.add(foreign)
     await db.commit()

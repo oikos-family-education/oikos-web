@@ -2,7 +2,6 @@
 
 import { DashboardHero } from '../../../../components/dashboard/DashboardHero';
 import { TodaySchedule } from '../../../../components/dashboard/TodaySchedule';
-import { TodayLessons } from '../../../../components/dashboard/TodayLessons';
 import { ActiveCurriculums } from '../../../../components/dashboard/ActiveCurriculums';
 import { OngoingProjects } from '../../../../components/dashboard/OngoingProjects';
 import { ProgressWidget } from '../../../../components/dashboard/ProgressWidget';
@@ -20,7 +19,6 @@ export default function DashboardPage() {
         {/* Left column — today's focus */}
         <div className="lg:col-span-5 space-y-6">
           <TodaySchedule />
-          <TodayLessons />
         </div>
 
         {/* Middle column — curriculum + projects */}

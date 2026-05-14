@@ -282,6 +282,8 @@
     "sourceCalendar": "Calendar event",
     "linkCalendar": "Calendar",
     "linkPlanner": "Planner",
+    "linkLessons": "Lessons",
+    "todayLessonsOutsideSchedule": "Lessons not in today's plan",
 
     "todayLessonsTitle": "Today's Lessons",
     "todayLessonsEmpty": "No lessons planned today.",

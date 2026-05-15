@@ -8,8 +8,56 @@ import {
   ListOrdered, Minus, Outdent, Palette, Smile, Strikethrough,
   Type, Underline, Sigma,
 } from 'lucide-react';
+import { marked } from 'marked';
 import { Button } from '@oikos/ui';
 import { Modal } from '../dashboard/Modal';
+
+// Configure marked once. GFM + line breaks gives the friendliest behaviour
+// for content people typically paste (READMEs, ChatGPT output, etc.).
+marked.setOptions({ gfm: true, breaks: true });
+
+/**
+ * Heuristic detector: does this plain-text clipboard payload look like
+ * markdown? We're conservative — if NONE of these markers appear, we
+ * let the default paste behaviour run (which keeps line breaks intact
+ * but doesn't transform anything).
+ */
+const MARKDOWN_PATTERNS: RegExp[] = [
+  /^#{1,6}\s+\S/m,            // # heading (with content)
+  /^[-*+]\s+\S/m,             // - bullet list
+  /^\d+\.\s+\S/m,             // 1. ordered list
+  /^>\s+\S/m,                 // > blockquote
+  /^(?:-{3,}|\*{3,}|_{3,})\s*$/m, // --- hr
+  /^```/m,                    // ``` fenced code
+  /\*\*[^*\n]+\*\*/,          // **bold**
+  /__[^_\n]+__/,              // __bold__
+  /(?<![*\w])\*[^*\n]+\*(?!\*)/, // *italic*
+  /(?<![_\w])_[^_\n]+_(?!_)/, // _italic_
+  /`[^`\n]+`/,                // `inline code`
+  /\[[^\]\n]+\]\([^)\s]+\)/,  // [text](url)
+  /!\[[^\]\n]*\]\([^)\s]+\)/, // ![alt](url)
+];
+
+function looksLikeMarkdown(text: string): boolean {
+  if (text.length < 3) return false;
+  return MARKDOWN_PATTERNS.some((p) => p.test(text));
+}
+
+/**
+ * Strip obvious script/iframe/event-handler injections from the HTML
+ * marked produces. The editor's other commands (link, etc.) also
+ * insert HTML without sanitisation, so we match the existing trust
+ * model while still cutting off the worst bits of a hostile paste.
+ */
+function sanitiseMarkdownHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/\sjavascript\s*:/gi, '');
+}
 
 interface RichTextEditorProps {
   value: string;
@@ -104,6 +152,31 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   }, [onChange]);
 
   function handleInput() {
+    if (ref.current) onChange(ref.current.innerHTML);
+  }
+
+  /**
+   * On paste, if the clipboard carries plain text that looks like
+   * markdown, convert it to HTML and insert that instead. If the
+   * clipboard already has rich HTML (a real webpage copy, etc.) we
+   * leave the default paste behaviour alone so the original formatting
+   * is preserved.
+   */
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const clip = e.clipboardData;
+    if (!clip) return;
+    const htmlPayload = clip.getData('text/html');
+    if (htmlPayload && htmlPayload.trim().length > 0) return;
+    const text = clip.getData('text/plain');
+    if (!text || !looksLikeMarkdown(text)) return;
+    e.preventDefault();
+    const parsed = marked.parse(text);
+    // marked.parse can return a Promise when async extensions are
+    // registered. We don't use any, so it's synchronous here — but
+    // guard against the typing just in case.
+    if (typeof parsed !== 'string') return;
+    const safe = sanitiseMarkdownHtml(parsed);
+    document.execCommand('insertHTML', false, safe);
     if (ref.current) onChange(ref.current.innerHTML);
   }
 
@@ -288,6 +361,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         ref={ref}
         contentEditable
         onInput={handleInput}
+        onPaste={handlePaste}
         className="rte-content min-h-[42rem] px-4 py-3 text-sm text-slate-800 focus:outline-none"
         data-placeholder={placeholder || ''}
         suppressContentEditableWarning

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Star, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -46,7 +47,7 @@ export default function ChildrenPage() {
 
   const fetchChildren = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/families/me/children', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me/children', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setChildren(data);
@@ -76,7 +77,7 @@ export default function ChildrenPage() {
   const handleArchiveConfirm = async () => {
     if (!archivingChild) return;
     try {
-      const res = await fetch(`/api/v1/families/me/children/${archivingChild.id}/archive`, {
+      const res = await apiFetch(`/api/v1/families/me/children/${archivingChild.id}/archive`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -96,7 +97,7 @@ export default function ChildrenPage() {
   const handleUndo = async () => {
     if (!archiveToast) return;
     try {
-      await fetch(`/api/v1/families/me/children/${archiveToast.id}/unarchive`, {
+      await apiFetch(`/api/v1/families/me/children/${archiveToast.id}/unarchive`, {
         method: 'POST',
         credentials: 'include',
       });

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
@@ -33,7 +34,7 @@ export function RecentCertificates() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/v1/projects/achievements?limit=10', {
+        const res = await apiFetch('/api/v1/projects/achievements?limit=10', {
           credentials: 'include',
         });
         if (!res.ok) {

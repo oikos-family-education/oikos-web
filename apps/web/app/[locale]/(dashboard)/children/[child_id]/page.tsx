@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../lib/navigation';
@@ -158,7 +159,7 @@ export default function ChildDetailPage() {
 
   const fetchChild = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/families/me/children/${childId}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/families/me/children/${childId}`, { credentials: 'include' });
       if (res.status === 404) {
         setNotFound(true);
         return;
@@ -175,7 +176,7 @@ export default function ChildDetailPage() {
 
   const fetchCurriculums = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/curriculums', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/curriculums', { credentials: 'include' });
       if (res.ok) {
         const all: EnrolledCurriculum[] = await res.json();
         const enrolled = all.filter(c =>
@@ -190,7 +191,7 @@ export default function ChildDetailPage() {
 
   const fetchChildProjects = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/projects?child_id=${childId}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/projects?child_id=${childId}`, { credentials: 'include' });
       if (res.ok) setChildProjects(await res.json());
     } catch {
       // silently fail
@@ -210,7 +211,7 @@ export default function ChildDetailPage() {
 
   const handleArchiveConfirm = async () => {
     try {
-      const res = await fetch(`/api/v1/families/me/children/${childId}/archive`, {
+      const res = await apiFetch(`/api/v1/families/me/children/${childId}/archive`, {
         method: 'POST',
         credentials: 'include',
       });

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../lib/navigation';
@@ -50,7 +51,7 @@ export default function SubjectDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/v1/subjects/${subjectId}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/subjects/${subjectId}`, { credentials: 'include' });
       if (res.ok) {
         setSubject(await res.json());
       }

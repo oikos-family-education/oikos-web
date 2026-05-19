@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../lib/navigation';
@@ -41,7 +42,7 @@ export default function ResourceDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/v1/resources/${resourceId}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/resources/${resourceId}`, { credentials: 'include' });
       if (res.ok) {
         setResource(await res.json());
       }
@@ -51,7 +52,7 @@ export default function ResourceDetailPage() {
   }, [resourceId]);
 
   async function handleDelete() {
-    const res = await fetch(`/api/v1/resources/${resourceId}`, {
+    const res = await apiFetch(`/api/v1/resources/${resourceId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -61,7 +62,7 @@ export default function ResourceDetailPage() {
   }
 
   async function saveProgress(subjectId: string) {
-    const res = await fetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}/progress`, {
+    const res = await apiFetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}/progress`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

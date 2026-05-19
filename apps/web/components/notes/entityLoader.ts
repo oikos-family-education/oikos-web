@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/apiFetch';
 import type { EntityOption, NoteEntityType } from './types';
 
 interface RawChild {
@@ -25,25 +26,25 @@ interface RawEvent {
 export async function loadEntityOptions(type: NoteEntityType): Promise<EntityOption[]> {
   switch (type) {
     case 'child': {
-      const res = await fetch('/api/v1/families/me/children', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me/children', { credentials: 'include' });
       if (!res.ok) return [];
       const children: RawChild[] = await res.json();
       return children.map((c) => ({ id: c.id, label: c.nickname || c.first_name }));
     }
     case 'subject': {
-      const res = await fetch('/api/v1/subjects?source=mine', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' });
       if (!res.ok) return [];
       const subjects: RawSubject[] = await res.json();
       return subjects.map((s) => ({ id: s.id, label: s.name }));
     }
     case 'resource': {
-      const res = await fetch('/api/v1/resources', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/resources', { credentials: 'include' });
       if (!res.ok) return [];
       const resources: RawResource[] = await res.json();
       return resources.map((r) => ({ id: r.id, label: r.title }));
     }
     case 'project': {
-      const res = await fetch('/api/v1/projects', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/projects', { credentials: 'include' });
       if (!res.ok) return [];
       const projects: RawProject[] = await res.json();
       return projects.map((p) => ({ id: p.id, label: p.title }));
@@ -58,7 +59,7 @@ export async function loadEntityOptions(type: NoteEntityType): Promise<EntityOpt
         from: from.toISOString().slice(0, 10),
         to: to.toISOString().slice(0, 10),
       });
-      const res = await fetch(`/api/v1/calendar/events?${params}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/calendar/events?${params}`, { credentials: 'include' });
       if (!res.ok) return [];
       const events: RawEvent[] = await res.json();
       return events.map((e) => ({ id: e.id, label: e.title }));

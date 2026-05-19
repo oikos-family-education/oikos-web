@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../../../lib/apiFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Printer } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -53,7 +54,7 @@ export default function CertificatePage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/v1/projects/${projectId}/certificate/${childId}`, {
+      const res = await apiFetch(`/api/v1/projects/${projectId}/certificate/${childId}`, {
         credentials: 'include',
       });
       if (res.ok) setData(await res.json());

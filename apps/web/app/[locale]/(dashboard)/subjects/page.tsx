@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BookOpen, Plus, Search, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -66,7 +67,7 @@ export default function SubjectsPage() {
     if (category) params.set('category', category);
     if (debouncedSearch) params.set('search', debouncedSearch);
 
-    const res = await fetch(`/api/v1/subjects?${params}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/subjects?${params}`, { credentials: 'include' });
     if (res.ok) {
       setSubjects(await res.json());
     }
@@ -74,7 +75,7 @@ export default function SubjectsPage() {
   }
 
   async function handleFork(subjectId: string) {
-    const res = await fetch(`/api/v1/subjects/${subjectId}/fork`, {
+    const res = await apiFetch(`/api/v1/subjects/${subjectId}/fork`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -99,7 +100,7 @@ export default function SubjectsPage() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     setDeleteError(null);
-    const res = await fetch(`/api/v1/subjects/${deleteTarget.id}`, {
+    const res = await apiFetch(`/api/v1/subjects/${deleteTarget.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

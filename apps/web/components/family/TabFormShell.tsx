@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
@@ -26,7 +27,7 @@ export function TabFormShell({ formData: _formData, dirty, onSaved, onCancel, bu
     setError('');
     setSuccessMessage('');
     try {
-      const res = await fetch('/api/v1/families/me', {
+      const res = await apiFetch('/api/v1/families/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildPayload()),

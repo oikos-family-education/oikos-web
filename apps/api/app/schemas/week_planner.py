@@ -1,7 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
+
+
+# --- Grid configuration constants ---
+
+GRID_HOUR_MIN = 6   # earliest start_hour
+GRID_HOUR_MAX = 22  # latest end_hour
 
 
 # --- RoutineEntry ---
@@ -11,7 +17,7 @@ class RoutineEntryCreate(BaseModel):
     is_free_time: bool = False
     child_ids: list[UUID] = Field(default_factory=list)
     day_of_week: int = Field(ge=0, le=6)
-    start_minute: int = Field(ge=360, le=1320)  # 06:00 to 22:00
+    start_minute: int = Field(ge=GRID_HOUR_MIN * 60, le=GRID_HOUR_MAX * 60)
     duration_minutes: int = Field(ge=15, le=300, default=45)
     priority: str = Field(default="medium", pattern="^(high|medium|low)$")
     color: Optional[str] = None
@@ -20,7 +26,7 @@ class RoutineEntryCreate(BaseModel):
 
 class RoutineEntryUpdate(BaseModel):
     day_of_week: Optional[int] = Field(default=None, ge=0, le=6)
-    start_minute: Optional[int] = Field(default=None, ge=360, le=1320)
+    start_minute: Optional[int] = Field(default=None, ge=GRID_HOUR_MIN * 60, le=GRID_HOUR_MAX * 60)
     duration_minutes: Optional[int] = Field(default=None, ge=15, le=300)
     priority: Optional[str] = Field(default=None, pattern="^(high|medium|low)$")
     color: Optional[str] = None
@@ -55,10 +61,26 @@ class RoutineEntryDuplicate(BaseModel):
 class WeekTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     is_active: bool = False
+    start_hour: int = Field(default=GRID_HOUR_MIN, ge=GRID_HOUR_MIN, le=GRID_HOUR_MAX - 1)
+    end_hour: int = Field(default=GRID_HOUR_MAX, ge=GRID_HOUR_MIN + 1, le=GRID_HOUR_MAX)
+    include_saturday: bool = True
+    include_sunday: bool = True
+
+    @model_validator(mode="after")
+    def _start_before_end(self):
+        if self.start_hour >= self.end_hour:
+            raise ValueError("start_hour must be earlier than end_hour")
+        return self
 
 
 class WeekTemplateUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    start_hour: Optional[int] = Field(default=None, ge=GRID_HOUR_MIN, le=GRID_HOUR_MAX - 1)
+    end_hour: Optional[int] = Field(default=None, ge=GRID_HOUR_MIN + 1, le=GRID_HOUR_MAX)
+    include_saturday: Optional[bool] = None
+    include_sunday: Optional[bool] = None
+    # When true, entries that fall outside the new config are deleted as part of the update.
+    delete_outside_entries: bool = False
 
 
 class WeekTemplateResponse(BaseModel):
@@ -66,6 +88,10 @@ class WeekTemplateResponse(BaseModel):
     family_id: UUID
     name: str
     is_active: bool
+    start_hour: int
+    end_hour: int
+    include_saturday: bool
+    include_sunday: bool
     entries: list[RoutineEntryResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -78,6 +104,10 @@ class WeekTemplateSummary(BaseModel):
     family_id: UUID
     name: str
     is_active: bool
+    start_hour: int
+    end_hour: int
+    include_saturday: bool
+    include_sunday: bool
     entry_count: int = 0
     created_at: datetime
     updated_at: datetime

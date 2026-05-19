@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
@@ -34,7 +35,7 @@ export function CoatOfArmsOnboarding() {
   useEffect(() => {
     async function fetchFamily() {
       try {
-        const res = await fetch('/api/v1/families/me', { credentials: 'include' });
+        const res = await apiFetch('/api/v1/families/me', { credentials: 'include' });
         if (res.ok) {
           const family = await res.json();
           setFamilyName(family.family_name);
@@ -63,7 +64,7 @@ export function CoatOfArmsOnboarding() {
     setIsSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/families/me/shield', {
+      const res = await apiFetch('/api/v1/families/me/shield', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shieldConfig),

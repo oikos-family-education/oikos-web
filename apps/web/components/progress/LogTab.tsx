@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -52,7 +53,7 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
     setIsLoadingEntries(true);
     try {
       const params = new URLSearchParams({ from: date, to: date });
-      const res = await fetch(`/api/v1/progress/logs?${params}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/progress/logs?${params}`, { credentials: 'include' });
       if (res.ok) {
         const all: TeachingLogEntry[] = await res.json();
         setEntries(all);
@@ -87,7 +88,7 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
 
   async function postLog(body: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
     try {
-      const res = await fetch('/api/v1/progress/logs', {
+      const res = await apiFetch('/api/v1/progress/logs', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -103,7 +104,7 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
 
   async function deleteLog(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/v1/progress/logs/${id}`, {
+      const res = await apiFetch(`/api/v1/progress/logs/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

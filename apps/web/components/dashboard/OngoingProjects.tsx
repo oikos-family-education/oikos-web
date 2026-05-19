@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
@@ -57,7 +58,7 @@ export function OngoingProjects() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/v1/projects?status=active', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/projects?status=active', { credentials: 'include' });
       if (!res.ok) {
         setError(true);
         return;

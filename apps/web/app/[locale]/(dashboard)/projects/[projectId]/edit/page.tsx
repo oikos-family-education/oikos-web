@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../../lib/apiFetch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -94,9 +95,9 @@ export default function EditProjectPage() {
   useEffect(() => {
     async function loadAll() {
       const [projRes, childRes, subjRes] = await Promise.all([
-        fetch(`/api/v1/projects/${projectId}`, { credentials: 'include' }),
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch(`/api/v1/projects/${projectId}`, { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
       ]);
 
       if (childRes.ok) setChildren(await childRes.json());
@@ -132,7 +133,7 @@ export default function EditProjectPage() {
       subject_ids: data.subject_ids,
     };
 
-    const res = await fetch(`/api/v1/projects/${projectId}`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

@@ -65,6 +65,10 @@ async def list_templates(
             family_id=t.family_id,
             name=t.name,
             is_active=t.is_active,
+            start_hour=t.start_hour,
+            end_hour=t.end_hour,
+            include_saturday=t.include_saturday,
+            include_sunday=t.include_sunday,
             entry_count=0,  # populated below
             created_at=t.created_at,
             updated_at=t.updated_at,

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
@@ -60,7 +61,7 @@ export function NotificationPreferencesSection({ initial }: Props) {
     const next = { ...prefs, ...update };
     setPrefs(next);
     setSaving(Object.keys(update)[0]);
-    await fetch('/api/v1/users/me/notification-preferences', {
+    await apiFetch('/api/v1/users/me/notification-preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

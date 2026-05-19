@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Modal } from './Modal';
@@ -66,7 +67,7 @@ export function QuickNoteModal({
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      const res = await fetch('/api/v1/notes', {
+      const res = await apiFetch('/api/v1/notes', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

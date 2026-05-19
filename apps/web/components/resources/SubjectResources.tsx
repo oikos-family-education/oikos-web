@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../../lib/navigation';
@@ -65,7 +66,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
 
   async function fetchResources() {
     setIsLoading(true);
-    const res = await fetch(`/api/v1/resources/subject/${subjectId}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/resources/subject/${subjectId}`, { credentials: 'include' });
     if (res.ok) {
       setResources(await res.json());
     }
@@ -73,7 +74,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
   }
 
   async function openPicker() {
-    const res = await fetch('/api/v1/resources', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/resources', { credentials: 'include' });
     if (res.ok) {
       setAllResources(await res.json());
     }
@@ -81,7 +82,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
   }
 
   async function addResource(resourceId: string) {
-    const res = await fetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}`, {
+    const res = await apiFetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -93,7 +94,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
 
   async function removeResource() {
     if (!removeTarget) return;
-    const res = await fetch(`/api/v1/resources/${removeTarget.id}/subjects/${subjectId}`, {
+    const res = await apiFetch(`/api/v1/resources/${removeTarget.id}/subjects/${subjectId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -104,7 +105,7 @@ export function SubjectResources({ subjectId, subjectName }: SubjectResourcesPro
   }
 
   async function saveProgress(resourceId: string) {
-    const res = await fetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}/progress`, {
+    const res = await apiFetch(`/api/v1/resources/${resourceId}/subjects/${subjectId}/progress`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

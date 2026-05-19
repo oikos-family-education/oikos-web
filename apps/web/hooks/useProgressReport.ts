@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../lib/apiFetch';
 import { useEffect, useState } from 'react';
 
 export interface ReportFamily {
@@ -98,7 +99,7 @@ export function useProgressReport(from: string, to: string, childId?: string | n
       const params = new URLSearchParams({ from, to });
       if (childId) params.set('child_id', childId);
       try {
-        const res = await fetch(`/api/v1/progress/report?${params}`, { credentials: 'include' });
+        const res = await apiFetch(`/api/v1/progress/report?${params}`, { credentials: 'include' });
         if (!cancelled) {
           if (!res.ok) {
             setError('Failed to load progress report.');

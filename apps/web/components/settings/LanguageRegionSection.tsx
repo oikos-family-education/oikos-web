@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
@@ -72,7 +73,7 @@ export function LanguageRegionSection({
     setError('');
     setSaved(false);
 
-    const res = await fetch('/api/v1/users/me/preferences', {
+    const res = await apiFetch('/api/v1/users/me/preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

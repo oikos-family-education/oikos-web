@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { Plus, StickyNote, LayoutList, LayoutGrid, Clock, Download } from 'lucide-react';
@@ -69,7 +70,7 @@ export function NotesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/notes?${buildQueryString()}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/notes?${buildQueryString()}`, { credentials: 'include' });
       if (!res.ok) {
         setError(t('loadError'));
         setLoading(false);
@@ -91,7 +92,7 @@ export function NotesPage() {
 
   const loadTags = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/notes/tags', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/notes/tags', { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
       setAllTags(data.tags ?? []);
@@ -129,7 +130,7 @@ export function NotesPage() {
     const prev = notes;
     setNotes(notes.filter((n) => n.id !== note.id));
     try {
-      const res = await fetch(`/api/v1/notes/${note.id}`, {
+      const res = await apiFetch(`/api/v1/notes/${note.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -147,7 +148,7 @@ export function NotesPage() {
     const prev = notes;
     setNotes(notes.map((n) => (n.id === note.id ? { ...n, ...body } : n)));
     try {
-      const res = await fetch(`/api/v1/notes/${note.id}`, {
+      const res = await apiFetch(`/api/v1/notes/${note.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../../lib/navigation';
@@ -65,7 +66,7 @@ export function ResourceForm({ initialData, isEditing = false }: ResourceFormPro
 
   useEffect(() => {
     async function loadSubjects() {
-      const res = await fetch('/api/v1/subjects?source=mine', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' });
       if (res.ok) {
         setSubjects(await res.json());
       }

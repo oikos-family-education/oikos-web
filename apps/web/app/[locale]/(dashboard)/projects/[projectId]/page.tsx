@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, Calendar, AlertTriangle, Loader2, Pencil, CheckCircle2, Archive,
@@ -131,7 +132,7 @@ export default function ProjectDetailPage() {
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
 
   const loadProject = useCallback(async () => {
-    const res = await fetch(`/api/v1/projects/${projectId}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/projects/${projectId}`, { credentials: 'include' });
     if (res.ok) {
       const p = await res.json();
       setProject(p);
@@ -146,8 +147,8 @@ export default function ProjectDetailPage() {
       setIsLoading(true);
       const [, childRes, subjRes] = await Promise.all([
         loadProject(),
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
       ]);
       if (childRes.ok) setChildren(await childRes.json());
       if (subjRes.ok) setSubjects(await subjRes.json());
@@ -171,14 +172,14 @@ export default function ProjectDetailPage() {
   }, [activeTab, project?.status]);
 
   async function loadPortfolio() {
-    const res = await fetch(`/api/v1/projects/${projectId}/portfolio`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/projects/${projectId}/portfolio`, { credentials: 'include' });
     if (res.ok) setPortfolioEntries(await res.json());
   }
 
   async function loadAchievements() {
     if (!project) return;
     const achPromises = project.children.map((pc) =>
-      fetch(`/api/v1/projects/achievements/child/${pc.child_id}`, { credentials: 'include' }).then((r) =>
+      apiFetch(`/api/v1/projects/achievements/child/${pc.child_id}`, { credentials: 'include' }).then((r) =>
         r.ok ? r.json() : []
       )
     );
@@ -188,17 +189,17 @@ export default function ProjectDetailPage() {
   }
 
   async function loadProjectResources() {
-    const res = await fetch(`/api/v1/projects/${projectId}/resources`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/projects/${projectId}/resources`, { credentials: 'include' });
     if (res.ok) setProjectResources(await res.json());
   }
 
   async function loadAllResources() {
-    const res = await fetch('/api/v1/resources', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/resources', { credentials: 'include' });
     if (res.ok) setAllResources(await res.json());
   }
 
   async function handleComplete() {
-    const res = await fetch(`/api/v1/projects/${projectId}/complete`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/complete`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -211,7 +212,7 @@ export default function ProjectDetailPage() {
   }
 
   async function handleActivate() {
-    const res = await fetch(`/api/v1/projects/${projectId}`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -225,7 +226,7 @@ export default function ProjectDetailPage() {
   }
 
   async function handleArchive() {
-    const res = await fetch(`/api/v1/projects/${projectId}/archive`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/archive`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -236,7 +237,7 @@ export default function ProjectDetailPage() {
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/v1/projects/${projectId}`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -247,7 +248,7 @@ export default function ProjectDetailPage() {
   }
 
   async function toggleMilestone(milestoneId: string, childId: string) {
-    const res = await fetch(`/api/v1/projects/milestones/${milestoneId}/toggle/${childId}`, {
+    const res = await apiFetch(`/api/v1/projects/milestones/${milestoneId}/toggle/${childId}`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -266,7 +267,7 @@ export default function ProjectDetailPage() {
   async function addMilestone() {
     if (!newMilestoneTitle.trim()) return;
     const sortOrder = project?.milestones?.length || 0;
-    const res = await fetch(`/api/v1/projects/${projectId}/milestones`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/milestones`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -279,7 +280,7 @@ export default function ProjectDetailPage() {
   }
 
   async function deleteMilestone(milestoneId: string) {
-    const res = await fetch(`/api/v1/projects/milestones/${milestoneId}`, {
+    const res = await apiFetch(`/api/v1/projects/milestones/${milestoneId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -287,7 +288,7 @@ export default function ProjectDetailPage() {
   }
 
   async function linkResource(resourceId: string) {
-    const res = await fetch(`/api/v1/projects/${projectId}/resources`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/resources`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -297,7 +298,7 @@ export default function ProjectDetailPage() {
   }
 
   async function unlinkResource(resourceId: string) {
-    const res = await fetch(`/api/v1/projects/${projectId}/resources/${resourceId}`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/resources/${resourceId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -305,7 +306,7 @@ export default function ProjectDetailPage() {
   }
 
   async function savePortfolioEntry(entryId: string, data: Partial<PortfolioEntry>) {
-    const res = await fetch(`/api/v1/projects/portfolio/${entryId}`, {
+    const res = await apiFetch(`/api/v1/projects/portfolio/${entryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

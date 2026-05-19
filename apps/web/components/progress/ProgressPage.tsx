@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart3, Loader2, Printer } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -99,8 +100,8 @@ export function ProgressPage() {
     let cancelled = false;
     async function load() {
       const [childRes, subjRes] = await Promise.all([
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
       ]);
       if (cancelled) return;
       if (childRes.ok) setChildren(await childRes.json());

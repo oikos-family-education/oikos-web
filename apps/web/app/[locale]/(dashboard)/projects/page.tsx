@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Search, Loader2, Calendar, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -72,8 +73,8 @@ export default function ProjectsPage() {
   useEffect(() => {
     async function loadData() {
       const [childRes, subjRes] = await Promise.all([
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
       ]);
       if (childRes.ok) setChildren(await childRes.json());
       if (subjRes.ok) setSubjects(await subjRes.json());
@@ -88,7 +89,7 @@ export default function ProjectsPage() {
     if (childFilter) params.set('child_id', childFilter);
     if (subjectFilter) params.set('subject_id', subjectFilter);
 
-    const res = await fetch(`/api/v1/projects?${params}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/projects?${params}`, { credentials: 'include' });
     if (res.ok) setProjects(await res.json());
     setIsLoading(false);
   }

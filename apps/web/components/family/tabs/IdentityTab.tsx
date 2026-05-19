@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../lib/apiFetch';
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { WizardStep1 } from '../../onboarding/WizardStep1';
@@ -57,7 +58,7 @@ export function IdentityTab({ family, formData: initial, onFamilyUpdated }: Prop
     setShieldSaving(true);
     setShieldError('');
     try {
-      const res = await fetch('/api/v1/families/me/shield', {
+      const res = await apiFetch('/api/v1/families/me/shield', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shield),

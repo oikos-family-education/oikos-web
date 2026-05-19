@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { Library, Plus, Search, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -35,7 +36,7 @@ export default function ResourcesPage() {
 
   useEffect(() => {
     async function loadSubjects() {
-      const res = await fetch('/api/v1/subjects?source=mine', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' });
       if (res.ok) setSubjects(await res.json());
     }
     loadSubjects();
@@ -47,7 +48,7 @@ export default function ResourcesPage() {
     if (typeFilter) params.set('type', typeFilter);
     if (subjectFilter) params.set('subject_id', subjectFilter);
 
-    const res = await fetch(`/api/v1/resources?${params}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/resources?${params}`, { credentials: 'include' });
     if (res.ok) {
       setResources(await res.json());
     }
@@ -56,7 +57,7 @@ export default function ResourcesPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    const res = await fetch(`/api/v1/resources/${deleteTarget.id}`, {
+    const res = await apiFetch(`/api/v1/resources/${deleteTarget.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

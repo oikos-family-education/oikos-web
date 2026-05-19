@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AccountInfoSection } from './AccountInfoSection';
@@ -30,8 +31,8 @@ export function SettingsPageClient() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/v1/users/me/settings', { credentials: 'include' }),
-      fetch('/api/v1/auth/me', { credentials: 'include' }),
+      apiFetch('/api/v1/users/me/settings', { credentials: 'include' }),
+      apiFetch('/api/v1/auth/me', { credentials: 'include' }),
     ])
       .then(async ([settingsRes, meRes]) => {
         if (!settingsRes.ok) throw new Error();

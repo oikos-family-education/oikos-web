@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useMemo } from 'react';
 import { Link } from '../../lib/navigation';
 import { useForm } from 'react-hook-form';
@@ -35,7 +36,7 @@ export const ForgotPasswordForm = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch('/api/v1/auth/forgot-password', {
+      const res = await apiFetch('/api/v1/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

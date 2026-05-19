@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
@@ -105,7 +106,7 @@ export function AppearanceSection({ initial }: Props) {
     applyToDOM(next);
     persistLocally(next);
 
-    await fetch('/api/v1/users/me/preferences', {
+    await apiFetch('/api/v1/users/me/preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

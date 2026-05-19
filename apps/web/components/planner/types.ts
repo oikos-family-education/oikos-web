@@ -15,7 +15,14 @@ export interface RoutineEntryData {
   updated_at: string;
 }
 
-export interface WeekTemplateData {
+export interface GridConfig {
+  start_hour: number;
+  end_hour: number;
+  include_saturday: boolean;
+  include_sunday: boolean;
+}
+
+export interface WeekTemplateData extends GridConfig {
   id: string;
   family_id: string;
   name: string;
@@ -25,7 +32,7 @@ export interface WeekTemplateData {
   updated_at: string;
 }
 
-export interface WeekTemplateSummary {
+export interface WeekTemplateSummary extends GridConfig {
   id: string;
   family_id: string;
   name: string;
@@ -79,12 +86,23 @@ export interface DragSubjectPayload {
 export const DAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 export const DAY_SHORTS = ['monShort', 'tueShort', 'wedShort', 'thuShort', 'friShort', 'satShort', 'sunShort'] as const;
 
-export const HOURS_START = 6;
-export const HOURS_END = 22;
-export const HOUR_COUNT = HOURS_END - HOURS_START + 1; // 17 hours (06:00-22:00)
+// Absolute hour bounds enforced by the backend; the per-template grid lives within these.
+export const GRID_HOUR_MIN = 6;
+export const GRID_HOUR_MAX = 22;
+// Legacy aliases kept for backwards compatibility (treated as the absolute bounds, not per-template).
+export const HOURS_START = GRID_HOUR_MIN;
+export const HOURS_END = GRID_HOUR_MAX;
+export const HOUR_COUNT = HOURS_END - HOURS_START + 1;
 export const ROW_HEIGHT = 64; // px per hour row
 export const MIN_DURATION = 15;
 export const MAX_DURATION = 300;
+
+export function visibleDayIndices(config: GridConfig): number[] {
+  const days = [0, 1, 2, 3, 4]; // Mon–Fri always visible
+  if (config.include_saturday) days.push(5);
+  if (config.include_sunday) days.push(6);
+  return days;
+}
 
 export function minuteToTime(minute: number): string {
   const h = Math.floor(minute / 60);

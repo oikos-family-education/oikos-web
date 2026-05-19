@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useRouter } from '../../lib/navigation';
 import { useForm } from 'react-hook-form';
@@ -77,7 +78,7 @@ export const RegisterForm = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch('/api/v1/auth/register', {
+      const res = await apiFetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

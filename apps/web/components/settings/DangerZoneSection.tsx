@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input } from '@oikos/ui';
@@ -24,7 +25,7 @@ export function DangerZoneSection({ email, isPrimaryOwner }: Props) {
   async function handleDelete() {
     setError('');
     setDeleting(true);
-    const res = await fetch('/api/v1/users/me', {
+    const res = await apiFetch('/api/v1/users/me', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

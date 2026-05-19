@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../../../lib/navigation';
@@ -46,7 +47,7 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
     setExporting(true);
     setExportMessage('');
     try {
-      const res = await fetch('/api/v1/families/me/export', { method: 'POST', credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me/export', { method: 'POST', credentials: 'include' });
       if (res.ok) setExportMessage(t('exportRequested'));
     } finally {
       setExporting(false);
@@ -63,7 +64,7 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
     setDeleting(true);
     setDeleteError('');
     try {
-      const res = await fetch('/api/v1/families/me', { method: 'DELETE', credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me', { method: 'DELETE', credentials: 'include' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setDeleteError(typeof data.detail === 'string' ? data.detail : t('saveError'));

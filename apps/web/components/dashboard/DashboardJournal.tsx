@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
@@ -41,7 +42,7 @@ export function DashboardJournal() {
       params.append('status', 'history_only');
       params.set('sort', 'created_at_desc');
       params.set('limit', String(LIMIT));
-      const res = await fetch(`/api/v1/notes?${params}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/notes?${params}`, { credentials: 'include' });
       if (!res.ok) {
         setError(true);
         return;

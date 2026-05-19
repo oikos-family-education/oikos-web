@@ -63,6 +63,8 @@ interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** When true, toolbar is hidden and the surface isn't editable. */
+  readOnly?: boolean;
 }
 
 type BlockTag = 'P' | 'H1' | 'H2' | 'H3' | 'BLOCKQUOTE' | 'PRE';
@@ -112,7 +114,7 @@ const SYMBOLS = [
   '€','£','¥','¢','©','®','™','†','‡','¶',
 ];
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, placeholder, readOnly = false }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [openMenu, setOpenMenu] = useState<
     | null
@@ -156,25 +158,134 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   }
 
   /**
-   * On paste, if the clipboard carries plain text that looks like
-   * markdown, convert it to HTML and insert that instead. If the
-   * clipboard already has rich HTML (a real webpage copy, etc.) we
-   * leave the default paste behaviour alone so the original formatting
-   * is preserved.
+   * Inside a <pre> code block, browsers handle Enter inconsistently —
+   * Chrome inserts <br>, Firefox a <div>, and `execCommand('insertText',
+   * '\n')` is unreliable across both. We hijack Enter inside any <pre>
+   * and manipulate the DOM directly:
+   *
+   *   * Plain Enter inserts a real \n character into the text node so
+   *     that pre's `textContent` ends with an actual newline.
+   *   * If the cursor is at the very end of the <pre> AND the block
+   *     already ends with \n (i.e. you just pressed Enter once), the
+   *     next Enter is treated as "exit": the trailing \n is stripped
+   *     and a fresh paragraph is inserted after the <pre>.
+   *
+   * Shift+Enter always inserts \n without exiting, for adding a
+   * deliberate blank line at the end of the code.
+   *
+   * Escape also exits unconditionally from anywhere inside a <pre>.
+   */
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (readOnly) { e.preventDefault(); return; }
+    if (e.key !== 'Enter' && e.key !== 'Escape') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+
+    // Find the enclosing <pre>, walking up the DOM via closest().
+    const startEl: Element | null =
+      range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.startContainer as Element)
+        : range.startContainer.parentElement;
+    const pre = startEl?.closest('pre');
+    if (!pre || !ref.current?.contains(pre)) return;
+
+    e.preventDefault();
+
+    // Find the last text leaf of the pre and check if the cursor sits
+    // right at its end.
+    let lastLeaf: Node = pre;
+    while (lastLeaf.lastChild) lastLeaf = lastLeaf.lastChild;
+    const atEnd =
+      (lastLeaf.nodeType === Node.TEXT_NODE
+        && range.startContainer === lastLeaf
+        && range.startOffset === (lastLeaf as Text).length)
+      || (lastLeaf.nodeType !== Node.TEXT_NODE
+        && range.startContainer === lastLeaf.parentNode
+        && range.startOffset === (lastLeaf.parentNode as Node).childNodes.length);
+
+    const text = pre.textContent ?? '';
+    const shouldExit =
+      e.key === 'Escape'
+      || (!e.shiftKey && atEnd && text.endsWith('\n'));
+
+    if (shouldExit) {
+      // Strip the trailing \n the previous Enter left behind.
+      if (lastLeaf.nodeType === Node.TEXT_NODE) {
+        (lastLeaf as Text).data = (lastLeaf as Text).data.replace(/\n$/, '');
+      }
+      // Drop a fresh paragraph immediately after the code block and
+      // move the cursor into it.
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      pre.parentNode?.insertBefore(p, pre.nextSibling);
+      const exitRange = document.createRange();
+      exitRange.setStart(p, 0);
+      exitRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(exitRange);
+    } else {
+      // Insert a literal \n by mutating the text node directly.
+      // execCommand('insertText', '\n') would let the browser convert
+      // it to <br>, which breaks the exit detector above.
+      if (range.startContainer.nodeType === Node.TEXT_NODE) {
+        const tn = range.startContainer as Text;
+        const offset = range.startOffset;
+        tn.data = tn.data.slice(0, offset) + '\n' + tn.data.slice(offset);
+        const newRange = document.createRange();
+        newRange.setStart(tn, offset + 1);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      } else {
+        // No text node at the cursor (empty pre, between elements) —
+        // insert a fresh \n text node.
+        const newline = document.createTextNode('\n');
+        range.insertNode(newline);
+        const newRange = document.createRange();
+        newRange.setStart(newline, 1);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+    }
+
+    if (ref.current) onChange(ref.current.innerHTML);
+  }
+
+  /**
+   * Paste handler.
+   *
+   * Many sources (VS Code copy, ChatGPT, GitHub README rendered, etc.)
+   * put TWO payloads in the clipboard: the raw markdown in `text/plain`
+   * AND a rendered HTML preview in `text/html`. We prefer to render the
+   * markdown ourselves whenever the plain-text payload looks like
+   * markdown — the HTML preview from those tools is often noisy
+   * (inline styles, classes, fragment wrappers).
+   *
+   * If the plain text doesn't look like markdown we fall through to the
+   * browser's default paste so HTML content keeps its formatting.
    */
   function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    if (readOnly) { e.preventDefault(); return; }
     const clip = e.clipboardData;
     if (!clip) return;
-    const htmlPayload = clip.getData('text/html');
-    if (htmlPayload && htmlPayload.trim().length > 0) return;
     const text = clip.getData('text/plain');
     if (!text || !looksLikeMarkdown(text)) return;
     e.preventDefault();
-    const parsed = marked.parse(text);
-    // marked.parse can return a Promise when async extensions are
-    // registered. We don't use any, so it's synchronous here — but
-    // guard against the typing just in case.
-    if (typeof parsed !== 'string') return;
+    let parsed: string;
+    try {
+      const result = marked.parse(text);
+      if (typeof result !== 'string') return;
+      parsed = result;
+    } catch {
+      // marked failed — fall back to inserting the raw text untouched.
+      document.execCommand('insertText', false, text);
+      if (ref.current) onChange(ref.current.innerHTML);
+      return;
+    }
     const safe = sanitiseMarkdownHtml(parsed);
     document.execCommand('insertHTML', false, safe);
     if (ref.current) onChange(ref.current.innerHTML);
@@ -196,8 +307,18 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   }
 
   function applyColor(kind: 'textColor' | 'highlight', color: string) {
-    if (kind === 'textColor') exec('foreColor', color);
-    else exec('hiliteColor', color); // some browsers use backColor
+    if (color === 'transparent') {
+      // "No color": for highlight clear the background; for text colour
+      // fall back to the default body slate.
+      if (kind === 'textColor') exec('foreColor', '#1e293b');
+      else {
+        exec('hiliteColor', 'transparent');
+        exec('backColor', 'transparent');
+      }
+    } else {
+      if (kind === 'textColor') exec('foreColor', color);
+      else exec('hiliteColor', color); // some browsers use backColor
+    }
     setOpenMenu(null);
   }
 
@@ -239,7 +360,8 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   return (
     <div className="rounded-md border border-slate-200 bg-white" data-rte-root>
-      {/* Toolbar */}
+      {/* Toolbar — hidden in read-only mode */}
+      {!readOnly && (
       <div className="rte-toolbar flex flex-wrap items-center gap-0.5 border-b border-slate-100 px-2 py-1.5">
         {/* Block format */}
         <ToolbarSelect
@@ -355,13 +477,15 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
         <ToolbarButton onClick={clearFormatting} ariaLabel="Clear formatting"><Eraser className="w-3.5 h-3.5" /></ToolbarButton>
       </div>
+      )}
 
       {/* Editable surface */}
       <div
         ref={ref}
-        contentEditable
+        contentEditable={!readOnly}
         onInput={handleInput}
         onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
         className="rte-content min-h-[42rem] px-4 py-3 text-sm text-slate-800 focus:outline-none"
         data-placeholder={placeholder || ''}
         suppressContentEditableWarning
@@ -568,6 +692,18 @@ function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: (
 function ColorGrid({ onPick }: { onPick: (color: string) => void }) {
   return (
     <div className="grid grid-cols-7 gap-1 w-44">
+      {/* "No color" swatch — clears the highlight / restores default text colour */}
+      <button
+        type="button"
+        onMouseDown={(e) => { e.preventDefault(); onPick('transparent'); }}
+        aria-label="No color"
+        title="No color"
+        className="w-5 h-5 rounded border border-slate-300 hover:scale-110 transition-transform bg-white relative overflow-hidden"
+      >
+        <span className="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-sm leading-none">
+          ⊘
+        </span>
+      </button>
       {COLOR_SWATCHES.map((c) => (
         <button
           key={c}

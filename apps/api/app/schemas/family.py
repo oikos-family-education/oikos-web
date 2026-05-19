@@ -47,7 +47,6 @@ class ShieldConfig(BaseModel):
     crest_animal: str = Field("none")
     flourish: str = Field("none")
     center_symbol: str = Field("none")
-    motto: str = Field("", max_length=60)
     font_style: str = Field("serif", pattern="^(serif|sans|script|gothic|classic)$")
 
 

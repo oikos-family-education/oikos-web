@@ -27,7 +27,6 @@ export interface ShieldConfig {
   crest_animal: string;
   flourish: string;
   center_symbol: string;
-  motto: string;
   font_style: ShieldFontStyle;
 }
 

@@ -32,14 +32,10 @@ function withLocalePrefix(path: string, locale: string | null): string {
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { locale, rest } = splitLocale(pathname);
-  const hasToken = request.cookies.has('access_token');
-
-  // Authenticated user visiting root → redirect to dashboard
-  if (rest === '/' && hasToken) {
-    const url = request.nextUrl.clone();
-    url.pathname = withLocalePrefix('/dashboard', locale);
-    return NextResponse.redirect(url);
-  }
+  // Cookie presence is a hint, not proof of a valid session. AuthProvider
+  // verifies via /me and handles the real auth-state branching.
+  const hasToken =
+    request.cookies.has('access_token') || request.cookies.has('refresh_token');
 
   // Protected route without token → redirect to login
   const isProtected = PROTECTED_PATHS.some(

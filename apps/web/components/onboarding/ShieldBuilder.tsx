@@ -16,7 +16,6 @@ export interface ShieldConfig {
   crest_animal: string;
   flourish: string;
   center_symbol: string;
-  motto: string;
   font_style: string;
 }
 
@@ -908,9 +907,6 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
   const toggleBtn = (active: boolean) =>
     `transition-all ${active ? 'border-primary bg-primary/5 text-primary shadow-sm ring-1 ring-primary/20' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`;
 
-  /* Compute where to place motto + name */
-  const hasMottoOrName = config.motto || familyName;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -977,20 +973,9 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
             </g>
           )}
 
-          {/* Motto ribbon */}
-          {config.motto && (
-            <g>
-              <rect x="5" y="99" width="90" height="11" rx="2" fill={config.primary_color} stroke={config.accent_color} strokeWidth="0.8" opacity="0.9" />
-              <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
-                fill={config.accent_color} fontFamily={font} fontSize="4.5" fontStyle="italic" fontWeight="600" opacity="0.9">
-                {config.motto.length > 35 ? config.motto.slice(0, 35) + '…' : config.motto}
-              </text>
-            </g>
-          )}
-
           {/* Family Name */}
           {familyName && (
-            <text x="50" y={config.motto ? 117 : 106} textAnchor="middle" dominantBaseline="middle"
+            <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
               fill={config.accent_color} fontFamily={font} fontSize="5" fontWeight="bold" letterSpacing="1" opacity="0.7">
               {familyName.toUpperCase().slice(0, 30)}
             </text>
@@ -1148,19 +1133,6 @@ export function ShieldBuilder({ config, familyName, onChange }: Props) {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* ── Motto ── */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('shieldMotto')}</p>
-          <input
-            type="text"
-            value={config.motto}
-            onChange={e => onChange({ ...config, motto: e.target.value })}
-            placeholder="Gloria in excelsis Deo"
-            maxLength={60}
-            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm italic"
-          />
         </div>
 
         {/* ── Font Style ── */}

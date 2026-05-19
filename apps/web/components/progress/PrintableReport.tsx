@@ -64,7 +64,7 @@ export const PrintableReport = forwardRef<HTMLDivElement, PrintableReportProps>(
               <ShieldPreview
                 config={family.shield_config as unknown as ShieldConfig}
                 familyName={family.family_name}
-                showMotto={true}
+                showFamilyName={true}
                 width={110}
                 height={130}
               />

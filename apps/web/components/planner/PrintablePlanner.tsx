@@ -153,7 +153,7 @@ function PrintPage({ window, entries, subjects, childrenList, title, templateNam
             <ShieldPreview
               config={shieldConfig}
               familyName={familyName}
-              showMotto={false}
+              showFamilyName={false}
               width={40}
               height={48}
             />

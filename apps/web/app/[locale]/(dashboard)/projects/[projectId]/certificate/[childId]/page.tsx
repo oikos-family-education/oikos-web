@@ -174,7 +174,7 @@ export default function CertificatePage() {
                 <ShieldPreview
                   config={data.shield_config!}
                   familyName={data.family_name}
-                  showMotto={true}
+                  showFamilyName={true}
                   width={110}
                   height={130}
                 />

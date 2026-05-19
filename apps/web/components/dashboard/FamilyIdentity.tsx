@@ -22,7 +22,6 @@ const DEFAULT_SHIELD: ShieldConfig = {
   crest_animal: 'none',
   flourish: 'none',
   center_symbol: 'none',
-  motto: '',
   font_style: 'serif',
 };
 
@@ -61,7 +60,7 @@ export function FamilyIdentity({ collapsed }: FamilyIdentityProps) {
           <ShieldPreview
             config={shieldConfig}
             familyName={familyName}
-            showMotto={false}
+            showFamilyName={false}
             width={32}
             height={36}
           />

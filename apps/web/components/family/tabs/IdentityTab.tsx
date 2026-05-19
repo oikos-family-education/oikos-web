@@ -21,7 +21,6 @@ const defaultShield: ShieldConfig = {
   crest_animal: 'none',
   flourish: 'none',
   center_symbol: 'none',
-  motto: '',
   font_style: 'serif',
 };
 
@@ -109,7 +108,7 @@ export function IdentityTab({ family, formData: initial, onFamilyUpdated }: Prop
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-5">
             <div className="w-24 h-24 flex-shrink-0">
-              <ShieldPreview config={shield} familyName={family.family_name} showMotto={false} width={96} height={96} />
+              <ShieldPreview config={shield} familyName={family.family_name} showFamilyName={false} width={96} height={96} />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-800">{t('coatOfArmsTitle')}</h2>

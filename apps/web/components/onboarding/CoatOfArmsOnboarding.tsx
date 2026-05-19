@@ -18,7 +18,6 @@ const defaultShield: ShieldConfig = {
   crest_animal: 'none',
   flourish: 'none',
   center_symbol: 'none',
-  motto: '',
   font_style: 'serif',
 };
 

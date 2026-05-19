@@ -15,7 +15,6 @@ const baseConfig: ShieldConfig = {
   crest_animal: 'none',
   flourish: 'none',
   center_symbol: 'none',
-  motto: '',
   font_style: 'serif',
 };
 
@@ -31,36 +30,18 @@ describe('ShieldPreview', () => {
     expect(text?.textContent).toBe('SF');
   });
 
-  it('renders the family name when showMotto=true (default)', () => {
+  it('renders the family name when showFamilyName=true (default)', () => {
     const { container } = render(<ShieldPreview config={baseConfig} familyName="Smith" />);
     const texts = Array.from(container.querySelectorAll('text'));
     expect(texts.some((t) => t.textContent?.includes('SMITH'))).toBe(true);
   });
 
-  it('hides family name when showMotto=false', () => {
+  it('hides family name when showFamilyName=false', () => {
     const { container } = render(
-      <ShieldPreview config={baseConfig} familyName="Smith" showMotto={false} />,
+      <ShieldPreview config={baseConfig} familyName="Smith" showFamilyName={false} />,
     );
     const texts = Array.from(container.querySelectorAll('text'));
     expect(texts.some((t) => t.textContent?.includes('SMITH'))).toBe(false);
-  });
-
-  it('renders motto ribbon when motto is set and showMotto=true', () => {
-    const { container } = render(
-      <ShieldPreview config={{ ...baseConfig, motto: 'Faith and Family' }} familyName="Smith" />,
-    );
-    const texts = Array.from(container.querySelectorAll('text'));
-    expect(texts.some((t) => t.textContent?.includes('Faith and Family'))).toBe(true);
-  });
-
-  it('truncates very long mottos', () => {
-    const longMotto = 'A'.repeat(50);
-    const { container } = render(
-      <ShieldPreview config={{ ...baseConfig, motto: longMotto }} familyName="Smith" />,
-    );
-    const texts = Array.from(container.querySelectorAll('text'));
-    const mottoText = texts.find((t) => t.textContent?.includes('AAA'));
-    expect(mottoText?.textContent?.length).toBeLessThan(longMotto.length);
   });
 
   it('respects width and height props', () => {

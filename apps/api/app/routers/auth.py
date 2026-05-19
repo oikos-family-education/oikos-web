@@ -117,8 +117,9 @@ async def logout(request: Request, response: Response, current_user: User = Depe
     token = request.cookies.get("refresh_token")
     if token:
         await revoke_refresh_token(token, str(current_user.id))
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    secure = _is_secure()
+    response.delete_cookie("access_token", path="/", samesite="strict", secure=secure, httponly=True)
+    response.delete_cookie("refresh_token", path="/", samesite="strict", secure=secure, httponly=True)
     return MessageResponse(message="Logged out successfully.")
 
 @router.post("/refresh", response_model=MessageResponse)

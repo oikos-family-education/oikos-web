@@ -49,7 +49,7 @@ vi.mock('next/server', () => {
 });
 
 // ── Import AFTER mocks are set up ──────────────────────────────────────────
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // We re-import middleware after all mocks
 import middleware from '../middleware';
@@ -120,17 +120,19 @@ describe('middleware', () => {
     });
   });
 
-  describe('root redirect', () => {
-    it('redirects / to /dashboard when user has access_token (default locale, no prefix)', () => {
+  describe('landing page', () => {
+    it('passes / through to intl middleware when user has access_token', () => {
+      // Landing page is reachable for everyone — cookie presence isn't proof of
+      // a valid session, so we don't bounce to /dashboard from middleware.
       const req = makeReq('/', { access_token: 'tok' });
       const res = middleware(req as any);
-      expect(res).toMatchObject({ type: 'redirect' });
+      expect(res).toMatchObject({ type: 'intl' });
     });
 
-    it('redirects /pt-BR to /pt-BR/dashboard when user has access_token', () => {
+    it('passes /pt-BR through to intl middleware when user has access_token', () => {
       const req = makeReq('/pt-BR', { access_token: 'tok' });
       const res = middleware(req as any);
-      expect(res).toMatchObject({ type: 'redirect' });
+      expect(res).toMatchObject({ type: 'intl' });
     });
 
     it('passes / to intl middleware when no access_token', () => {

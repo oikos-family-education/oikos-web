@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useMemo } from 'react';
 import { X, Loader2, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -281,7 +282,7 @@ export function EventFormDrawer({
   async function handleDelete() {
     if (!event) return;
     setIsLoading(true);
-    const res = await fetch(`/api/v1/calendar/events/${event.id}`, {
+    const res = await apiFetch(`/api/v1/calendar/events/${event.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState } from 'react';
 import { useRouter } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
@@ -51,7 +52,7 @@ export function FamilyWizard() {
         location_country_code: formData.location_country_code || undefined,
       };
 
-      const res = await fetch('/api/v1/families', {
+      const res = await apiFetch('/api/v1/families', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

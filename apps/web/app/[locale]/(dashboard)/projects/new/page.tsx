@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Plus, Trash2, GripVertical, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -34,8 +35,8 @@ export default function NewProjectPage() {
   useEffect(() => {
     async function loadData() {
       const [childRes, subjRes] = await Promise.all([
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
       ]);
       if (childRes.ok) setChildren(await childRes.json());
       if (subjRes.ok) setSubjects(await subjRes.json());
@@ -116,7 +117,7 @@ export default function NewProjectPage() {
       })),
     };
 
-    const res = await fetch('/api/v1/projects', {
+    const res = await apiFetch('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
@@ -48,7 +49,7 @@ export function ActiveCurriculums() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/v1/curriculums', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/curriculums', { credentials: 'include' });
       if (!res.ok) {
         setError(true);
         return;
@@ -60,7 +61,7 @@ export function ActiveCurriculums() {
       const enriched = await Promise.all(
         active.map(async (c) => {
           try {
-            const r = await fetch(`/api/v1/curriculums/${c.id}`, { credentials: 'include' });
+            const r = await apiFetch(`/api/v1/curriculums/${c.id}`, { credentials: 'include' });
             if (!r.ok) return { ...c, subject_count: 0 };
             const detail: CurriculumDetail = await r.json();
             return {

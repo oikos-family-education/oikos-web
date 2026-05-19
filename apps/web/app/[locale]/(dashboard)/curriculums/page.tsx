@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, Plus, Loader2, Calendar, ChevronRight, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -52,8 +53,8 @@ export default function CurriculumsPage() {
   useEffect(() => {
     async function load() {
       const [currRes, childRes] = await Promise.all([
-        fetch('/api/v1/curriculums', { credentials: 'include' }),
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/curriculums', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
       ]);
       if (currRes.ok) setCurriculums(await currRes.json());
       if (childRes.ok) setChildren(await childRes.json());

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../lib/apiFetch';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -12,7 +13,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { Loader2, Printer, Trash2 } from 'lucide-react';
+import { Loader2, Printer, Settings, Trash2, icons } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
 import { useAuth } from '../../../../providers/AuthProvider';
@@ -23,6 +24,7 @@ import { TemplateSelector } from '../../../../components/planner/TemplateSelecto
 import { ContextMenu } from '../../../../components/planner/ContextMenu';
 import { DuplicateDaysPopup } from '../../../../components/planner/DuplicateDaysPopup';
 import { PrintablePlanner } from '../../../../components/planner/PrintablePlanner';
+import { GridConfigPopup } from '../../../../components/planner/GridConfigPopup';
 import {
   RoutineEntryData,
   WeekTemplateData,
@@ -31,8 +33,7 @@ import {
   ChildData,
   CurriculumData,
   DragSubjectPayload,
-  HOURS_START,
-  HOURS_END,
+  GridConfig,
   encodeCustomNotes,
 } from '../../../../components/planner/types';
 
@@ -57,13 +58,15 @@ export default function PlannerPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entryId: string } | null>(null);
   const [dragActive, setDragActive] = useState<DragSubjectPayload | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [gridConfigOpen, setGridConfigOpen] = useState(false);
+  const [savingGridConfig, setSavingGridConfig] = useState(false);
 
   // Debounced save
   const saveTimeout = useRef<NodeJS.Timeout>();
 
   // --- Data fetching ---
   const fetchTemplates = useCallback(async () => {
-    const res = await fetch('/api/v1/week-planner/templates', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/week-planner/templates', { credentials: 'include' });
     if (res.ok) {
       const data: WeekTemplateSummary[] = await res.json();
       setTemplates(data);
@@ -73,7 +76,7 @@ export default function PlannerPage() {
   }, []);
 
   const fetchTemplate = useCallback(async (templateId: string) => {
-    const res = await fetch(`/api/v1/week-planner/templates/${templateId}`, { credentials: 'include' });
+    const res = await apiFetch(`/api/v1/week-planner/templates/${templateId}`, { credentials: 'include' });
     if (res.ok) {
       const data: WeekTemplateData = await res.json();
       setActiveTemplate(data);
@@ -81,24 +84,24 @@ export default function PlannerPage() {
   }, []);
 
   const fetchSubjects = useCallback(async () => {
-    const res = await fetch('/api/v1/subjects?source=mine', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' });
     if (res.ok) setSubjects(await res.json());
   }, []);
 
   const fetchChildren = useCallback(async () => {
-    const res = await fetch('/api/v1/families/me/children', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/families/me/children', { credentials: 'include' });
     if (res.ok) setChildrenData(await res.json());
   }, []);
 
   const fetchCurriculums = useCallback(async () => {
-    const res = await fetch('/api/v1/curriculums', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/curriculums', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       // Fetch full details for active curriculums to get curriculum_subjects
       const detailed: CurriculumData[] = [];
       for (const c of data) {
         if (c.status === 'active') {
-          const detailRes = await fetch(`/api/v1/curriculums/${c.id}`, { credentials: 'include' });
+          const detailRes = await apiFetch(`/api/v1/curriculums/${c.id}`, { credentials: 'include' });
           if (detailRes.ok) detailed.push(await detailRes.json());
         }
       }
@@ -131,7 +134,7 @@ export default function PlannerPage() {
 
   // --- API operations ---
   async function createTemplate(name: string, isActive: boolean) {
-    const res = await fetch('/api/v1/week-planner/templates', {
+    const res = await apiFetch('/api/v1/week-planner/templates', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -149,7 +152,7 @@ export default function PlannerPage() {
   }
 
   async function renameTemplate(templateId: string, newName: string) {
-    const res = await fetch(`/api/v1/week-planner/templates/${templateId}`, {
+    const res = await apiFetch(`/api/v1/week-planner/templates/${templateId}`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -165,7 +168,7 @@ export default function PlannerPage() {
 
   async function activateTemplate() {
     if (!activeTemplate || activeTemplate.is_active) return;
-    const res = await fetch(`/api/v1/week-planner/templates/${activeTemplate.id}/activate`, {
+    const res = await apiFetch(`/api/v1/week-planner/templates/${activeTemplate.id}/activate`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -177,7 +180,7 @@ export default function PlannerPage() {
 
   async function deleteTemplate() {
     if (!activeTemplate) return;
-    const res = await fetch(`/api/v1/week-planner/templates/${activeTemplate.id}`, {
+    const res = await apiFetch(`/api/v1/week-planner/templates/${activeTemplate.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });
@@ -195,13 +198,45 @@ export default function PlannerPage() {
 
   async function clearWeek() {
     if (!activeTemplate) return;
-    const res = await fetch(`/api/v1/week-planner/templates/${activeTemplate.id}/entries`, {
+    const res = await apiFetch(`/api/v1/week-planner/templates/${activeTemplate.id}/entries`, {
       method: 'DELETE',
       credentials: 'include',
     });
     if (res.ok) {
       setActiveTemplate(prev => prev ? { ...prev, entries: [] } : null);
       setClearConfirm(false);
+    }
+  }
+
+  async function saveGridConfig(config: GridConfig, deleteOutside: boolean) {
+    if (!activeTemplate) return;
+    setSavingGridConfig(true);
+    try {
+      const res = await apiFetch(`/api/v1/week-planner/templates/${activeTemplate.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_hour: config.start_hour,
+          end_hour: config.end_hour,
+          include_saturday: config.include_saturday,
+          include_sunday: config.include_sunday,
+          delete_outside_entries: deleteOutside,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        const message = typeof err.detail === 'string'
+          ? err.detail
+          : err.detail?.message || 'Error';
+        setToast(message);
+        return;
+      }
+      await fetchTemplates();
+      await fetchTemplate(activeTemplate.id);
+      setGridConfigOpen(false);
+    } finally {
+      setSavingGridConfig(false);
     }
   }
 
@@ -218,7 +253,7 @@ export default function PlannerPage() {
     notes?: string;
   }) {
     if (!activeTemplate) return;
-    const res = await fetch(`/api/v1/week-planner/templates/${activeTemplate.id}/entries`, {
+    const res = await apiFetch(`/api/v1/week-planner/templates/${activeTemplate.id}/entries`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -248,7 +283,7 @@ export default function PlannerPage() {
 
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(async () => {
-      const res = await fetch(`/api/v1/week-planner/entries/${entryId}`, {
+      const res = await apiFetch(`/api/v1/week-planner/entries/${entryId}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -269,14 +304,14 @@ export default function PlannerPage() {
       if (!prev) return null;
       return { ...prev, entries: prev.entries.filter(e => e.id !== entryId) };
     });
-    await fetch(`/api/v1/week-planner/entries/${entryId}`, {
+    await apiFetch(`/api/v1/week-planner/entries/${entryId}`, {
       method: 'DELETE',
       credentials: 'include',
     });
   }
 
   async function duplicateEntry(entryId: string, targetDays: number[]) {
-    const res = await fetch(`/api/v1/week-planner/entries/${entryId}/duplicate`, {
+    const res = await apiFetch(`/api/v1/week-planner/entries/${entryId}/duplicate`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -346,28 +381,32 @@ export default function PlannerPage() {
     setDragActive(null);
     const { active, over } = event;
     if (!over) return;
+    if (!activeTemplate) return;
 
-    const dropData = over.data.current as { dayIndex: number; hour: number } | undefined;
+    const dropData = over.data.current as { dayIndex: number; hour: number; minute?: number } | undefined;
     if (!dropData) return;
 
     const activeData = active.data.current;
     if (!activeData) return;
 
-    const { dayIndex, hour } = dropData;
-    const startMinute = hour * 60;
+    const { dayIndex, hour, minute = 0 } = dropData;
+    const startMinute = hour * 60 + minute;
 
-    // Clamp to 22:00
-    const maxStart = HOURS_END * 60;
-    const clampedStart = Math.min(startMinute, maxStart);
+    // Clamp to the template's configured end hour
+    const maxStart = activeTemplate.end_hour * 60;
+    const minStart = activeTemplate.start_hour * 60;
+    const clampedStart = Math.max(minStart, Math.min(startMinute, maxStart));
 
     if (activeData.type === 'subject') {
       // Dragging from panel
       const payload = activeData as DragSubjectPayload;
       let duration = payload.durationMinutes;
-      // Truncate if overflows past 22:00
+      // Truncate if it would overflow past the template's end hour
       if (clampedStart + duration > maxStart) {
         duration = maxStart - clampedStart;
-        if (duration > 0) setToast(t('overflowWarning'));
+        if (duration > 0) {
+          setToast(t('overflowWarning', { end: String(activeTemplate.end_hour).padStart(2, '0') }));
+        }
       }
       if (duration <= 0) return;
 
@@ -393,23 +432,25 @@ export default function PlannerPage() {
     }
   }
 
-  // --- Conflict detection for visual feedback ---
+  // --- Conflict detection for visual feedback (per 30-minute slot) ---
   const conflictCells = new Set<string>();
   if (dragActive && !dragActive.isFreeTime && activeTemplate) {
     for (let day = 0; day < 7; day++) {
-      for (let hour = HOURS_START; hour <= HOURS_END; hour++) {
-        const proposedStart = hour * 60;
-        const proposedEnd = proposedStart + dragActive.durationMinutes;
-        const hasConflict = activeTemplate.entries.some(e => {
-          if (e.is_free_time) return false;
-          if (e.day_of_week !== day) return false;
-          const eEnd = e.start_minute + e.duration_minutes;
-          if (proposedStart >= eEnd || proposedEnd <= e.start_minute) return false;
-          // Check child overlap
-          const overlap = dragActive.childIds.some(cid => e.child_ids.includes(cid));
-          return overlap;
-        });
-        if (hasConflict) conflictCells.add(`${day}-${hour}`);
+      for (let hour = activeTemplate.start_hour; hour <= activeTemplate.end_hour; hour++) {
+        for (const minute of [0, 30] as const) {
+          const proposedStart = hour * 60 + minute;
+          const proposedEnd = proposedStart + dragActive.durationMinutes;
+          const hasConflict = activeTemplate.entries.some(e => {
+            if (e.is_free_time) return false;
+            if (e.day_of_week !== day) return false;
+            const eEnd = e.start_minute + e.duration_minutes;
+            if (proposedStart >= eEnd || proposedEnd <= e.start_minute) return false;
+            // Check child overlap
+            const overlap = dragActive.childIds.some(cid => e.child_ids.includes(cid));
+            return overlap;
+          });
+          if (hasConflict) conflictCells.add(`${day}-${hour}-${minute}`);
+        }
       }
     }
   }
@@ -492,6 +533,15 @@ export default function PlannerPage() {
               {t('setAsActive')}
             </Button>
           )}
+          {activeTemplate && (
+            <button
+              onClick={() => setGridConfigOpen(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+            >
+              <Settings className="w-4 h-4" />
+              {t('gridConfigButton')}
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
@@ -560,16 +610,24 @@ export default function PlannerPage() {
             onToggle={() => setPanelCollapsed(!panelCollapsed)}
           />
 
-          <PlannerGrid
-            entries={entries}
-            subjects={subjects}
-            childrenList={childrenData}
-            onEntryClick={setSelectedEntry}
-            onUpdateTime={handleUpdateTime}
-            onResize={handleResize}
-            onContextMenu={handleContextMenu}
-            conflictCells={conflictCells}
-          />
+          {activeTemplate && (
+            <PlannerGrid
+              entries={entries}
+              subjects={subjects}
+              childrenList={childrenData}
+              config={{
+                start_hour: activeTemplate.start_hour,
+                end_hour: activeTemplate.end_hour,
+                include_saturday: activeTemplate.include_saturday,
+                include_sunday: activeTemplate.include_sunday,
+              }}
+              onEntryClick={setSelectedEntry}
+              onUpdateTime={handleUpdateTime}
+              onResize={handleResize}
+              onContextMenu={handleContextMenu}
+              conflictCells={conflictCells}
+            />
+          )}
         </div>
 
         <DragOverlay>
@@ -578,7 +636,14 @@ export default function PlannerPage() {
               className="px-3 py-2 rounded-lg shadow-lg border text-sm font-medium text-slate-800 bg-white opacity-80"
               style={{ borderLeftWidth: '4px', borderLeftColor: dragActive.color }}
             >
-              {dragActive.icon && <span className="mr-1">{dragActive.icon}</span>}
+              {dragActive.icon && (
+                dragActive.icon in icons
+                  ? React.createElement(icons[dragActive.icon as keyof typeof icons], {
+                      className: 'w-4 h-4 inline-block mr-1 -mt-0.5',
+                      style: { color: dragActive.color },
+                    })
+                  : <span className="mr-1">{dragActive.icon}</span>
+              )}
               {dragActive.subjectName}
             </div>
           )}
@@ -631,6 +696,22 @@ export default function PlannerPage() {
         />
       )}
 
+      {/* Grid configuration popup */}
+      {gridConfigOpen && activeTemplate && (
+        <GridConfigPopup
+          config={{
+            start_hour: activeTemplate.start_hour,
+            end_hour: activeTemplate.end_hour,
+            include_saturday: activeTemplate.include_saturday,
+            include_sunday: activeTemplate.include_sunday,
+          }}
+          entries={entries}
+          saving={savingGridConfig}
+          onSave={saveGridConfig}
+          onClose={() => setGridConfigOpen(false)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
@@ -639,16 +720,24 @@ export default function PlannerPage() {
       )}
 
       {/* Print-only layout (portaled to <body> so it becomes a direct child — prevents Chrome from repeating fixed-positioned content across pages) */}
-      <PrintPortal>
-        <PrintablePlanner
-          entries={entries}
-          subjects={subjects}
-          childrenList={childrenData}
-          templateName={activeTemplate?.name}
-          familyName={family?.family_name}
-          shieldConfig={family?.shield_config as any}
-        />
-      </PrintPortal>
+      {activeTemplate && (
+        <PrintPortal>
+          <PrintablePlanner
+            entries={entries}
+            subjects={subjects}
+            childrenList={childrenData}
+            config={{
+              start_hour: activeTemplate.start_hour,
+              end_hour: activeTemplate.end_hour,
+              include_saturday: activeTemplate.include_saturday,
+              include_sunday: activeTemplate.include_sunday,
+            }}
+            templateName={activeTemplate?.name}
+            familyName={family?.family_name}
+            shieldConfig={family?.shield_config as any}
+          />
+        </PrintPortal>
+      )}
     </div>
   );
 }

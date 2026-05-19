@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -38,7 +39,7 @@ export function LessonStatusSection({
       params.set('limit', String(pageSize));
       params.set('offset', String((page - 1) * pageSize));
       if (subjectId) params.set('subject_id', subjectId);
-      const res = await fetch(`/api/v1/lessons?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/lessons?${params.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) {

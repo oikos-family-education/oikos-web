@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React from 'react';
 import { Plus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -98,9 +99,9 @@ export function CalendarPage() {
     let cancelled = false;
     async function load() {
       const [childRes, subjRes, projRes] = await Promise.all([
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
-        fetch('/api/v1/projects?status=active', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }),
+        apiFetch('/api/v1/projects?status=active', { credentials: 'include' }),
       ]);
       if (cancelled) return;
 
@@ -116,7 +117,7 @@ export function CalendarPage() {
         const list = await projRes.json();
         const details = await Promise.all(
           list.map((p: { id: string }) =>
-            fetch(`/api/v1/projects/${p.id}`, { credentials: 'include' })
+            apiFetch(`/api/v1/projects/${p.id}`, { credentials: 'include' })
               .then((r) => (r.ok ? r.json() : null))
               .catch(() => null)
           )
@@ -152,7 +153,7 @@ export function CalendarPage() {
       params.set('to', toISODate(to));
       if (view !== 'month') params.set('include_routine', 'true');
       try {
-        const res = await fetch(`/api/v1/calendar/events?${params}`, {
+        const res = await apiFetch(`/api/v1/calendar/events?${params}`, {
           credentials: 'include',
           signal: controller.signal,
         });
@@ -252,7 +253,7 @@ export function CalendarPage() {
 
   async function handleDeleteFromDetail() {
     if (!selectedEvent || selectedEvent.is_system) return;
-    const res = await fetch(`/api/v1/calendar/events/${selectedEvent.id}`, {
+    const res = await apiFetch(`/api/v1/calendar/events/${selectedEvent.id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

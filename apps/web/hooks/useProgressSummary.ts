@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../lib/apiFetch';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface OverallStreak {
@@ -66,7 +67,7 @@ export function useProgressSummary(from: string, to: string, childId?: string | 
     const params = new URLSearchParams({ from, to });
     if (childId) params.set('child_id', childId);
     try {
-      const res = await fetch(`/api/v1/progress/summary?${params}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/progress/summary?${params}`, { credentials: 'include' });
       if (!res.ok) {
         setError('Failed to load progress summary.');
         setData(null);

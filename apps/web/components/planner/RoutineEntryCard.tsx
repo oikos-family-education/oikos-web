@@ -7,9 +7,6 @@ import {
   RoutineEntryData,
   SubjectData,
   ChildData,
-  ROW_HEIGHT,
-  HOURS_START,
-  HOURS_END,
   minuteToTime,
   parseTime,
   priorityColor,
@@ -23,6 +20,9 @@ interface RoutineEntryCardProps {
   subjects: SubjectData[];
   childrenList: ChildData[];
   allEntries: RoutineEntryData[];
+  startHour: number;
+  endHour: number;
+  rowHeight: number;
   onClick: () => void;
   onUpdateTime: (entryId: string, startMinute: number) => void;
   onResize: (entryId: string, durationMinutes: number) => void;
@@ -35,6 +35,9 @@ export function RoutineEntryCard({
   subjects,
   childrenList,
   allEntries,
+  startHour,
+  endHour,
+  rowHeight,
   onClick,
   onUpdateTime,
   onResize,
@@ -54,10 +57,10 @@ export function RoutineEntryCard({
   });
 
   // Calculate position
-  const hourRow = Math.floor(entry.start_minute / 60) - HOURS_START;
+  const hourRow = Math.floor(entry.start_minute / 60) - startHour;
   const minuteOffset = entry.start_minute % 60;
-  const topPx = hourRow * ROW_HEIGHT + (minuteOffset / 60) * ROW_HEIGHT;
-  const heightPx = (entry.duration_minutes / 60) * ROW_HEIGHT;
+  const topPx = hourRow * rowHeight + (minuteOffset / 60) * rowHeight;
+  const heightPx = (entry.duration_minutes / 60) * rowHeight;
 
   // Calculate width for side-by-side display
   const overlapping = allEntries.filter(e => {
@@ -121,7 +124,8 @@ export function RoutineEntryCard({
 
   function handleTimeConfirm() {
     const parsed = parseTime(timeValue);
-    if (parsed !== null && parsed >= HOURS_START * 60 && parsed <= HOURS_END * 60) {
+    const maxStart = endHour * 60 - entry.duration_minutes;
+    if (parsed !== null && parsed >= startHour * 60 && parsed <= maxStart) {
       onUpdateTime(entry.id, parsed);
     }
     setEditingTime(false);
@@ -155,9 +159,9 @@ export function RoutineEntryCard({
     function onMouseMove(e: MouseEvent) {
       e.preventDefault();
       const deltaY = e.clientY - startY;
-      const deltaMinutes = Math.round((deltaY / ROW_HEIGHT) * 60 / 15) * 15;
+      const deltaMinutes = Math.round((deltaY / rowHeight) * 60 / 15) * 15;
       const newDuration = Math.max(15, Math.min(300, startDuration + deltaMinutes));
-      const maxDuration = (HOURS_END * 60) - entry.start_minute;
+      const maxDuration = (endHour * 60) - entry.start_minute;
       onResizeCallback(entry.id, Math.min(newDuration, maxDuration));
     }
 
@@ -169,7 +173,7 @@ export function RoutineEntryCard({
 
     handle.addEventListener('mousedown', onMouseDown);
     return () => handle.removeEventListener('mousedown', onMouseDown);
-  }, [entry.id, entry.duration_minutes, entry.start_minute, onResizeCallback]);
+  }, [entry.id, entry.duration_minutes, entry.start_minute, endHour, rowHeight, onResizeCallback]);
 
   return (
     <div
@@ -200,7 +204,14 @@ export function RoutineEntryCard({
     >
       <div className="p-1.5 h-full flex flex-col">
         <div className="flex items-center gap-1 min-w-0">
-          <span className="text-xs font-semibold text-slate-800 truncate">{displayName}</span>
+          <span className="text-xs font-semibold text-slate-800 truncate flex-1 min-w-0">{displayName}</span>
+          {entry.child_ids.length > 0 && (
+            <ChildCountIndicator
+              count={entry.child_ids.length}
+              color={color}
+              label={childNames || t('childrenAssigned', { count: entry.child_ids.length })}
+            />
+          )}
         </div>
 
         {heightPx >= 36 && (
@@ -246,5 +257,35 @@ export function RoutineEntryCard({
         <div className="mx-auto w-8 h-1 rounded-full bg-slate-300 mt-1.5 group-hover:bg-slate-400 transition-colors" />
       </div>
     </div>
+  );
+}
+
+interface ChildCountIndicatorProps {
+  count: number;
+  color: string;
+  label: string;
+}
+
+function ChildCountIndicator({ count, color, label }: ChildCountIndicatorProps) {
+  const MAX_DOTS = 4;
+  const visible = Math.min(count, MAX_DOTS);
+  const overflow = Math.max(0, count - MAX_DOTS);
+  return (
+    <span
+      className="flex items-center gap-0.5 flex-shrink-0"
+      aria-label={label}
+      title={label}
+    >
+      {Array.from({ length: visible }).map((_, i) => (
+        <span
+          key={i}
+          className="w-1.5 h-1.5 rounded-full ring-1 ring-white/60"
+          style={{ backgroundColor: color }}
+        />
+      ))}
+      {overflow > 0 && (
+        <span className="text-[10px] font-medium text-slate-600 ml-0.5">+{overflow}</span>
+      )}
+    </span>
   );
 }

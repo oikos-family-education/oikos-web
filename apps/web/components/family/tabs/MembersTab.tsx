@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input, Button } from '@oikos/ui';
@@ -48,7 +49,7 @@ export function MembersTab() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/families/me/members', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me/members', { credentials: 'include' });
       if (res.ok) {
         setMembers(await res.json());
       }
@@ -76,7 +77,7 @@ export function MembersTab() {
     }
     setSending(true);
     try {
-      const res = await fetch('/api/v1/families/me/members/invite', {
+      const res = await apiFetch('/api/v1/families/me/members/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed }),
@@ -99,12 +100,12 @@ export function MembersTab() {
   };
 
   const cancelInvitation = async (m: Member) => {
-    await fetch(`/api/v1/families/me/members/invite/${m.id}`, { method: 'DELETE', credentials: 'include' });
+    await apiFetch(`/api/v1/families/me/members/invite/${m.id}`, { method: 'DELETE', credentials: 'include' });
     await load();
   };
 
   const resendInvitation = async (m: Member) => {
-    await fetch(`/api/v1/families/me/members/invite/${m.id}/resend`, { method: 'POST', credentials: 'include' });
+    await apiFetch(`/api/v1/families/me/members/invite/${m.id}/resend`, { method: 'POST', credentials: 'include' });
     await load();
   };
 
@@ -112,7 +113,7 @@ export function MembersTab() {
     if (!confirmingRemove || !confirmingRemove.user_id) return;
     setRemoving(true);
     try {
-      await fetch(`/api/v1/families/me/members/${confirmingRemove.user_id}`, {
+      await apiFetch(`/api/v1/families/me/members/${confirmingRemove.user_id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

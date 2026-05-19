@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import React from 'react';
@@ -89,7 +90,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     if (!lessonId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/lessons/${lessonId}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/v1/lessons/${lessonId}`, { credentials: 'include' });
       if (!res.ok) {
         setError(t('loadError'));
         setLoading(false);
@@ -106,7 +107,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
 
   const loadSubjects = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/subjects?source=mine', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         const items = Array.isArray(data) ? data : data.items || [];
@@ -118,9 +119,9 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
   const loadRelations = useCallback(async () => {
     try {
       const [c, cu, p] = await Promise.all([
-        fetch('/api/v1/families/me/children', { credentials: 'include' }),
-        fetch('/api/v1/curriculums', { credentials: 'include' }),
-        fetch('/api/v1/projects', { credentials: 'include' }),
+        apiFetch('/api/v1/families/me/children', { credentials: 'include' }),
+        apiFetch('/api/v1/curriculums', { credentials: 'include' }),
+        apiFetch('/api/v1/projects', { credentials: 'include' }),
       ]);
       if (c.ok) setChildren(await c.json());
       if (cu.ok) {
@@ -147,7 +148,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/v1/lessons', {
+      const res = await apiFetch('/api/v1/lessons', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -183,7 +184,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     if (lesson.status === 'completed' || lesson.status === 'cancelled') return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/lessons/${lesson.id}`, {
+      const res = await apiFetch(`/api/v1/lessons/${lesson.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -200,7 +201,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
 
   async function confirmDelete() {
     if (!lesson) return;
-    const res = await fetch(`/api/v1/lessons/${lesson.id}`, {
+    const res = await apiFetch(`/api/v1/lessons/${lesson.id}`, {
       method: 'DELETE', credentials: 'include',
     });
     if (res.ok) router.push('/lessons');
@@ -223,7 +224,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     extras: Partial<{ actual_duration_minutes: number; completion_notes: string; create_teaching_log: boolean }> = {},
   ) {
     if (!lesson) return;
-    const res = await fetch(`/api/v1/lessons/${lesson.id}/status`, {
+    const res = await apiFetch(`/api/v1/lessons/${lesson.id}/status`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

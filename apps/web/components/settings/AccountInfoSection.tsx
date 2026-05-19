@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +35,7 @@ export function AccountInfoSection({ initialFirstName, initialLastName, email, o
   async function onSubmit(data: { first_name: string; last_name: string }) {
     setError('');
     setSaved(false);
-    const res = await fetch('/api/v1/users/me', {
+    const res = await apiFetch('/api/v1/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,7 +37,7 @@ export function ChangePasswordSection({ lastLoginAt }: Props) {
   async function onSubmit(data: { current_password: string; new_password: string; confirm_password: string }) {
     setApiError('');
     setSaved(false);
-    const res = await fetch('/api/v1/users/me/change-password', {
+    const res = await apiFetch('/api/v1/users/me/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

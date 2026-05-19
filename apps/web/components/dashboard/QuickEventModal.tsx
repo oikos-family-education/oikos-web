@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Modal } from './Modal';
@@ -88,7 +89,7 @@ export function QuickEventModal({ open, onClose, onCreated }: QuickEventModalPro
         recurrence: 'none',
       };
 
-      const res = await fetch('/api/v1/calendar/events', {
+      const res = await apiFetch('/api/v1/calendar/events', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

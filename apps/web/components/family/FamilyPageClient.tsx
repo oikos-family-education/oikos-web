@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -47,7 +48,7 @@ export function FamilyPageClient() {
     setLoading(true);
     setLoadError('');
     try {
-      const res = await fetch('/api/v1/families/me', { credentials: 'include' });
+      const res = await apiFetch('/api/v1/families/me', { credentials: 'include' });
       if (!res.ok) {
         setLoadError(t('loadError'));
         return;

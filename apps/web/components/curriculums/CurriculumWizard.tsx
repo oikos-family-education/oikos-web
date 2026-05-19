@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../../lib/navigation';
@@ -117,22 +118,22 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
 
   useEffect(() => {
     // Fetch children
-    fetch('/api/v1/families/me/children', { credentials: 'include' })
+    apiFetch('/api/v1/families/me/children', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then(setChildren);
     // Fetch subjects (family-owned only — platform subjects must be forked first)
-    fetch('/api/v1/subjects?source=mine', { credentials: 'include' })
+    apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : [])
       .then(setAvailableSubjects);
     // Fetch active curriculums for conflict checking
-    fetch('/api/v1/curriculums?status=active', { credentials: 'include' })
+    apiFetch('/api/v1/curriculums?status=active', { credentials: 'include' })
       .then(async (r) => {
         if (!r.ok) return [];
         const list = await r.json();
         // For each active curriculum, fetch its children
         const withChildren = await Promise.all(
           list.map(async (c: any) => {
-            const childRes = await fetch(`/api/v1/curriculums/${c.id}/children`, { credentials: 'include' });
+            const childRes = await apiFetch(`/api/v1/curriculums/${c.id}/children`, { credentials: 'include' });
             const childData = childRes.ok ? await childRes.json() : [];
             return { id: c.id, name: c.name, child_ids: childData.map((ch: any) => ch.id) };
           })
@@ -147,8 +148,8 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
     if (!curriculumId) return;
     async function loadCurriculum() {
       const [currRes, subjRes] = await Promise.all([
-        fetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' }),
-        fetch('/api/v1/subjects', { credentials: 'include' }),
+        apiFetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' }),
+        apiFetch('/api/v1/subjects', { credentials: 'include' }),
       ]);
       if (!currRes.ok) {
         setError('Failed to load curriculum.');
@@ -308,7 +309,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
         notes: notes || null,
       };
 
-      const res = await fetch(`/api/v1/curriculums/${curriculumId}`, {
+      const res = await apiFetch(`/api/v1/curriculums/${curriculumId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -323,7 +324,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
       }
 
       // Sync children: fetch current, diff, add/remove
-      const childrenRes = await fetch(`/api/v1/curriculums/${curriculumId}/children`, { credentials: 'include' });
+      const childrenRes = await apiFetch(`/api/v1/curriculums/${curriculumId}/children`, { credentials: 'include' });
       const currentChildren: { id: string; child_id: string }[] = childrenRes.ok ? await childrenRes.json() : [];
       const currentChildIds = currentChildren.map((cc) => cc.child_id);
 
@@ -332,7 +333,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
 
       await Promise.all([
         ...toAdd.map((childId) =>
-          fetch(`/api/v1/curriculums/${curriculumId}/children`, {
+          apiFetch(`/api/v1/curriculums/${curriculumId}/children`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -340,7 +341,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
           })
         ),
         ...toRemove.map((childId) =>
-          fetch(`/api/v1/curriculums/${curriculumId}/children/${childId}`, {
+          apiFetch(`/api/v1/curriculums/${curriculumId}/children/${childId}`, {
             method: 'DELETE',
             credentials: 'include',
           })
@@ -348,7 +349,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
       ]);
 
       // Sync subjects: fetch current, diff, add/remove/update
-      const currRes2 = await fetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' });
+      const currRes2 = await apiFetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' });
       const currData = currRes2.ok ? await currRes2.json() : { curriculum_subjects: [] };
       const currentSubjects: { id: string; subject_id: string }[] = currData.curriculum_subjects || [];
       const currentSubjectIds = currentSubjects.map((cs) => cs.subject_id);
@@ -360,7 +361,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
 
       await Promise.all([
         ...subjectsToAdd.map((s, i) =>
-          fetch(`/api/v1/curriculums/${curriculumId}/subjects`, {
+          apiFetch(`/api/v1/curriculums/${curriculumId}/subjects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -377,7 +378,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
           })
         ),
         ...subjectsToRemove.map((cs) =>
-          fetch(`/api/v1/curriculums/subjects/${cs.id}`, {
+          apiFetch(`/api/v1/curriculums/subjects/${cs.id}`, {
             method: 'DELETE',
             credentials: 'include',
           })
@@ -385,7 +386,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
         ...subjectsToUpdate.map((s) => {
           const existing = currentSubjects.find((cs) => cs.subject_id === s.subject_id);
           if (!existing) return Promise.resolve();
-          return fetch(`/api/v1/curriculums/subjects/${existing.id}`, {
+          return apiFetch(`/api/v1/curriculums/subjects/${existing.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -428,7 +429,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
         })),
       };
 
-      const res = await fetch('/api/v1/curriculums', {
+      const res = await apiFetch('/api/v1/curriculums', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -445,7 +446,7 @@ export function CurriculumWizard({ curriculumId }: CurriculumWizardProps = {}) {
       const created = await res.json();
 
       if (activate) {
-        await fetch(`/api/v1/curriculums/${created.id}/status`, {
+        await apiFetch(`/api/v1/curriculums/${created.id}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

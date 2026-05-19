@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '../../lib/navigation';
@@ -95,7 +96,7 @@ export const ResetPasswordForm = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch('/api/v1/auth/reset-password', {
+      const res = await apiFetch('/api/v1/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

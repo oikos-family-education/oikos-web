@@ -21,6 +21,12 @@ class WeekTemplate(Base):
     name = Column(String(200), nullable=False)
     is_active = Column(Boolean, nullable=False, default=False, index=True)
 
+    # Grid configuration (per-template)
+    start_hour = Column(SmallInteger, nullable=False, default=6)
+    end_hour = Column(SmallInteger, nullable=False, default=22)
+    include_saturday = Column(Boolean, nullable=False, default=True)
+    include_sunday = Column(Boolean, nullable=False, default=True)
+
     # Audit
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)

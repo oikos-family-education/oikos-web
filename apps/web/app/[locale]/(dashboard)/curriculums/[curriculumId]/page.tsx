@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../../../../lib/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../lib/navigation';
@@ -82,8 +83,8 @@ export default function CurriculumDashboardPage() {
   useEffect(() => {
     async function load() {
       const [currRes, subjRes] = await Promise.all([
-        fetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' }),
-        fetch('/api/v1/subjects', { credentials: 'include' }),
+        apiFetch(`/api/v1/curriculums/${curriculumId}`, { credentials: 'include' }),
+        apiFetch('/api/v1/subjects', { credentials: 'include' }),
       ]);
       if (currRes.ok) setCurriculum(await currRes.json());
       if (subjRes.ok) {
@@ -98,7 +99,7 @@ export default function CurriculumDashboardPage() {
   async function updateStatus(newStatus: string, force: boolean = false) {
     setShowMenu(false);
     setStatusError(null);
-    const res = await fetch(`/api/v1/curriculums/${curriculumId}/status`, {
+    const res = await apiFetch(`/api/v1/curriculums/${curriculumId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

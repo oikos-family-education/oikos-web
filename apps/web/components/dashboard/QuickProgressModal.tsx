@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Modal } from './Modal';
@@ -41,10 +42,10 @@ export function QuickProgressModal({ open, onClose, onLogged }: QuickProgressMod
     if (!open || (children.length > 0 && subjects.length > 0)) return;
     let cancelled = false;
     Promise.all([
-      fetch('/api/v1/families/me/children', { credentials: 'include' }).then((r) =>
+      apiFetch('/api/v1/families/me/children', { credentials: 'include' }).then((r) =>
         r.ok ? r.json() : []
       ),
-      fetch('/api/v1/subjects?source=mine', { credentials: 'include' }).then((r) =>
+      apiFetch('/api/v1/subjects?source=mine', { credentials: 'include' }).then((r) =>
         r.ok ? r.json() : []
       ),
     ])
@@ -91,7 +92,7 @@ export function QuickProgressModal({ open, onClose, onLogged }: QuickProgressMod
         notes: notes || null,
       };
 
-      const res = await fetch('/api/v1/progress/logs', {
+      const res = await apiFetch('/api/v1/progress/logs', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

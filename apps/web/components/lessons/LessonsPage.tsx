@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -73,7 +74,7 @@ export function LessonsPage() {
       params.set('limit', '200');
       if (filterSubject) params.set('subject_id', filterSubject);
       if (filterStatus) params.set('status', filterStatus);
-      const res = await fetch(`/api/v1/lessons?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/lessons?${params.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) {
@@ -92,7 +93,7 @@ export function LessonsPage() {
 
   const loadSubjects = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/subjects?source=mine', {
+      const res = await apiFetch('/api/v1/subjects?source=mine', {
         credentials: 'include',
       });
       if (res.ok) {
@@ -144,7 +145,7 @@ export function LessonsPage() {
       params.set('order', 'asc');
       params.set('limit', '200');
       if (filterSubject) params.set('subject_id', filterSubject);
-      const res = await fetch(`/api/v1/lessons?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/lessons?${params.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) {

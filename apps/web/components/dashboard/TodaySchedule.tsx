@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '../../lib/apiFetch';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
@@ -125,7 +126,7 @@ export function TodaySchedule() {
   const [completingId, setCompletingId] = useState<string | null>(null);
 
   const loadLessons = useCallback(async () => {
-    const res = await fetch('/api/v1/lessons/today', { credentials: 'include' });
+    const res = await apiFetch('/api/v1/lessons/today', { credentials: 'include' });
     if (!res.ok) throw new Error('lessons');
     return (await res.json()) as LessonSummary[];
   }, []);
@@ -136,8 +137,8 @@ export function TodaySchedule() {
     try {
       const today = todayISO();
       const [r, e, l] = await Promise.all([
-        fetch('/api/v1/week-planner/today', { credentials: 'include' }),
-        fetch(`/api/v1/calendar/events?from=${today}&to=${today}`, { credentials: 'include' }),
+        apiFetch('/api/v1/week-planner/today', { credentials: 'include' }),
+        apiFetch(`/api/v1/calendar/events?from=${today}&to=${today}`, { credentials: 'include' }),
         loadLessons().catch(() => [] as LessonSummary[]),
       ]);
       if (!r.ok || !e.ok) {
@@ -163,7 +164,7 @@ export function TodaySchedule() {
   async function markComplete(lesson: LessonSummary) {
     setCompletingId(lesson.id);
     try {
-      const res = await fetch(`/api/v1/lessons/${lesson.id}/status`, {
+      const res = await apiFetch(`/api/v1/lessons/${lesson.id}/status`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -8,6 +8,7 @@ import {
   SubjectData,
   ChildData,
   DAY_NAMES,
+  GridConfig,
   minuteToTime,
   isCustomActivity,
   parseCustomNotes,
@@ -19,6 +20,7 @@ interface PrintablePlannerProps {
   entries: RoutineEntryData[];
   subjects: SubjectData[];
   childrenList: ChildData[];
+  config: GridConfig;
   templateName?: string;
   familyName?: string;
   shieldConfig?: ShieldConfig | null;
@@ -33,17 +35,33 @@ interface Window {
   rowHeightPx: number;
 }
 
-const WINDOWS: Window[] = [
+const BASE_WINDOWS: Window[] = [
   { key: 'w1', titleKey: 'printMorning', dayIndices: [0, 1, 2, 3, 4], startHour: 6, endHour: 13, rowHeightPx: 70 },
   { key: 'w2', titleKey: 'printAfternoon', dayIndices: [0, 1, 2, 3, 4], startHour: 13, endHour: 18, rowHeightPx: 95 },
   { key: 'w3', titleKey: 'printEvening', dayIndices: [0, 1, 2, 3, 4], startHour: 18, endHour: 22, rowHeightPx: 110 },
   { key: 'w4', titleKey: 'printWeekend', dayIndices: [5, 6], startHour: 6, endHour: 22, rowHeightPx: 30 },
 ];
 
-export function PrintablePlanner({ entries, subjects, childrenList, templateName, familyName, shieldConfig }: PrintablePlannerProps) {
+export function PrintablePlanner({ entries, subjects, childrenList, config, templateName, familyName, shieldConfig }: PrintablePlannerProps) {
   const t = useTranslations('WeekPlanner');
 
-  const pages = WINDOWS.map(w => {
+  const weekendDays = [
+    ...(config.include_saturday ? [5] : []),
+    ...(config.include_sunday ? [6] : []),
+  ];
+
+  const windows: Window[] = BASE_WINDOWS
+    .map(w => {
+      const startHour = Math.max(w.startHour, config.start_hour);
+      const endHour = Math.min(w.endHour, config.end_hour);
+      if (startHour >= endHour) return null;
+      const dayIndices = w.key === 'w4' ? weekendDays : w.dayIndices;
+      if (dayIndices.length === 0) return null;
+      return { ...w, startHour, endHour, dayIndices };
+    })
+    .filter((w): w is Window => w !== null);
+
+  const pages = windows.map(w => {
     const windowStartMin = w.startHour * 60;
     const windowEndMin = w.endHour * 60;
     const windowEntries = entries.filter(e =>

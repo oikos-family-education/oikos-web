@@ -322,3 +322,216 @@ async def test_today_routine_free_time_entry(authed_with_family, make_child):
     assert resp.status_code == 200
     assert len(resp.json()) == 1
     assert resp.json()[0]["is_free_time"] is True
+
+
+# ── Grid configuration ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_template_default_config(authed_with_family):
+    """New templates default to the full 6-22 window with weekends included."""
+    client, _, _ = authed_with_family
+    resp = await client.post("/api/v1/week-planner/templates", json={"name": "T"})
+    body = resp.json()
+    assert body["start_hour"] == 6
+    assert body["end_hour"] == 22
+    assert body["include_saturday"] is True
+    assert body["include_sunday"] is True
+
+
+@pytest.mark.asyncio
+async def test_template_create_with_custom_config(authed_with_family):
+    client, _, _ = authed_with_family
+    resp = await client.post(
+        "/api/v1/week-planner/templates",
+        json={
+            "name": "Weekdays only",
+            "start_hour": 8,
+            "end_hour": 17,
+            "include_saturday": False,
+            "include_sunday": False,
+        },
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["start_hour"] == 8
+    assert body["end_hour"] == 17
+    assert body["include_saturday"] is False
+    assert body["include_sunday"] is False
+
+
+@pytest.mark.asyncio
+async def test_template_create_rejects_start_after_end(authed_with_family):
+    client, _, _ = authed_with_family
+    resp = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "Bad", "start_hour": 12, "end_hour": 10},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_template_create_rejects_out_of_bounds(authed_with_family):
+    client, _, _ = authed_with_family
+    r1 = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "start_hour": 5, "end_hour": 12},
+    )
+    assert r1.status_code == 422
+
+    r2 = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "start_hour": 10, "end_hour": 23},
+    )
+    assert r2.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_template_update_config(authed_with_family):
+    client, _, _ = authed_with_family
+    t = await client.post("/api/v1/week-planner/templates", json={"name": "T"})
+    tid = t.json()["id"]
+    resp = await client.patch(
+        f"/api/v1/week-planner/templates/{tid}",
+        json={"start_hour": 9, "end_hour": 18, "include_saturday": False},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["start_hour"] == 9
+    assert body["end_hour"] == 18
+    assert body["include_saturday"] is False
+    assert body["include_sunday"] is True
+
+
+@pytest.mark.asyncio
+async def test_template_update_rejects_start_after_end(authed_with_family):
+    client, _, _ = authed_with_family
+    t = await client.post("/api/v1/week-planner/templates", json={"name": "T"})
+    tid = t.json()["id"]
+    resp = await client.patch(
+        f"/api/v1/week-planner/templates/{tid}",
+        json={"start_hour": 20, "end_hour": 10},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_template_update_blocked_by_outside_entries(authed_with_family, make_child):
+    """Shrinking the grid is blocked when entries fall outside, unless delete_outside_entries=true."""
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post("/api/v1/week-planner/templates", json={"name": "T"})
+    tid = t.json()["id"]
+    # 07:00 entry — would fall outside if start_hour bumps to 9.
+    e = await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=0, start=420, duration=45),
+    )
+    eid = e.json()["id"]
+
+    blocked = await client.patch(
+        f"/api/v1/week-planner/templates/{tid}", json={"start_hour": 9},
+    )
+    assert blocked.status_code == 409
+    assert eid in blocked.json()["detail"]["outside_entry_ids"]
+
+    # With delete_outside_entries=true the entry is removed and the config saved.
+    forced = await client.patch(
+        f"/api/v1/week-planner/templates/{tid}",
+        json={"start_hour": 9, "delete_outside_entries": True},
+    )
+    assert forced.status_code == 200
+    assert forced.json()["start_hour"] == 9
+    detail = await client.get(f"/api/v1/week-planner/templates/{tid}")
+    assert detail.json()["entries"] == []
+
+
+@pytest.mark.asyncio
+async def test_template_update_blocked_by_weekend_entries(authed_with_family, make_child):
+    """Removing Saturday is blocked when Saturday has entries."""
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post("/api/v1/week-planner/templates", json={"name": "T"})
+    tid = t.json()["id"]
+    # Saturday entry (day_of_week=5)
+    await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=5, start=540, duration=45),
+    )
+    resp = await client.patch(
+        f"/api/v1/week-planner/templates/{tid}", json={"include_saturday": False},
+    )
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_entry_outside_template_bounds_400(authed_with_family, make_child):
+    """Entries before start_hour are rejected for the configured template."""
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "start_hour": 9, "end_hour": 17},
+    )
+    tid = t.json()["id"]
+    resp = await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=0, start=480, duration=45),  # 08:00 — too early
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_entry_overflow_template_end_400(authed_with_family, make_child):
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "start_hour": 9, "end_hour": 17},
+    )
+    tid = t.json()["id"]
+    resp = await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=0, start=990, duration=60),  # 16:30 + 60 → past 17:00
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_entry_on_disabled_weekend_400(authed_with_family, make_child):
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "include_sunday": False},
+    )
+    tid = t.json()["id"]
+    resp = await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=6, start=540, duration=45),  # Sunday
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_duplicate_skips_disabled_weekend(authed_with_family, make_child):
+    """Duplicating to a disabled day silently skips that day."""
+    client, _, family = authed_with_family
+    child = await make_child(family.id, first_name="A")
+    t = await client.post(
+        "/api/v1/week-planner/templates",
+        json={"name": "T", "include_saturday": False},
+    )
+    tid = t.json()["id"]
+    e = await client.post(
+        f"/api/v1/week-planner/templates/{tid}/entries",
+        json=_entry([str(child.id)], day=0, start=540, duration=45),
+    )
+    eid = e.json()["id"]
+    resp = await client.post(
+        f"/api/v1/week-planner/entries/{eid}/duplicate",
+        json={"target_days": [5, 1]},  # 5 = Saturday → skipped
+    )
+    assert resp.status_code == 200
+    days = sorted(d["day_of_week"] for d in resp.json())
+    assert days == [1]
+

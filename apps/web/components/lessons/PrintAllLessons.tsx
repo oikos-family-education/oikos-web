@@ -76,7 +76,7 @@ function LessonPrintPage({
               familyName={family.family_name}
               width={56}
               height={56}
-              showMotto={false}
+              showFamilyName={false}
             />
           </div>
         ) : null}

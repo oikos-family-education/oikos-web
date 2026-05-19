@@ -177,6 +177,10 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
 
   async function patchLesson(body: Partial<LessonDetail>) {
     if (!lesson) return;
+    // Completed and cancelled lessons are read-only — every PATCH from
+    // the UI is silently ignored so a stray blur or debounced save can't
+    // mutate them.
+    if (lesson.status === 'completed' || lesson.status === 'cancelled') return;
     setSaving(true);
     try {
       const res = await fetch(`/api/v1/lessons/${lesson.id}`, {
@@ -351,7 +355,8 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
     lesson.subject.name, lesson.sequence_number, lesson.reference_number,
   );
   const statusActions = STATUS_ACTIONS[lesson.status];
-  const canComplete = lesson.status !== 'completed' && lesson.status !== 'cancelled';
+  const isTerminal = lesson.status === 'completed' || lesson.status === 'cancelled';
+  const canComplete = !isTerminal;
 
   return (
     <div className="max-w-6xl">
@@ -379,7 +384,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
               familyName={family.family_name}
               width={56}
               height={56}
-              showMotto={false}
+              showFamilyName={false}
             />
           </div>
         ) : null}
@@ -464,8 +469,9 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
               <input
                 type="text"
                 defaultValue={lesson.title}
+                disabled={isTerminal}
                 onBlur={(e) => patchLesson({ title: e.target.value })}
-                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
+                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
               />
             </SidebarField>
             <SidebarField label={t('referenceNumber')}>
@@ -473,19 +479,21 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
                 type="text"
                 defaultValue={lesson.reference_number ?? ''}
                 maxLength={64}
+                disabled={isTerminal}
                 placeholder={t('referenceNumberPlaceholder')}
                 onBlur={(e) => patchLesson({
                   reference_number: e.target.value.trim() || null,
                 })}
-                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
+                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
               />
             </SidebarField>
             <SidebarField label={t('scheduledFor')}>
               <input
                 type="date"
                 defaultValue={lesson.scheduled_for}
+                disabled={isTerminal}
                 onBlur={(e) => patchLesson({ scheduled_for: e.target.value as never })}
-                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
+                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
               />
             </SidebarField>
             <SidebarField label={`${t('estimatedDuration')} (${t('estimatedDurationUnit')})`}>
@@ -493,15 +501,17 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
                 type="number"
                 min={1} max={720}
                 defaultValue={lesson.estimated_duration_minutes ?? ''}
+                disabled={isTerminal}
                 onBlur={(e) => patchLesson({
                   estimated_duration_minutes: e.target.value === '' ? null : Number(e.target.value),
                 })}
-                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary"
+                className="w-full text-sm rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:border-primary disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
               />
             </SidebarField>
             <SidebarField label={t('objectives')}>
               <TagInput
                 value={lesson.objectives}
+                disabled={isTerminal}
                 onChange={(v) => patchLesson({ objectives: v })}
                 placeholder={t('objectivePlaceholder')}
               />
@@ -509,6 +519,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
             <SidebarField label={t('tags')}>
               <TagInput
                 value={lesson.tags}
+                disabled={isTerminal}
                 onChange={(v) => patchLesson({ tags: v })}
                 placeholder={t('tagPlaceholder')}
               />
@@ -549,6 +560,7 @@ export function LessonEditor({ lessonId, defaultDateISO }: LessonEditorProps) {
               value={lesson.content_html ?? ''}
               onChange={handleContentChange}
               placeholder={t('contentPlaceholder')}
+              readOnly={isTerminal}
             />
           </div>
           <div className="mt-3 flex justify-end" data-print-hide>
@@ -754,14 +766,16 @@ function SidebarField({ label, children }: { label: string; children: React.Reac
 }
 
 function TagInput({
-  value, onChange, placeholder,
+  value, onChange, placeholder, disabled = false,
 }: {
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState('');
   function commit() {
+    if (disabled) return;
     const v = draft.trim();
     if (!v) return;
     if (value.includes(v)) { setDraft(''); return; }
@@ -769,31 +783,35 @@ function TagInput({
     setDraft('');
   }
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 focus-within:border-primary">
+    <div className={`flex flex-wrap items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 focus-within:border-primary ${disabled ? 'bg-slate-50' : ''}`}>
       {value.map((tag) => (
         <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
           {tag}
-          <button
-            type="button"
-            onClick={() => onChange(value.filter((t) => t !== tag))}
-            aria-label="Remove"
-            className="text-primary/60 hover:text-primary"
-          >
-            ×
-          </button>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => onChange(value.filter((t) => t !== tag))}
+              aria-label="Remove"
+              className="text-primary/60 hover:text-primary"
+            >
+              ×
+            </button>
+          )}
         </span>
       ))}
-      <input
-        type="text"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); commit(); }
-        }}
-        onBlur={commit}
-        placeholder={placeholder}
-        className="flex-1 min-w-[6rem] text-xs bg-transparent focus:outline-none"
-      />
+      {!disabled && (
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+          }}
+          onBlur={commit}
+          placeholder={placeholder}
+          className="flex-1 min-w-[6rem] text-xs bg-transparent focus:outline-none"
+        />
+      )}
     </div>
   );
 }

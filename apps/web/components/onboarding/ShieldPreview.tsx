@@ -7,8 +7,8 @@ import { renderFlourish } from './ShieldBuilder';
 interface ShieldPreviewProps {
   config: ShieldConfig;
   familyName: string;
-  /** When false, the motto ribbon and family name text are hidden (useful for small/thumbnail display). Defaults to true. */
-  showMotto?: boolean;
+  /** When false, the family name text is hidden (useful for small/thumbnail display). Defaults to true. */
+  showFamilyName?: boolean;
   width?: number;
   height?: number;
   className?: string;
@@ -159,12 +159,12 @@ function getPatternDef(type: string, color: string, id: string): JSX.Element | n
 /**
  * Standalone shield preview component.
  * Renders the shield SVG from a ShieldConfig.
- * Pass `showMotto={false}` for small/thumbnail displays (hides motto ribbon and family name).
+ * Pass `showFamilyName={false}` for small/thumbnail displays.
  */
 export function ShieldPreview({
   config,
   familyName,
-  showMotto = true,
+  showFamilyName = true,
   width = 280,
   height = 320,
   className = '',
@@ -225,20 +225,9 @@ export function ShieldPreview({
         </g>
       )}
 
-      {/* Motto ribbon — only when showMotto is true */}
-      {showMotto && config.motto && (
-        <g>
-          <rect x="5" y="99" width="90" height="11" rx="2" fill={config.primary_color} stroke={config.accent_color} strokeWidth="0.8" opacity="0.9" />
-          <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
-            fill={config.accent_color} fontFamily={font} fontSize="4.5" fontStyle="italic" fontWeight="600" opacity="0.9">
-            {config.motto.length > 35 ? config.motto.slice(0, 35) + '\u2026' : config.motto}
-          </text>
-        </g>
-      )}
-
-      {/* Family Name — only when showMotto is true */}
-      {showMotto && familyName && (
-        <text x="50" y={config.motto ? 117 : 106} textAnchor="middle" dominantBaseline="middle"
+      {/* Family Name */}
+      {showFamilyName && familyName && (
+        <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
           fill={config.accent_color} fontFamily={font} fontSize="5" fontWeight="bold" letterSpacing="1" opacity="0.7">
           {familyName.toUpperCase().slice(0, 30)}
         </text>

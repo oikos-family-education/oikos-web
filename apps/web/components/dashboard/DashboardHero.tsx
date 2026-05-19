@@ -22,7 +22,6 @@ const PLACEHOLDER_SHIELD: ShieldConfig = {
   crest_animal: 'none',
   flourish: 'none',
   center_symbol: 'none',
-  motto: '',
   font_style: 'serif',
 };
 
@@ -84,7 +83,7 @@ export function DashboardHero() {
                 <ShieldPreview
                   config={shieldConfig}
                   familyName={familyName}
-                  showMotto={false}
+                  showFamilyName={false}
                   width={56}
                   height={64}
                 />

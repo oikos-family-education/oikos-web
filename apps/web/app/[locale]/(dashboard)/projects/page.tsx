@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Search, Loader2, Calendar, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../../../../lib/navigation';
+import { useAuth } from '../../../../providers/AuthProvider';
+import { formatDate } from '../../../../lib/formatDate';
 
 interface ProjectChild {
   project_id: string;
@@ -56,6 +58,8 @@ interface Subject {
 export default function ProjectsPage() {
   const t = useTranslations('Projects');
   const router = useRouter();
+  const { user } = useAuth();
+  const dateFormat = user?.date_format || 'MM/DD/YYYY';
   const [projects, setProjects] = useState<Project[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -132,6 +136,21 @@ export default function ProjectsPage() {
     const q = search.toLowerCase();
     filtered = filtered.filter((p) => p.title.toLowerCase().includes(q));
   }
+
+  // Sort: active/draft first, then complete/archived. Within each group,
+  // projects with a due date come first (soonest first), then by newest created.
+  const statusRank: Record<string, number> = { active: 0, draft: 0, complete: 1, archived: 1 };
+  filtered = [...filtered].sort((a, b) => {
+    const rankA = statusRank[a.status] ?? 2;
+    const rankB = statusRank[b.status] ?? 2;
+    if (rankA !== rankB) return rankA - rankB;
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    }
+    if (a.due_date) return -1;
+    if (b.due_date) return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   const statusColors: Record<string, string> = {
     draft: 'bg-slate-100 text-slate-600',
@@ -255,7 +274,7 @@ export default function ProjectsPage() {
                   <span className={`inline-flex items-center gap-1 ${isOverdue(project) ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
                     {isOverdue(project) && <AlertTriangle className="w-3.5 h-3.5" />}
                     <Calendar className="w-3.5 h-3.5" />
-                    {new Date(project.due_date).toLocaleDateString()}
+                    {formatDate(project.due_date, dateFormat)}
                   </span>
                   {isOverdue(project) && (
                     <span className="ml-1 px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs font-medium">{t('overdue')}</span>

@@ -144,7 +144,7 @@ export default function EditProjectPage() {
       router.push(`/projects/${projectId}`);
     } else {
       const err = await res.json().catch(() => null);
-      setError(typeof err?.detail === 'string' ? err.detail : 'Something went wrong.');
+      setError(typeof err?.detail === 'string' ? err.detail : t('errorGeneric'));
     }
     setIsSaving(false);
   }
@@ -160,7 +160,7 @@ export default function EditProjectPage() {
   if (!project) {
     return (
       <div className="max-w-5xl">
-        <p className="text-slate-500">Project not found.</p>
+        <p className="text-slate-500">{t('notFound')}</p>
       </div>
     );
   }
@@ -278,9 +278,7 @@ export default function EditProjectPage() {
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">
-          To add, rename, or remove milestones, use the Milestones tab on the project page.
-        </p>
+        <p className="text-xs text-slate-500">{t('editMilestonesHelp')}</p>
 
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg">

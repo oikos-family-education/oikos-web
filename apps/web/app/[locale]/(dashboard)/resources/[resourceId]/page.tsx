@@ -95,7 +95,17 @@ export default function ResourceDetailPage() {
   const colorClass = TYPE_COLORS[resource.type] || TYPE_COLORS.other;
 
   if (isEditing) {
-    return <ResourceForm initialData={resource} isEditing />;
+    return (
+      <ResourceForm
+        initialData={resource}
+        isEditing
+        onSaved={(updated) => {
+          setResource(updated);
+          setIsEditing(false);
+        }}
+        onCancel={() => setIsEditing(false)}
+      />
+    );
   }
 
   return (

@@ -47,6 +47,10 @@ class UserResponse(BaseModel):
     last_name: Optional[str]
     has_family: bool
     has_coat_of_arms: bool
+    date_format: str
+    time_format: str
+    timezone: str
+    locale: str
 
     class Config:
         from_attributes = True

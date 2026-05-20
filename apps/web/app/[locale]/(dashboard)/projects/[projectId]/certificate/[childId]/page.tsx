@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Printer } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
-import { ShieldPreview } from '../../../../../../../components/onboarding/ShieldPreview';
+import { PrintableHeader } from '../../../../../../../components/ui/PrintableHeader';
 import type { ShieldConfig } from '../../../../../../../components/onboarding/ShieldBuilder';
 
 interface CertificateData {
@@ -86,8 +86,6 @@ export default function CertificatePage() {
   const purposeLine = data.project_purpose
     ? t('certificatePurpose', { purpose: data.project_purpose })
     : null;
-
-  const hasCoatOfArms = !!data.shield_config;
 
   return (
     <>
@@ -170,32 +168,11 @@ export default function CertificatePage() {
           {/* Content area */}
           <div className="relative z-10 flex flex-col items-center justify-center min-h-[267mm] px-[20mm] text-center">
             {/* Seals row */}
-            <div className={`flex items-center mb-10 ${hasCoatOfArms ? 'justify-between w-full' : 'justify-center'}`}>
-              {hasCoatOfArms && (
-                <ShieldPreview
-                  config={data.shield_config!}
-                  familyName={data.family_name}
-                  showFamilyName={true}
-                  width={110}
-                  height={130}
-                />
-              )}
-              {/* Oikos seal */}
-              <div className="flex flex-col items-center">
-                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="30" cy="30" r="28" stroke="#1A3828" strokeWidth="2" />
-                  <circle cx="30" cy="30" r="24" stroke="#1A3828" strokeWidth="1" />
-                  {/* House with open book */}
-                  <path d="M30 14 L44 26 L42 26 L42 40 L18 40 L18 26 L16 26 Z" stroke="#1A3828" strokeWidth="1.5" fill="none" />
-                  <path d="M25 40 L25 30 L35 30 L35 40" stroke="#1A3828" strokeWidth="1.5" fill="none" />
-                  {/* Book */}
-                  <path d="M24 33 L30 35 L36 33" stroke="#1A3828" strokeWidth="1" fill="none" />
-                  <path d="M24 35 L30 37 L36 35" stroke="#1A3828" strokeWidth="1" fill="none" />
-                </svg>
-                <span className="cert-serif text-xs mt-1" style={{ color: '#1A3828', letterSpacing: '0.15em' }}>
-                  OIKOS
-                </span>
-              </div>
+            <div className="mb-10 w-full">
+              <PrintableHeader
+                shieldConfig={data.shield_config as ShieldConfig | null}
+                familyName={data.family_name}
+              />
             </div>
 
             {/* Title */}

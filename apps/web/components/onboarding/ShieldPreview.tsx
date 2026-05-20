@@ -9,6 +9,8 @@ interface ShieldPreviewProps {
   familyName: string;
   /** When false, the family name text is hidden (useful for small/thumbnail display). Defaults to true. */
   showFamilyName?: boolean;
+  /** Font size (in viewBox units) for the family name text. Defaults to 5. */
+  familyNameFontSize?: number;
   width?: number;
   height?: number;
   className?: string;
@@ -165,6 +167,7 @@ export function ShieldPreview({
   config,
   familyName,
   showFamilyName = true,
+  familyNameFontSize = 5,
   width = 280,
   height = 320,
   className = '',
@@ -228,7 +231,7 @@ export function ShieldPreview({
       {/* Family Name */}
       {showFamilyName && familyName && (
         <text x="50" y="106" textAnchor="middle" dominantBaseline="middle"
-          fill={config.accent_color} fontFamily={font} fontSize="5" fontWeight="bold" letterSpacing="1" opacity="0.7">
+          fill={config.accent_color} fontFamily={font} fontSize={familyNameFontSize} fontWeight="bold" letterSpacing="1" opacity="0.7">
           {familyName.toUpperCase().slice(0, 30)}
         </text>
       )}

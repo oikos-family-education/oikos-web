@@ -2,7 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { ShieldPreview } from '../onboarding/ShieldPreview';
+import { PrintableHeader } from '../ui/PrintableHeader';
 import type { ShieldConfig } from '../onboarding/ShieldBuilder';
 import type { ProgressReport } from '../../hooks/useProgressReport';
 
@@ -52,31 +52,15 @@ export const PrintableReport = forwardRef<HTMLDivElement, PrintableReportProps>(
         className="progress-report-sheet bg-white w-full max-w-[210mm] mx-auto p-10 shadow-sm text-slate-800"
         style={{ fontFamily: "'Palatino Linotype', 'Palatino', 'Georgia', 'Times New Roman', serif" }}
       >
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold tracking-tight text-slate-800">Oikos</span>
-            <span className="text-xs text-slate-500 tracking-widest uppercase mt-1">
-              Family Education Platform
-            </span>
-          </div>
-          <div className="flex flex-col items-center">
-            {family.shield_config && Object.keys(family.shield_config).length > 0 ? (
-              <ShieldPreview
-                config={family.shield_config as unknown as ShieldConfig}
-                familyName={family.family_name}
-                showFamilyName={true}
-                width={110}
-                height={130}
-              />
-            ) : (
-              <div
-                className="border border-slate-200 rounded-md flex items-center justify-center text-slate-300 text-xs"
-                style={{ width: 110, height: 130 }}
-              >
-                no shield
-              </div>
-            )}
-          </div>
+        <div className="mb-6">
+          <PrintableHeader
+            shieldConfig={
+              family.shield_config && Object.keys(family.shield_config).length > 0
+                ? (family.shield_config as unknown as ShieldConfig)
+                : null
+            }
+            familyName={family.family_name}
+          />
         </div>
 
         <div className="text-center mb-8">

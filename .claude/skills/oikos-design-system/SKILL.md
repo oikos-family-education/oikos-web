@@ -102,6 +102,45 @@ Root layout renders three animated gradient blobs (indigo, rose, orange) — pag
 - Logo: gradient `from-primary to-indigo-500 rounded-xl`
 - Nav group labels: `text-xs font-semibold text-slate-400 uppercase tracking-wider`
 
+## Brand Mark (Oikos logo)
+
+The Oikos logo is always **a `BookOpen` icon from `lucide-react` inside a gradient rounded square**, never a custom illustration. The shape and colours are fixed; only the size varies by context.
+
+```tsx
+<div className="w-9 h-9 bg-gradient-to-br from-primary to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+  <BookOpen className="w-5 h-5 text-white" />
+</div>
+```
+
+Standard sizes:
+- Sidebar / nav: `w-9 h-9` outer, `w-5 h-5` icon
+- Printable headers: `w-10 h-10` outer, `w-5 h-5` icon
+- Certificate seal: `w-[60px] h-[60px]` outer, `w-8 h-8` icon
+
+The wordmark next to it: `text-xl font-bold tracking-tight text-slate-800` (or `text-2xl` on print).
+
+## Printable Layout Header
+
+Every printable / exportable A4 surface (certificate, progress report, printed lesson pack, planner export) **must use the shared component** [`<PrintableHeader>`](apps/web/components/ui/PrintableHeader.tsx). Do not hand-roll a header — even small divergences (sizes, ordering, OIKOS vs. "Oikos" wordmark, missing shield placeholder) break the visual family.
+
+```tsx
+import { PrintableHeader } from '../ui/PrintableHeader';
+
+<PrintableHeader
+  shieldConfig={family.shield_config as ShieldConfig | null}
+  familyName={family.family_name}
+/>
+```
+
+The component is the single source of truth and renders:
+- **Family coat of arms — LEFT.** `ShieldPreview` at `width={110} height={130}` with `familyNameFontSize={8}` (the default `5` is too small to read on print). If `shieldConfig` is `null`, a same-sized muted placeholder keeps the layout balanced.
+- **Oikos brand mark — RIGHT.** Vertical stack: 60×60 gradient `rounded-2xl` square with a white `BookOpen` icon, then the wordmark `OIKOS` (`text-xs font-semibold text-slate-800`, `letter-spacing: 0.15em`) below.
+- **Wrapper.** `flex items-center justify-between w-full`. The consuming page is responsible only for the surrounding `mb-*` spacing.
+
+If `<PrintableHeader>` doesn't fit a new surface (e.g. an ultra-compact strip), extend the component with a `compact` / `size` prop rather than copy-pasting a variant — the goal is that every print surface stays in sync when the brand or shield rendering changes.
+
+Reference implementations: [certificate page](apps/web/app/[locale]/(dashboard)/projects/[projectId]/certificate/[childId]/page.tsx), [PrintableReport.tsx](apps/web/components/progress/PrintableReport.tsx).
+
 ## Icons
 
 All icons from `lucide-react`. Common navigation icons:

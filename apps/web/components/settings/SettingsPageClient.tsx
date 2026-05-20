@@ -7,6 +7,7 @@ import { AccountInfoSection } from './AccountInfoSection';
 import { ChangePasswordSection } from './ChangePasswordSection';
 import { LanguageRegionSection } from './LanguageRegionSection';
 import { AppearanceSection, UiPreferences } from './AppearanceSection';
+import { DashboardSection } from './DashboardSection';
 import { DangerZoneSection } from './DangerZoneSection';
 
 interface UserSettings {
@@ -97,6 +98,8 @@ export function SettingsPageClient() {
       />
 
       <AppearanceSection initial={settings.ui_preferences} />
+
+      <DashboardSection initial={settings.ui_preferences} />
 
       <DangerZoneSection
         email={settings.email}

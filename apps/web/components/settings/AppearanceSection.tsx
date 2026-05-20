@@ -4,7 +4,7 @@ import { apiFetch } from '../../lib/apiFetch';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = 'light' | 'dark';
 type FontSize = 'default' | 'large' | 'xl';
 
 export interface UiPreferences {
@@ -13,14 +13,17 @@ export interface UiPreferences {
   reduce_motion: boolean;
   high_contrast: boolean;
   dyslexia_font: boolean;
+  // Dashboard preference: days before a subject is flagged in "Needs Attention".
+  neglected_threshold_days: number;
 }
 
 const DEFAULT: UiPreferences = {
-  theme: 'system',
+  theme: 'light',
   font_size: 'default',
   reduce_motion: false,
   high_contrast: false,
   dyslexia_font: false,
+  neglected_threshold_days: 14,
 };
 
 const LS_KEY = 'oikos:ui-prefs';
@@ -30,10 +33,7 @@ function applyToDOM(prefs: UiPreferences) {
 
   // Theme
   html.classList.remove('dark');
-  if (
-    prefs.theme === 'dark' ||
-    (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  ) {
+  if (prefs.theme === 'dark') {
     html.classList.add('dark');
   }
 
@@ -89,15 +89,29 @@ function AccessibilityToggle({ label, description, checked, onChange }: TogglePr
   );
 }
 
+function normalize(prefs: UiPreferences): UiPreferences {
+  let next = prefs;
+  // Legacy values stored as 'system' before the option was removed map to light.
+  if ((next.theme as string) !== 'light' && (next.theme as string) !== 'dark') {
+    next = { ...next, theme: 'light' };
+  }
+  // Backfill any newly-added prefs that older payloads may be missing.
+  if (typeof next.neglected_threshold_days !== 'number') {
+    next = { ...next, neglected_threshold_days: DEFAULT.neglected_threshold_days };
+  }
+  return next;
+}
+
 export function AppearanceSection({ initial }: Props) {
   const t = useTranslations('Settings');
-  const [prefs, setPrefs] = useState<UiPreferences>(initial);
+  const [prefs, setPrefs] = useState<UiPreferences>(() => normalize(initial));
 
   // Apply preferences from DB on mount (may differ from localStorage)
   useEffect(() => {
-    applyToDOM(initial);
-    persistLocally(initial);
-    setPrefs(initial);
+    const normalized = normalize(initial);
+    applyToDOM(normalized);
+    persistLocally(normalized);
+    setPrefs(normalized);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function update(patch: Partial<UiPreferences>) {
@@ -117,7 +131,6 @@ export function AppearanceSection({ initial }: Props) {
   const themeOptions: { value: Theme; labelKey: keyof typeof t }[] = [
     { value: 'light', labelKey: 'themeLight' as any },
     { value: 'dark', labelKey: 'themeDark' as any },
-    { value: 'system', labelKey: 'themeSystem' as any },
   ];
 
   const fontSizeOptions: { value: FontSize; labelKey: string }[] = [

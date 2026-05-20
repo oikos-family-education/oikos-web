@@ -18,11 +18,13 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
 }
 
 DEFAULT_UI_PREFERENCES = {
-    "theme": "system",
+    "theme": "light",
     "font_size": "default",
     "reduce_motion": False,
     "high_contrast": False,
     "dyslexia_font": False,
+    # Dashboard preference: days before a subject is flagged in "Needs Attention".
+    "neglected_threshold_days": 14,
 }
 
 class User(Base):
@@ -66,5 +68,5 @@ class User(Base):
         JSONB,
         nullable=False,
         default=DEFAULT_UI_PREFERENCES,
-        server_default='{"theme":"system","font_size":"default","reduce_motion":false,"high_contrast":false,"dyslexia_font":false}',
+        server_default='{"theme":"light","font_size":"default","reduce_motion":false,"high_contrast":false,"dyslexia_font":false}',
     )

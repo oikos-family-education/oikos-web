@@ -21,11 +21,12 @@ class ChangePasswordRequest(BaseModel):
 
 
 class UiPreferencesRequest(BaseModel):
-    theme: Optional[Literal["light", "dark", "system"]] = None
+    theme: Optional[Literal["light", "dark"]] = None
     font_size: Optional[Literal["default", "large", "xl"]] = None
     reduce_motion: Optional[bool] = None
     high_contrast: Optional[bool] = None
     dyslexia_font: Optional[bool] = None
+    neglected_threshold_days: Optional[int] = Field(None, ge=1, le=365)
 
 
 class UiPreferencesResponse(BaseModel):
@@ -34,6 +35,7 @@ class UiPreferencesResponse(BaseModel):
     reduce_motion: bool
     high_contrast: bool
     dyslexia_font: bool
+    neglected_threshold_days: int = 14
 
 
 class UpdatePreferencesRequest(BaseModel):

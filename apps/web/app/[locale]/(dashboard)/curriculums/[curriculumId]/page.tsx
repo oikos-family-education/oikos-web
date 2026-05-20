@@ -61,8 +61,8 @@ const STATUS_COLORS: Record<string, string> = {
   template: 'bg-violet-100 text-violet-700',
 };
 
-const TABS = ['Overview', 'Subjects', 'Schedule', 'Progress'] as const;
-const TAB_ICONS = [LayoutGrid, BookOpen, Calendar, BarChart3];
+const TABS = ['Overview', 'Subjects', 'Progress'] as const;
+const TAB_ICONS = [LayoutGrid, BookOpen, BarChart3];
 const DAY_KEYS = ['dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
 
 export default function CurriculumDashboardPage() {
@@ -390,44 +390,6 @@ export default function CurriculumDashboardPage() {
                   </div>
                 );
               })}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'Schedule' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="grid grid-cols-7 gap-2">
-            {DAY_KEYS.map((dk, dayIdx) => (
-              <div key={dk}>
-                <h4 className="text-xs font-semibold text-slate-500 uppercase text-center mb-2">
-                  {t(dk as any)}
-                </h4>
-                <div className="space-y-1">
-                  {curriculum.curriculum_subjects
-                    .filter((cs) => cs.scheduled_days.includes(dayIdx))
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((cs) => {
-                      const subject = subjects[cs.subject_id];
-                      if (!subject) return null;
-                      return (
-                        <div
-                          key={cs.id}
-                          className="p-2 rounded-lg text-xs font-medium"
-                          style={{
-                            backgroundColor: `${subject.color}15`,
-                            color: subject.color,
-                          }}
-                        >
-                          {subject.name}
-                          <span className="block text-[10px] opacity-70">
-                            {cs.session_duration_minutes}m
-                          </span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}

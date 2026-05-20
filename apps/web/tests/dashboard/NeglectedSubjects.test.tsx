@@ -23,10 +23,12 @@ const makeSubject = (overrides = {}) => ({
 describe('NeglectedSubjects widget', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    localStorage.clear();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('shows subject name after loading', async () => {
@@ -135,5 +137,83 @@ describe('NeglectedSubjects widget', () => {
     await waitFor(() => {
       expect(screen.getByText(/all subjects taught recently/i)).toBeInTheDocument();
     });
+  });
+
+  it('uses the default threshold (14) when localStorage has no value', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+
+    renderWithProviders(<NeglectedSubjects />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('threshold_days=14'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('reads the threshold from localStorage when present', async () => {
+    localStorage.setItem(
+      'oikos:ui-prefs',
+      JSON.stringify({ neglected_threshold_days: 30 }),
+    );
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+
+    renderWithProviders(<NeglectedSubjects />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('threshold_days=30'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('falls back to default threshold when localStorage value is out of range', async () => {
+    localStorage.setItem(
+      'oikos:ui-prefs',
+      JSON.stringify({ neglected_threshold_days: 999 }),
+    );
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+
+    renderWithProviders(<NeglectedSubjects />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('threshold_days=14'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('opens the help modal when "What is this?" is clicked', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+
+    renderWithProviders(<NeglectedSubjects />);
+
+    await waitFor(() => screen.getByRole('button', { name: /what is this/i }));
+    await userEvent.click(screen.getByRole('button', { name: /what is this/i }));
+
+    expect(
+      screen.getByRole('dialog', { name: /about "needs attention"/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/surfaces subjects from your active curricula/i)).toBeInTheDocument();
+  });
+
+  it('shows the configured threshold in the help modal text', async () => {
+    localStorage.setItem(
+      'oikos:ui-prefs',
+      JSON.stringify({ neglected_threshold_days: 21 }),
+    );
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+
+    renderWithProviders(<NeglectedSubjects />);
+
+    await waitFor(() => screen.getByRole('button', { name: /what is this/i }));
+    await userEvent.click(screen.getByRole('button', { name: /what is this/i }));
+
+    expect(
+      screen.getByText((_, el) => el?.textContent === 'A subject is flagged when it hasn\'t been logged for more than 21 days.'),
+    ).toBeInTheDocument();
   });
 });

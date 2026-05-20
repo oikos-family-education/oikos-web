@@ -24,9 +24,11 @@ interface Subject {
 interface ResourceFormProps {
   initialData?: Resource;
   isEditing?: boolean;
+  onSaved?: (resource: Resource) => void;
+  onCancel?: () => void;
 }
 
-export function ResourceForm({ initialData, isEditing = false }: ResourceFormProps) {
+export function ResourceForm({ initialData, isEditing = false, onSaved, onCancel }: ResourceFormProps) {
   const t = useTranslations('Resources');
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -97,7 +99,7 @@ export function ResourceForm({ initialData, isEditing = false }: ResourceFormPro
       : '/api/v1/resources';
     const method = isEditing ? 'PATCH' : 'POST';
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -106,7 +108,11 @@ export function ResourceForm({ initialData, isEditing = false }: ResourceFormPro
 
     if (res.ok) {
       const resource = await res.json();
-      router.push(`/resources/${resource.id}`);
+      if (onSaved) {
+        onSaved(resource);
+      } else {
+        router.push(`/resources/${resource.id}`);
+      }
     } else {
       const err = await res.json().catch(() => null);
       setError(err?.detail || 'Something went wrong.');
@@ -216,7 +222,7 @@ export function ResourceForm({ initialData, isEditing = false }: ResourceFormPro
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={() => router.push('/resources')}
+            onClick={() => (onCancel ? onCancel() : router.push('/resources'))}
             className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
           >
             {t('cancel')}

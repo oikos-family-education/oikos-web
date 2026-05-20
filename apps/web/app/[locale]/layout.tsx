@@ -28,8 +28,8 @@ export default async function RootLayout({
 (function(){try{
   var p=JSON.parse(localStorage.getItem('oikos:ui-prefs')||'{}');
   var h=document.documentElement;
-  var theme=p.theme||'system';
-  if(theme==='dark'||(theme==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){h.classList.add('dark');}
+  var theme=p.theme||'light';
+  if(theme==='dark'){h.classList.add('dark');}
   if(p.font_size==='large'){h.classList.add('font-large');}
   else if(p.font_size==='xl'){h.classList.add('font-xl');}
   if(p.reduce_motion){h.classList.add('reduce-motion');}

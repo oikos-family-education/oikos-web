@@ -4,7 +4,6 @@ import { DashboardHero } from '../../../../components/dashboard/DashboardHero';
 import { TodaySchedule } from '../../../../components/dashboard/TodaySchedule';
 import { ActiveCurriculums } from '../../../../components/dashboard/ActiveCurriculums';
 import { OngoingProjects } from '../../../../components/dashboard/OngoingProjects';
-import { ProgressWidget } from '../../../../components/dashboard/ProgressWidget';
 import { NeglectedSubjects } from '../../../../components/dashboard/NeglectedSubjects';
 import { DashboardNotes } from '../../../../components/dashboard/DashboardNotes';
 import { DashboardJournal } from '../../../../components/dashboard/DashboardJournal';
@@ -16,20 +15,15 @@ export default function DashboardPage() {
       <DashboardHero />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left column — today's focus */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Today's focus — schedule with inline tick-to-log per child */}
+        <div className="lg:col-span-8 space-y-6">
           <TodaySchedule />
         </div>
 
-        {/* Middle column — curriculum + projects */}
+        {/* Side rail — curricula, projects, and subjects that need attention */}
         <div className="lg:col-span-4 space-y-6">
           <ActiveCurriculums />
           <OngoingProjects />
-        </div>
-
-        {/* Right column — progress + gaps */}
-        <div className="lg:col-span-3 space-y-6">
-          <ProgressWidget />
           <NeglectedSubjects />
         </div>
       </div>

@@ -7,8 +7,10 @@ import {
   Trash2, Check, Circle, Plus, Link2, Unlink, Award, Printer, Library, Play,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from '../../../../../lib/navigation';
+import { useRouter } from '../../../../../lib/navigation';
 import { useParams } from 'next/navigation';
+import { useAuth } from '../../../../../providers/AuthProvider';
+import { formatDate } from '../../../../../lib/formatDate';
 
 interface ProjectChild {
   project_id: string;
@@ -113,6 +115,8 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.projectId as string;
+  const { user } = useAuth();
+  const dateFormat = user?.date_format || 'MM/DD/YYYY';
 
   const [project, setProject] = useState<Project | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
@@ -400,7 +404,7 @@ export default function ProjectDetailPage() {
               <div className={`flex items-center gap-1 text-sm mt-1 ${isOverdue() ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
                 {isOverdue() && <AlertTriangle className="w-3.5 h-3.5" />}
                 <Calendar className="w-3.5 h-3.5" />
-                {new Date(project.due_date).toLocaleDateString()}
+                {formatDate(project.due_date, dateFormat)}
                 {isOverdue() && (
                   <span className="ml-1 px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">{t('overdue')}</span>
                 )}
@@ -535,7 +539,7 @@ export default function ProjectDetailPage() {
           {/* Per-child progress */}
           {project.milestones.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">{t('progress', { completed: '', total: '' }).replace(' of ', '')} </h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">{t('progressLabel')}</h3>
               <div className="space-y-3">
                 {project.children.map((pc) => {
                   const completed = completions.filter((c) => c.child_id === pc.child_id).length;
@@ -585,7 +589,7 @@ export default function ProjectDetailPage() {
                 {milestone.due_date && (
                   <p className="text-xs text-slate-400 mb-2">
                     <Calendar className="w-3 h-3 inline mr-1" />
-                    {new Date(milestone.due_date).toLocaleDateString()}
+                    {formatDate(milestone.due_date, dateFormat)}
                   </p>
                 )}
                 {/* Per-child completion toggles */}
@@ -642,7 +646,7 @@ export default function ProjectDetailPage() {
         <div className="space-y-6">
           {/* Linked resources */}
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">{t('linkedSubjects').replace('Subjects', 'Resources')}</h3>
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">{t('linkedResources')}</h3>
             {projectResources.length > 0 ? (
               <div className="space-y-3">
                 {projectResources.map((pr) => {
@@ -710,7 +714,7 @@ export default function ProjectDetailPage() {
                   </button>
                 </div>
               ) : availableResources.length === 0 ? (
-                <p className="text-sm text-slate-500 py-2">All your resources are already linked.</p>
+                <p className="text-sm text-slate-500 py-2">{t('allResourcesLinked')}</p>
               ) : (
                 <div className="space-y-1 max-h-80 overflow-y-auto">
                   {availableResources.map((r) => (
@@ -974,11 +978,7 @@ export default function ProjectDetailPage() {
                   <p className="text-green-200 text-sm mt-1">{project.title}</p>
                   {project.completed_at && (
                     <p className="text-green-300/60 text-xs mt-1">
-                      {new Date(project.completed_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
+                      {formatDate(project.completed_at, dateFormat)}
                     </p>
                   )}
                   {project.subjects.length > 0 && (

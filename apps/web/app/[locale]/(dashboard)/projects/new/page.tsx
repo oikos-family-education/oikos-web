@@ -66,12 +66,12 @@ export default function NewProjectPage() {
   type FormData = z.infer<typeof schema>;
 
   const defaultMilestones = [
-    { title: 'Research & Gather', description: '' },
-    { title: 'Plan & Outline', description: '' },
-    { title: 'Create & Build', description: '' },
-    { title: 'Review & Refine', description: '' },
-    { title: 'Present or Deliver', description: '' },
-    { title: 'Reflect', description: '' },
+    { title: t('presetResearch'), description: '' },
+    { title: t('presetPlan'), description: '' },
+    { title: t('presetCreate'), description: '' },
+    { title: t('presetReview'), description: '' },
+    { title: t('presetPresent'), description: '' },
+    { title: t('presetReflect'), description: '' },
   ];
 
   const {
@@ -129,7 +129,7 @@ export default function NewProjectPage() {
       router.push(`/projects/${project.id}`);
     } else {
       const err = await res.json().catch(() => null);
-      setError(err?.detail || 'Something went wrong.');
+      setError(err?.detail || t('errorGeneric'));
     }
     setIsLoading(false);
   }
@@ -271,7 +271,7 @@ export default function NewProjectPage() {
                 <span className="text-xs text-slate-400 w-5">{index + 1}</span>
                 <input
                   {...register(`milestones.${index}.title`)}
-                  placeholder={`Milestone ${index + 1}`}
+                  placeholder={t('milestoneNumberPlaceholder', { number: index + 1 })}
                   className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
                 {fields.length > 1 && (

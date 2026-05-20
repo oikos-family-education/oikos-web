@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
 import {
   BookOpen, CalendarDays, Calendar as CalendarIcon,
-  CheckCircle2, LayoutGrid, NotebookPen, Plus, Users,
+  Check, CheckCheck, CheckCircle2, Flame, Info, LayoutGrid,
+  Loader2, NotebookPen, Plus, Users,
 } from 'lucide-react';
 import { WidgetCard, WidgetSkeleton, WidgetError, WidgetEmpty } from './WidgetCard';
 import {
@@ -15,6 +16,9 @@ import {
   type LessonSummary,
 } from '../../lib/lessonUtils';
 import { LessonStatusBadge } from '../lessons/LessonStatusBadge';
+import { parseCustomNotes } from '../planner/types';
+import { useTodayLogs, type MarkAllPair } from '../../hooks/useTodayLogs';
+import { useProgressSummary, type ProgressSummary } from '../../hooks/useProgressSummary';
 
 interface RoutineEntry {
   id: string;
@@ -61,6 +65,8 @@ type ScheduleItem =
       endMinute: number;
     };
 
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 function formatMinuteOfDay(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
@@ -88,7 +94,165 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function ChildBadges({ names }: { names: string[] }) {
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getThisWeekDates(): Date[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Monday = first day. JS getDay() returns 0=Sun..6=Sat — convert to Mon=0..Sun=6
+  const dow = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dow);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+function routineCanBeTicked(r: RoutineEntry): boolean {
+  return !r.is_free_time && !!r.subject_id && r.child_ids.length > 0;
+}
+
+function summaryRange(): { from: string; to: string } {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - 30);
+  return { from: isoDate(from), to: isoDate(today) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Streak banner — thin clickable strip at the top of the widget body.
+// Replaces the old separate Progress widget; brings back the M–S mini bars.
+// ─────────────────────────────────────────────────────────────────────────
+
+function StreakBanner({
+  summary,
+  isLoading,
+}: {
+  summary: ProgressSummary | null;
+  isLoading: boolean;
+}) {
+  const t = useTranslations('Dashboard');
+  const week = useMemo(() => getThisWeekDates(), []);
+  const todayKey = isoDate(new Date());
+
+  const heatmapByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    if (summary) {
+      for (const cell of summary.heatmap) m.set(cell.date, cell.count);
+    }
+    return m;
+  }, [summary]);
+
+  if (isLoading && !summary) {
+    return (
+      <div className="h-24 rounded-xl bg-slate-100 animate-pulse" aria-hidden />
+    );
+  }
+
+  const streak = summary?.overall_streak;
+  const weeks = streak?.current_weeks ?? 0;
+  const hasStreak = weeks > 0;
+
+  return (
+    <Link
+      href="/progress"
+      className={`block rounded-xl border p-4 transition-colors ${
+        hasStreak
+          ? 'border-amber-200 bg-gradient-to-br from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100'
+          : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+      }`}
+      aria-label={t('streakBannerAria')}
+    >
+      <div className="flex items-center gap-4">
+        <div
+          className={`flex-shrink-0 inline-flex items-center justify-center h-12 w-12 rounded-2xl ${
+            hasStreak ? 'bg-orange-100' : 'bg-slate-100'
+          }`}
+          aria-hidden
+        >
+          <Flame
+            className={`h-7 w-7 ${hasStreak ? 'text-orange-500' : 'text-slate-400'}`}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {hasStreak ? (
+            <>
+              <p className="text-base font-bold text-slate-800 leading-tight">
+                {t('progressStreakWeeks', { count: weeks })}
+              </p>
+              {streak?.weekly_target ? (
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {streak.this_week_count} / {streak.weekly_target} this week
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className="text-base font-bold text-slate-800 leading-tight">
+                {t('streakBannerEmptyTitle')}
+              </p>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {t('progressStreakStart')}
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-end gap-1.5 flex-shrink-0">
+          {week.map((d, i) => {
+            const key = isoDate(d);
+            const count = heatmapByDate.get(key) ?? 0;
+            const isToday = key === todayKey;
+            const inFuture = d.getTime() > new Date(todayKey).getTime();
+            let bg = 'bg-slate-200';
+            let aria = `${DAY_LABELS[i]}: not logged`;
+            if (count > 0) {
+              bg = 'bg-primary';
+              aria = `${DAY_LABELS[i]}: ${count} ${count === 1 ? 'session' : 'sessions'}`;
+            } else if (isToday) {
+              bg = 'bg-amber-300';
+              aria = `${DAY_LABELS[i]} (today): not yet logged`;
+            } else if (inFuture) {
+              bg = 'bg-slate-100';
+              aria = `${DAY_LABELS[i]}: upcoming`;
+            }
+            return (
+              <div key={key} className="flex flex-col items-center gap-1">
+                <span
+                  className={`block h-9 w-5 rounded-md ${bg} ${
+                    isToday ? 'ring-2 ring-primary/30 ring-offset-1' : ''
+                  }`}
+                  aria-label={aria}
+                  title={aria}
+                />
+                <span className="text-[10px] font-medium text-slate-500 tabular-nums leading-none">
+                  {DAY_LABELS[i]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Child badges — interactive when the routine is tickable, static otherwise.
+// Same physical position in the card as before; click = log/unlog for that
+// (child × subject) combination so the affordance is in-context.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface StaticChildBadgesProps {
+  names: string[];
+}
+
+function StaticChildBadges({ names }: StaticChildBadgesProps) {
   if (!names.length) return null;
   const visible = names.slice(0, 3);
   const extra = names.length - visible.length;
@@ -115,6 +279,78 @@ function ChildBadges({ names }: { names: string[] }) {
   );
 }
 
+interface ChildLogBadgesProps {
+  routine: RoutineEntry;
+  todayLogs: ReturnType<typeof useTodayLogs>;
+  tickLabels: {
+    tick: (vars: { child: string; subject: string }) => string;
+    untick: (vars: { child: string; subject: string }) => string;
+    short: (vars: { child: string; subject: string }) => string;
+  };
+}
+
+function ChildLogBadges({ routine, todayLogs, tickLabels }: ChildLogBadgesProps) {
+  const subjectId = routine.subject_id as string;
+  const subjectName = routine.subject_name ?? '';
+  if (!routine.child_ids.length) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <Users className="h-3 w-3 text-slate-400" aria-hidden />
+      <div
+        className="flex flex-wrap gap-1 justify-end max-w-[150px] sm:max-w-[200px]"
+        role="group"
+        aria-label={tickLabels.short({ child: '', subject: subjectName }).trim()}
+      >
+        {routine.child_ids.map((childId, idx) => {
+          const childName = routine.child_names[idx] ?? '';
+          const logged = todayLogs.isLogged(childId, subjectId);
+          const busy = todayLogs.isBusy(childId, subjectId);
+          return (
+            <button
+              key={childId}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                todayLogs.toggle(childId, subjectId, routine.duration_minutes);
+              }}
+              disabled={busy || !!todayLogs.fanout}
+              aria-pressed={logged}
+              aria-label={
+                logged
+                  ? tickLabels.untick({ child: childName, subject: subjectName })
+                  : tickLabels.tick({ child: childName, subject: subjectName })
+              }
+              title={
+                logged
+                  ? tickLabels.untick({ child: childName, subject: subjectName })
+                  : tickLabels.tick({ child: childName, subject: subjectName })
+              }
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold transition-all disabled:opacity-50 ${
+                logged
+                  ? 'border-success bg-success text-white hover:bg-success/90 shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-primary/50 hover:bg-primary/10 hover:text-primary hover:shadow-sm'
+              }`}
+            >
+              {busy ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : logged ? (
+                <Check className="h-3.5 w-3.5" aria-hidden />
+              ) : (
+                <span aria-hidden>{childName.charAt(0).toUpperCase()}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Main widget
+// ─────────────────────────────────────────────────────────────────────────
+
 export function TodaySchedule() {
   const t = useTranslations('Dashboard');
   const tL = useTranslations('Lessons');
@@ -124,6 +360,22 @@ export function TodaySchedule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const range = useMemo(summaryRange, []);
+  const summary = useProgressSummary(range.from, range.to);
+  const todayLogs = useTodayLogs(summary.refetch);
+
+  const tickLabels = useMemo(
+    () => ({
+      tick: (vars: { child: string; subject: string }) =>
+        t('checklistTickAria', vars),
+      untick: (vars: { child: string; subject: string }) =>
+        t('checklistUntickAria', vars),
+      short: (vars: { child: string; subject: string }) =>
+        t('checklistGroupAria', vars),
+    }),
+    [t],
+  );
 
   const loadLessons = useCallback(async () => {
     const res = await apiFetch('/api/v1/lessons/today', { credentials: 'include' });
@@ -176,6 +428,10 @@ export function TodaySchedule() {
       if (res.ok) {
         const next = await loadLessons().catch(() => null);
         if (next) setLessons(next);
+        // Picked-up lessons can produce teaching logs — keep the tick badges
+        // and streak banner in sync.
+        todayLogs.refetch();
+        summary.refetch();
       }
     } finally {
       setCompletingId(null);
@@ -219,9 +475,6 @@ export function TodaySchedule() {
     return { allDayEvents: allDay, timedItems: timed };
   }, [routine, events]);
 
-  // Bucket today's lessons by subject id so each routine can pick up the
-  // lessons that share its subject. Lessons are consumed by the first
-  // matching routine in the timeline so they appear only once.
   const { lessonsForRoutine, unscheduledLessons } = useMemo(() => {
     const byRoutineId = new Map<string, LessonSummary[]>();
     const unmatched: LessonSummary[] = [];
@@ -236,7 +489,6 @@ export function TodaySchedule() {
       list.push(l);
       bySubject.set(sid, list);
     }
-    // First routine occurrence wins for each subject.
     const consumed = new Set<string>();
     for (const item of timedItems) {
       if (item.kind !== 'routine') continue;
@@ -254,6 +506,33 @@ export function TodaySchedule() {
     }
     return { lessonsForRoutine: byRoutineId, unscheduledLessons: unmatched };
   }, [lessons, timedItems]);
+
+  const { markAllPairs, hasUntickedRoutine, hasTickableRoutine } = useMemo(() => {
+    const pairs: MarkAllPair[] = [];
+    let hasUnticked = false;
+    let hasTickable = false;
+    for (const item of timedItems) {
+      if (item.kind !== 'routine') continue;
+      const r = item.data;
+      if (!routineCanBeTicked(r)) continue;
+      hasTickable = true;
+      for (const childId of r.child_ids) {
+        pairs.push({
+          childId,
+          subjectId: r.subject_id as string,
+          minutes: r.duration_minutes,
+        });
+        if (!todayLogs.isLogged(childId, r.subject_id as string)) {
+          hasUnticked = true;
+        }
+      }
+    }
+    return {
+      markAllPairs: pairs,
+      hasUntickedRoutine: hasUnticked,
+      hasTickableRoutine: hasTickable,
+    };
+  }, [timedItems, todayLogs]);
 
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date();
@@ -370,14 +649,38 @@ export function TodaySchedule() {
       {loading && <WidgetSkeleton rows={4} />}
       {!loading && error && <WidgetError onRetry={load} />}
       {!loading && !error && !hasItems && (
-        <WidgetEmpty
-          icon={<CalendarDays className="h-8 w-8" />}
-          title={t('todayEmpty')}
-          hint={t('todayEmptyHint')}
-        />
+        <>
+          <StreakBanner summary={summary.data} isLoading={summary.isLoading} />
+          <div className="mt-4">
+            <WidgetEmpty
+              icon={<CalendarDays className="h-8 w-8" />}
+              title={t('todayEmpty')}
+              hint={t('todayEmptyHint')}
+            />
+          </div>
+        </>
       )}
       {!loading && !error && hasItems && (
         <div className="space-y-4">
+          <StreakBanner summary={summary.data} isLoading={summary.isLoading} />
+          {hasTickableRoutine && (
+            <div
+              className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/15 px-3 py-2"
+              role="note"
+            >
+              <Info
+                className="h-4 w-4 flex-shrink-0 text-primary mt-0.5"
+                aria-hidden
+              />
+              <p className="text-xs text-slate-700 leading-relaxed">
+                {t.rich('badgeHint', {
+                  strong: (chunks) => (
+                    <strong className="font-semibold text-slate-800">{chunks}</strong>
+                  ),
+                })}
+              </p>
+            </div>
+          )}
           {allDayEvents.length > 0 && (
             <ul className="flex flex-wrap gap-2">
               {allDayEvents.map((ev) => {
@@ -432,23 +735,33 @@ export function TodaySchedule() {
 
                 if (item.kind === 'routine') {
                   const r = item.data;
-                  const title = r.is_free_time ? 'Free time' : r.subject_name || 'Untitled';
+                  let title: string;
+                  if (r.is_free_time) {
+                    title = 'Free time';
+                  } else if (r.subject_name) {
+                    title = r.subject_name;
+                  } else {
+                    title = parseCustomNotes(r.notes).name;
+                  }
                   const accent = r.color || (r.is_free_time ? '#94a3b8' : '#6366f1');
                   const dim = r.is_free_time && !isCurrent && !isNext ? 'opacity-70' : '';
                   const matchingLessons = lessonsForRoutine.get(r.id) || [];
+                  const canTick = routineCanBeTicked(r);
                   return (
                     <li key={`routine-${r.id}`}>
                       {newHour && idx > 0 && <div className="h-2" aria-hidden />}
-                      <Link
-                        href="/planner"
-                        className={`flex items-stretch gap-3 rounded-lg border transition-all ${cardClass} ${dim}`}
+                      <div
+                        className={`flex items-stretch rounded-lg border transition-all ${cardClass} ${dim}`}
                       >
                         <span
                           className="w-1 rounded-l-lg flex-shrink-0"
                           style={{ backgroundColor: accent }}
                           aria-hidden
                         />
-                        <div className="flex items-center gap-3 px-2 py-2.5 flex-1 min-w-0">
+                        <Link
+                          href="/planner"
+                          className="flex items-center gap-3 px-2 py-2.5 flex-1 min-w-0"
+                        >
                           <div className="w-16 flex-shrink-0 text-right">
                             <p className="text-xs font-mono tabular-nums text-slate-700 whitespace-nowrap leading-tight">
                               {formatMinuteOfDay(r.start_minute)}
@@ -466,9 +779,19 @@ export function TodaySchedule() {
                               {t('sourceWeekPlanner')}
                             </p>
                           </div>
-                          <ChildBadges names={r.child_names} />
+                        </Link>
+                        <div className="flex items-center pr-2 pl-1">
+                          {canTick ? (
+                            <ChildLogBadges
+                              routine={r}
+                              todayLogs={todayLogs}
+                              tickLabels={tickLabels}
+                            />
+                          ) : (
+                            <StaticChildBadges names={r.child_names} />
+                          )}
                         </div>
-                      </Link>
+                      </div>
                       {matchingLessons.length > 0 && (
                         <ul className="mt-1.5 ml-4 space-y-1.5">
                           {matchingLessons.map((lesson) =>
@@ -515,6 +838,40 @@ export function TodaySchedule() {
               })}
             </ol>
           )}
+
+          {hasTickableRoutine && (
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              {hasUntickedRoutine ? (
+                <button
+                  type="button"
+                  onClick={() => todayLogs.markAll(markAllPairs)}
+                  disabled={!!todayLogs.fanout}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                >
+                  {todayLogs.fanout ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {t('checklistMarkAllProgress', {
+                        done: todayLogs.fanout.done,
+                        total: todayLogs.fanout.total,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      {t('checklistMarkAll')}
+                    </>
+                  )}
+                </button>
+              ) : (
+                <p className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-success">
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  {t('checklistAllDone')}
+                </p>
+              )}
+            </div>
+          )}
+
           {unscheduledLessons.length > 0 && (
             <div className="pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between mb-2">

@@ -10,6 +10,10 @@ interface User {
   last_name: string | null;
   has_family: boolean;
   has_coat_of_arms: boolean;
+  date_format: string;
+  time_format: string;
+  timezone: string;
+  locale: string;
 }
 
 interface Family {

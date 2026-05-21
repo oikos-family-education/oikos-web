@@ -96,6 +96,22 @@ class ChildCurriculumResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Enrollment query schemas ---
+
+class EnrollmentRow(BaseModel):
+    """Subject grouped with the children enrolled in it via a curriculum that
+    was active on a specific date. Used by the progress page's day checklist
+    for past dates, where the live week planner cannot honestly answer "what
+    was scheduled then?"
+    """
+    subject_id: UUID
+    subject_name: str
+    color: Optional[str] = None
+    duration_minutes: int
+    child_ids: list[UUID]
+    child_names: list[str]
+
+
 # --- Curriculum schemas ---
 
 class CurriculumCreate(BaseModel):

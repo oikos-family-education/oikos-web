@@ -1,11 +1,15 @@
 import uuid
+from collections import OrderedDict
+from datetime import date as date_type
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func
 from fastapi import HTTPException
 
+from app.models.child import Child
 from app.models.curriculum import Curriculum, CurriculumSubject, ChildCurriculum
+from app.models.subject import Subject
 from app.schemas.curriculum import (
     CurriculumCreate, CurriculumUpdate, CurriculumSubjectCreate,
     CurriculumSubjectUpdate,
@@ -405,3 +409,67 @@ class CurriculumService:
 
         await self.db.delete(cc)
         await self.db.commit()
+
+    # ── Enrollment query ──
+
+    async def get_enrollments_for_date(
+        self, family_id: uuid.UUID, target_date: date_type,
+    ) -> list[dict]:
+        """Return (subject × children) groupings for curricula active on
+        target_date, in family-defined sort order.
+
+        "Active on a date" means the curriculum's window includes that date
+        (start_date <= target_date <= end_date) and its status was something
+        other than draft/template. Paused, completed and archived curricula
+        are included because they may have legitimately covered that date in
+        the past — only draft/template are excluded since they were never
+        running. CurriculumSubject.is_active scopes to subjects the family is
+        currently tracking; archived children are excluded.
+        """
+        result = await self.db.execute(
+            select(
+                ChildCurriculum.child_id,
+                Child.first_name,
+                Child.nickname,
+                CurriculumSubject.subject_id,
+                Subject.name.label("subject_name"),
+                Subject.color,
+                CurriculumSubject.session_duration_minutes,
+                CurriculumSubject.sort_order,
+            )
+            .join(Curriculum, Curriculum.id == ChildCurriculum.curriculum_id)
+            .join(
+                CurriculumSubject,
+                CurriculumSubject.curriculum_id == Curriculum.id,
+            )
+            .join(Subject, Subject.id == CurriculumSubject.subject_id)
+            .join(Child, Child.id == ChildCurriculum.child_id)
+            .where(
+                Curriculum.family_id == family_id,
+                Curriculum.status.notin_(["draft", "template"]),
+                Curriculum.start_date <= target_date,
+                Curriculum.end_date >= target_date,
+                CurriculumSubject.is_active.is_(True),
+                Child.archived_at.is_(None),
+            )
+            .order_by(CurriculumSubject.sort_order.asc(), Subject.name.asc())
+        )
+
+        by_subject: "OrderedDict[uuid.UUID, dict]" = OrderedDict()
+        for row in result.all():
+            sid = row.subject_id
+            if sid not in by_subject:
+                by_subject[sid] = {
+                    "subject_id": sid,
+                    "subject_name": row.subject_name,
+                    "color": row.color,
+                    "duration_minutes": row.session_duration_minutes,
+                    "child_ids": [],
+                    "child_names": [],
+                }
+            bucket = by_subject[sid]
+            if row.child_id not in bucket["child_ids"]:
+                bucket["child_ids"].append(row.child_id)
+                bucket["child_names"].append(row.nickname or row.first_name)
+
+        return list(by_subject.values())

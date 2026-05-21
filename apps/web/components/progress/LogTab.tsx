@@ -1,10 +1,13 @@
 'use client';
 
 import { apiFetch } from '../../lib/apiFetch';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Loader2, MessageSquarePlus, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CalendarDays, ChevronLeft, ChevronRight, Loader2, MessageSquarePlus, X,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { TeachingLogEntry } from './LogEntryRow';
+import { DayLogChecklist } from './DayLogChecklist';
 
 interface ChildMeta { id: string; first_name: string; nickname: string | null }
 interface SubjectMeta { id: string; name: string; color: string }
@@ -20,36 +23,50 @@ function todayIsoDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function formatToday(): string {
-  const d = new Date();
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+function formatDateLabel(iso: string): string {
+  // ISO YYYY-MM-DD → "Tuesday, May 19" (local interpretation).
+  // We parse explicit components to avoid the "iso shifts a day in some
+  // timezones" footgun of `new Date('2026-05-19')`.
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-// Key used to look up "is there a log for (childFilter, subject)" in today's entries.
-function scopeKey(childId: string | null, subjectId: string | null): string {
-  return `${childId ?? '-'}::${subjectId ?? '-'}`;
+function shiftIsoDate(iso: string, deltaDays: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const next = new Date(y, m - 1, d + deltaDays);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
+
+/** Backend rejects taught_on more than 365 days in the past. */
+const MAX_PAST_DAYS = 365;
+
+function minSelectableIsoDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - MAX_PAST_DAYS);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
   const t = useTranslations('Progress');
 
   const [date, setDate] = useState<string>(todayIsoDate());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [entries, setEntries] = useState<TeachingLogEntry[]>([]);
   const [isLoadingEntries, setIsLoadingEntries] = useState(true);
-  const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Which child is the chip row logging for? null = every child (general-child scope).
-  const [childFilter, setChildFilter] = useState<string | null>(null);
-
-  // Inline note composer state.
+  // Inline note composer state (creates a general note row for the day).
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState<string>('');
   const [isSavingNote, setIsSavingNote] = useState(false);
 
-  async function loadEntries(): Promise<TeachingLogEntry[]> {
+  const loadEntries = useCallback(async () => {
     setIsLoadingEntries(true);
     try {
       const params = new URLSearchParams({ from: date, to: date });
@@ -57,18 +74,19 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
       if (res.ok) {
         const all: TeachingLogEntry[] = await res.json();
         setEntries(all);
-        return all;
+      } else {
+        setEntries([]);
       }
-      return [];
+    } catch {
+      setEntries([]);
     } finally {
       setIsLoadingEntries(false);
     }
-  }
+  }, [date]);
 
   useEffect(() => {
     loadEntries();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [loadEntries]);
 
   useEffect(() => {
     if (!toast) return;
@@ -76,107 +94,12 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
     return () => clearTimeout(id);
   }, [toast]);
 
-  // Map of (child_id|-, subject_id|-) -> existing log — used to toggle chips/buttons.
-  const entryMap = useMemo(() => {
-    const m = new Map<string, TeachingLogEntry>();
-    for (const e of entries) m.set(scopeKey(e.child_id, e.subject_id), e);
-    return m;
-  }, [entries]);
-
-  const generalEntry = entryMap.get(scopeKey(null, null));
-  const hasGeneral = !!generalEntry;
-
-  async function postLog(body: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
-    try {
-      const res = await apiFetch('/api/v1/progress/logs', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.status === 409) return { ok: false, message: t('duplicateLogError') };
-      if (!res.ok) return { ok: false, message: t('genericError') };
-      return { ok: true };
-    } catch {
-      return { ok: false, message: t('genericError') };
-    }
-  }
-
-  async function deleteLog(id: string): Promise<boolean> {
-    try {
-      const res = await apiFetch(`/api/v1/progress/logs/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  function setBusy(key: string, on: boolean) {
-    setBusyKeys((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(key);
-      else next.delete(key);
-      return next;
-    });
-  }
-
-  async function toggleGeneral() {
-    const key = scopeKey(null, null);
-    if (busyKeys.has(key)) return;
-    setBusy(key, true);
-    setError(null);
-
-    if (generalEntry) {
-      const ok = await deleteLog(generalEntry.id);
-      if (!ok) setError(t('genericError'));
-      else {
-        await loadEntries();
-        onChanged();
-      }
-    } else {
-      const { ok, message } = await postLog({ taught_on: date, child_id: null, subject_id: null });
-      if (!ok) setError(message ?? t('genericError'));
-      else {
-        setToast(t('dayLoggedToast'));
-        await loadEntries();
-        onChanged();
-      }
-    }
-    setBusy(key, false);
-  }
-
-  async function toggleSubjectChip(subjectId: string) {
-    const key = scopeKey(childFilter, subjectId);
-    if (busyKeys.has(key)) return;
-    setBusy(key, true);
-    setError(null);
-
-    const existing = entryMap.get(key);
-    if (existing) {
-      const ok = await deleteLog(existing.id);
-      if (!ok) setError(t('genericError'));
-      else {
-        await loadEntries();
-        onChanged();
-      }
-    } else {
-      const { ok, message } = await postLog({
-        taught_on: date,
-        child_id: childFilter,
-        subject_id: subjectId,
-      });
-      if (!ok) setError(message ?? t('genericError'));
-      else {
-        setToast(t('dayLoggedToast'));
-        await loadEntries();
-        onChanged();
-      }
-    }
-    setBusy(key, false);
-  }
+  // When the checklist mutates logs, refresh both the entries list AND the
+  // parent's progress summary so streaks/heatmap react immediately.
+  const handleChecklistChanged = useCallback(() => {
+    loadEntries();
+    onChanged();
+  }, [loadEntries, onChanged]);
 
   async function handleSaveNote() {
     if (!note.trim()) {
@@ -185,56 +108,63 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
     }
     setIsSavingNote(true);
     setError(null);
-    const { ok, message } = await postLog({
-      taught_on: date,
-      child_id: childFilter,
-      subject_id: null,
-      notes: note.trim(),
-    });
-    if (!ok) {
-      setError(message ?? t('genericError'));
-    } else {
-      setToast(t('noteSavedToast'));
-      setNote('');
-      setNoteOpen(false);
-      await loadEntries();
-      onChanged();
+    try {
+      const res = await apiFetch('/api/v1/progress/logs', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taught_on: date,
+          child_id: null,
+          subject_id: null,
+          notes: note.trim(),
+        }),
+      });
+      if (res.status === 409) {
+        setError(t('duplicateLogError'));
+      } else if (!res.ok) {
+        setError(t('genericError'));
+      } else {
+        setToast(t('noteSavedToast'));
+        setNote('');
+        setNoteOpen(false);
+        await loadEntries();
+        onChanged();
+      }
+    } catch {
+      setError(t('genericError'));
+    } finally {
+      setIsSavingNote(false);
     }
-    setIsSavingNote(false);
   }
 
   async function handleDeleteEntry(id: string) {
-    const ok = await deleteLog(id);
-    if (ok) {
-      await loadEntries();
-      onChanged();
-    } else {
+    try {
+      const res = await apiFetch(`/api/v1/progress/logs/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        await loadEntries();
+        onChanged();
+      } else {
+        setError(t('genericError'));
+      }
+    } catch {
       setError(t('genericError'));
     }
   }
 
-  const dateLabel = date === todayIsoDate() ? t('today', { date: formatToday() }) : date;
-
-  const childOptions: { id: string | null; name: string }[] = useMemo(
-    () => [
-      { id: null, name: t('everyone') },
-      ...childrenList.map((c) => ({ id: c.id, name: c.nickname || c.first_name })),
-    ],
-    [childrenList, t],
+  const dateLabel = useMemo(
+    () => (date === todayIsoDate() ? t('today', { date: formatDateLabel(date) }) : formatDateLabel(date)),
+    [date, t],
   );
 
-  function childName(id: string | null): string {
-    if (!id) return t('allChildren');
-    const c = childrenList.find((x) => x.id === id);
-    return c ? c.nickname || c.first_name : '';
-  }
-
-  function subjectMeta(id: string | null): SubjectMeta | null {
-    if (!id) return null;
-    return subjects.find((s) => s.id === id) ?? null;
-  }
-
-  const generalBusy = busyKeys.has(scopeKey(null, null));
+  const subjectById = useMemo(() => new Map(subjects.map((s) => [s.id, s] as const)), [subjects]);
+  const childById = useMemo(
+    () => new Map(childrenList.map((c) => [c.id, c.nickname || c.first_name] as const)),
+    [childrenList],
+  );
 
   return (
     <div className="space-y-6">
@@ -245,131 +175,26 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">{dateLabel}</h2>
-          <button
-            onClick={() => setShowDatePicker((v) => !v)}
-            className="text-sm text-primary hover:text-primary-hover font-medium"
-          >
-            {t('logForDifferentDay')}
-          </button>
-        </div>
+        <DayNavigator
+          date={date}
+          dateLabel={dateLabel}
+          onDateChange={setDate}
+          jumpLabel={t('jumpToDate')}
+          previousLabel={t('previousDay')}
+          nextLabel={t('nextDay')}
+          todayLabel={t('jumpToToday')}
+        />
 
-        {showDatePicker && (
-          <div className="mb-4 flex items-center gap-2">
-            <label className="text-sm text-slate-700 font-semibold" htmlFor="log-date">
-              {t('logForDate')}
-            </label>
-            <input
-              id="log-date"
-              type="date"
-              value={date}
-              max={todayIsoDate()}
-              onChange={(e) => setDate(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-        )}
 
-        <p className="text-slate-600 mb-4">{t('didYouTeachToday')}</p>
+        <DayLogChecklist
+          date={date}
+          childrenList={childrenList}
+          subjects={subjects}
+          onChanged={handleChecklistChanged}
+        />
 
-        <button
-          type="button"
-          onClick={toggleGeneral}
-          disabled={generalBusy}
-          aria-pressed={hasGeneral}
-          className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 rounded-lg font-medium text-sm transition-colors ${
-            hasGeneral
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'bg-primary text-white hover:bg-primary-hover'
-          } ${generalBusy ? 'opacity-70' : ''}`}
-        >
-          {generalBusy ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              <Check className="w-5 h-5" />
-              {hasGeneral ? t('youTaughtToday') : t('yesITaughtToday')}
-            </>
-          )}
-        </button>
-
-        {subjects.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="flex-1 h-px bg-slate-100" />
-              <span className="text-xs uppercase tracking-widest text-slate-400">
-                {t('orSeparator')}
-              </span>
-              <span className="flex-1 h-px bg-slate-100" />
-            </div>
-            <p className="text-sm text-slate-500 mb-4">{t('tapSubjectsHint')}</p>
-
-            {childrenList.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide mr-1">
-                  {t('forWhomLabel')}:
-                </span>
-                {childOptions.map((opt) => {
-                  const active = childFilter === opt.id;
-                  return (
-                    <button
-                      key={opt.id ?? 'all'}
-                      type="button"
-                      onClick={() => setChildFilter(opt.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                        active
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-primary/40'
-                      }`}
-                    >
-                      {opt.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {subjects.map((s) => {
-                const key = scopeKey(childFilter, s.id);
-                const logged = entryMap.has(key);
-                const busy = busyKeys.has(key);
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => toggleSubjectChip(s.id)}
-                    disabled={busy}
-                    aria-pressed={logged}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border transition-colors ${
-                      logged
-                        ? 'text-white border-transparent shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                    } ${busy ? 'opacity-70' : ''}`}
-                    style={logged ? { backgroundColor: s.color } : undefined}
-                  >
-                    <span
-                      className="inline-flex w-4 h-4 items-center justify-center rounded-full"
-                      style={{
-                        backgroundColor: logged ? 'rgba(255,255,255,0.25)' : s.color,
-                      }}
-                    >
-                      {logged ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : null}
-                    </span>
-                    {s.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {subjects.length === 0 && (
-          <p className="mt-6 text-sm text-slate-500">{t('noSubjectsYet')}</p>
-        )}
-
-        <div className="mt-6">
+        {/* Note composer — attaches a free-form note to the day (no subject/child). */}
+        <div className="mt-6 pt-6 border-t border-slate-100">
           {!noteOpen ? (
             <button
               type="button"
@@ -414,7 +239,9 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-3">{t('todaysEntries')}</h3>
+        <h3 className="text-lg font-semibold text-slate-800 mb-3">
+          {date === todayIsoDate() ? t('todaysEntries') : t('entriesForDate')}
+        </h3>
         {isLoadingEntries ? (
           <div className="flex justify-center py-6">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -424,7 +251,8 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
         ) : (
           <ul className="divide-y divide-slate-100">
             {entries.map((e) => {
-              const subj = subjectMeta(e.subject_id);
+              const subj = e.subject_id ? subjectById.get(e.subject_id) : null;
+              const childName = e.child_id ? childById.get(e.child_id) : null;
               const isGeneral = e.child_id === null && e.subject_id === null;
               return (
                 <li key={e.id} className="flex items-center gap-3 py-2.5">
@@ -441,7 +269,9 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
                           <span className="font-medium">
                             {subj?.name ?? t('generalTeaching')}
                           </span>
-                          <span className="text-slate-500"> · {childName(e.child_id)}</span>
+                          {childName && (
+                            <span className="text-slate-500"> · {childName}</span>
+                          )}
                         </>
                       )}
                     </div>
@@ -462,6 +292,124 @@ export function LogTab({ childrenList, subjects, onChanged }: LogTabProps) {
             })}
           </ul>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface DayNavigatorProps {
+  date: string;
+  dateLabel: string;
+  onDateChange: (iso: string) => void;
+  jumpLabel: string;
+  previousLabel: string;
+  nextLabel: string;
+  todayLabel: string;
+}
+
+/**
+ * Day navigation header: prev/next arrows around a date label, plus a calendar
+ * icon that pops the native date input (for jumping farther) and a "Today"
+ * shortcut shown only when we're off today. Backend rejects taught_on in the
+ * future or > 365 days in the past, so we disable arrows at those edges.
+ */
+function DayNavigator({
+  date,
+  dateLabel,
+  onDateChange,
+  jumpLabel,
+  previousLabel,
+  nextLabel,
+  todayLabel,
+}: DayNavigatorProps) {
+  const todayIso = todayIsoDate();
+  const minIso = useMemo(minSelectableIsoDate, []);
+  const onToday = date === todayIso;
+  const atMinPast = date === minIso;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function jumpFromPicker(value: string) {
+    if (!value) return;
+    if (value > todayIso) {
+      onDateChange(todayIso);
+      return;
+    }
+    if (value < minIso) {
+      onDateChange(minIso);
+      return;
+    }
+    onDateChange(value);
+  }
+
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el) return;
+    // Modern browsers support showPicker(); fall back to focusing (Safari).
+    if (typeof el.showPicker === 'function') {
+      el.showPicker();
+    } else {
+      el.focus();
+      el.click();
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 mb-6">
+      <button
+        type="button"
+        onClick={() => onDateChange(shiftIsoDate(date, -1))}
+        disabled={atMinPast}
+        aria-label={previousLabel}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+
+      <div className="flex-1 min-w-0 flex items-center justify-center gap-2">
+        <h2 className="text-lg font-semibold text-slate-800 truncate text-center">
+          {dateLabel}
+        </h2>
+        <button
+          type="button"
+          onClick={openPicker}
+          aria-label={jumpLabel}
+          title={jumpLabel}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors flex-shrink-0"
+        >
+          <CalendarDays className="h-4 w-4" />
+        </button>
+        {/* Hidden-but-functional input the calendar icon delegates to. */}
+        <input
+          ref={inputRef}
+          type="date"
+          value={date}
+          max={todayIso}
+          min={minIso}
+          onChange={(e) => jumpFromPicker(e.target.value)}
+          className="sr-only"
+          aria-label={jumpLabel}
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        {!onToday && (
+          <button
+            type="button"
+            onClick={() => onDateChange(todayIso)}
+            className="hidden sm:inline-flex items-center px-3 h-9 rounded-lg text-xs font-medium text-primary border border-primary/30 hover:bg-primary/10 transition-colors"
+          >
+            {todayLabel}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onDateChange(shiftIsoDate(date, 1))}
+          disabled={onToday}
+          aria-label={nextLabel}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );

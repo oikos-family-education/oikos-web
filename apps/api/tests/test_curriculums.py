@@ -384,3 +384,170 @@ async def test_unassign_child_from_curriculum(authed_with_family, make_child):
 
     detail = (await client.get(f"/api/v1/curriculums/{cid}")).json()
     assert detail["child_curriculums"] == []
+
+
+# ── /curriculums/enrollments?date= (progress page day checklist) ────────────
+
+@pytest.mark.asyncio
+async def test_enrollments_for_date_returns_active_subject_child_pairs(
+    authed_with_family, make_subject, make_child,
+):
+    """Active curricula whose window includes the target date should appear,
+    grouped by subject with one entry per enrolled child."""
+    client, _, family = authed_with_family
+    math = await make_subject(family.id, name="Math", color="#111111")
+    reading = await make_subject(family.id, name="Reading", color="#222222")
+    lia = await make_child(family.id, first_name="Lia")
+    theo = await make_child(family.id, first_name="Theo")
+
+    # Curriculum spanning today, with Math (Lia+Theo) and Reading (Lia only).
+    today = date.today()
+    r1 = await client.post("/api/v1/curriculums", json=_payload(
+        name="Spring",
+        start_date=str(today - timedelta(days=10)),
+        end_date=str(today + timedelta(days=30)),
+        subjects=[
+            {"subject_id": str(math.id), "session_duration_minutes": 45},
+            {"subject_id": str(reading.id), "session_duration_minutes": 30},
+        ],
+        child_ids=[str(lia.id), str(theo.id)],
+    ))
+    cid = r1.json()["id"]
+    await client.patch(f"/api/v1/curriculums/{cid}/status", json={"status": "active"})
+
+    # A separate "Reading" curriculum that only has Lia would normally be how
+    # you'd model "Reading is just for Lia" — but for simplicity here, we'll
+    # just verify the multi-child grouping from the curriculum above.
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={today}")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 2
+
+    by_subject = {r["subject_name"]: r for r in rows}
+    assert set(by_subject.keys()) == {"Math", "Reading"}
+
+    math_row = by_subject["Math"]
+    assert math_row["color"] == "#111111"
+    assert math_row["duration_minutes"] == 45
+    assert set(math_row["child_names"]) == {"Lia", "Theo"}
+
+    reading_row = by_subject["Reading"]
+    assert reading_row["duration_minutes"] == 30
+    assert set(reading_row["child_names"]) == {"Lia", "Theo"}
+
+
+@pytest.mark.asyncio
+async def test_enrollments_for_date_excludes_draft_and_template(
+    authed_with_family, make_subject, make_child,
+):
+    """Draft and template curricula should never show up — they were never
+    actually running."""
+    client, _, family = authed_with_family
+    sub = await make_subject(family.id, name="Math")
+    child = await make_child(family.id, first_name="Lia")
+    today = date.today()
+
+    # Draft (default status after create) — not active, should be excluded
+    r = await client.post("/api/v1/curriculums", json=_payload(
+        name="Future plan",
+        start_date=str(today - timedelta(days=1)),
+        end_date=str(today + timedelta(days=10)),
+        subjects=[{"subject_id": str(sub.id)}],
+        child_ids=[str(child.id)],
+    ))
+    assert r.json()["status"] == "draft"
+
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={today}")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_enrollments_for_date_excludes_out_of_window(
+    authed_with_family, make_subject, make_child,
+):
+    """A date outside the curriculum's start/end window should return nothing,
+    even for active curricula."""
+    client, _, family = authed_with_family
+    sub = await make_subject(family.id, name="Math")
+    child = await make_child(family.id, first_name="Lia")
+    today = date.today()
+    long_ago = today - timedelta(days=400)
+
+    r = await client.post("/api/v1/curriculums", json=_payload(
+        name="Current term",
+        start_date=str(today - timedelta(days=5)),
+        end_date=str(today + timedelta(days=30)),
+        subjects=[{"subject_id": str(sub.id)}],
+        child_ids=[str(child.id)],
+    ))
+    cid = r.json()["id"]
+    await client.patch(f"/api/v1/curriculums/{cid}/status", json={"status": "active"})
+
+    # Date inside window → returns the row
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={today}")
+    assert len(resp.json()) == 1
+
+    # Date before window → empty
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={long_ago}")
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_enrollments_for_date_includes_completed_curricula(
+    authed_with_family, make_subject, make_child,
+):
+    """A completed curriculum that ran during the target date should still
+    appear — its history is honest, just no longer in progress."""
+    client, _, family = authed_with_family
+    sub = await make_subject(family.id, name="Math")
+    child = await make_child(family.id, first_name="Lia")
+    today = date.today()
+
+    r = await client.post("/api/v1/curriculums", json=_payload(
+        name="Past term",
+        start_date=str(today - timedelta(days=30)),
+        end_date=str(today + timedelta(days=30)),
+        subjects=[{"subject_id": str(sub.id)}],
+        child_ids=[str(child.id)],
+    ))
+    cid = r.json()["id"]
+    await client.patch(f"/api/v1/curriculums/{cid}/status", json={"status": "active"})
+    await client.patch(f"/api/v1/curriculums/{cid}/status", json={"status": "completed"})
+
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={today}")
+    assert len(resp.json()) == 1
+
+
+@pytest.mark.asyncio
+async def test_enrollments_for_date_excludes_archived_children(
+    authed_with_family, make_subject, make_child, db,
+):
+    """Archived children should not appear in enrollment rows, even if their
+    curriculum is active."""
+    from datetime import datetime, timezone as _tz
+    from app.models.child import Child as _Child
+
+    client, _, family = authed_with_family
+    sub = await make_subject(family.id, name="Math")
+    active_child = await make_child(family.id, first_name="Active")
+    archived_child = await make_child(family.id, first_name="Archived")
+
+    today = date.today()
+    r = await client.post("/api/v1/curriculums", json=_payload(
+        name="X",
+        subjects=[{"subject_id": str(sub.id)}],
+        child_ids=[str(active_child.id), str(archived_child.id)],
+    ))
+    cid = r.json()["id"]
+    await client.patch(f"/api/v1/curriculums/{cid}/status", json={"status": "active"})
+
+    # Archive one child directly via the shared test session.
+    c = (await db.execute(select(_Child).where(_Child.id == archived_child.id))).scalars().first()
+    c.archived_at = datetime.now(_tz.utc)
+    await db.commit()
+
+    resp = await client.get(f"/api/v1/curriculums/enrollments?date={today}")
+    rows = resp.json()
+    assert len(rows) == 1
+    assert rows[0]["child_names"] == ["Active"]

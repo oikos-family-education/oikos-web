@@ -23,29 +23,23 @@ export interface FanoutState {
   total: number;
 }
 
-function todayIsoDate(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function cellKey(childId: string, subjectId: string): string {
   return `${childId}::${subjectId}`;
 }
 
 /**
- * Owns the day's teaching-log state for routine ticking on the dashboard.
+ * Owns the teaching-log state for a single date.
  *
- * Why this lives in a hook: TodaySchedule needs to render a tick per
- * (child × subject) pair scheduled for today, toggle each one independently,
- * and run a fan-out "Mark everything" sweep — keeping the mutation logic out
- * of the rendering component prevents the schedule view from ballooning.
+ * Used by:
+ *  - the dashboard TodaySchedule widget (date = today's ISO)
+ *  - the /progress LogTab day checklist (date = any selected day)
+ *
+ * Why a hook: the consumer needs to render a tick per (child × subject) for
+ * the day, toggle each one independently, and run a fan-out "Mark all"
+ * sweep. Keeping mutation logic out of the rendering component prevents the
+ * schedule view from ballooning.
  */
-export function useTodayLogs(onChanged?: () => void) {
-  const today = useMemo(todayIsoDate, []);
-
+export function useDayLogs(date: string, onChanged?: () => void) {
   const [logs, setLogs] = useState<TeachingLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set());
@@ -55,7 +49,7 @@ export function useTodayLogs(onChanged?: () => void) {
     setLoading(true);
     try {
       const res = await apiFetch(
-        `/api/v1/progress/logs?from=${today}&to=${today}`,
+        `/api/v1/progress/logs?from=${date}&to=${date}`,
         { credentials: 'include' },
       );
       if (!res.ok) {
@@ -69,9 +63,13 @@ export function useTodayLogs(onChanged?: () => void) {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [date]);
 
+  // When the date changes drop the previous day's busy/fanout state — they
+  // refer to a different day's cells and shouldn't bleed across.
   useEffect(() => {
+    setBusyKeys(new Set());
+    setFanout(null);
     load();
   }, [load]);
 
@@ -144,7 +142,7 @@ export function useTodayLogs(onChanged?: () => void) {
       }
     } else {
       const created = await postLog({
-        taught_on: today,
+        taught_on: date,
         child_id: childId,
         subject_id: subjectId,
         minutes,
@@ -170,7 +168,7 @@ export function useTodayLogs(onChanged?: () => void) {
     for (let i = 0; i < pending.length; i++) {
       const p = pending[i];
       const log = await postLog({
-        taught_on: today,
+        taught_on: date,
         child_id: p.childId,
         subject_id: p.subjectId,
         minutes: p.minutes,
@@ -189,6 +187,7 @@ export function useTodayLogs(onChanged?: () => void) {
   }
 
   return {
+    logs,
     loading,
     fanout,
     isLogged,

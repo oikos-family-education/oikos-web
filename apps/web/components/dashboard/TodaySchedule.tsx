@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '../../lib/navigation';
 import {
   BookOpen, CalendarDays, Calendar as CalendarIcon,
-  Check, CheckCheck, CheckCircle2, Flame, Info, LayoutGrid,
+  CheckCheck, CheckCircle2, Flame, Info, LayoutGrid,
   Loader2, NotebookPen, Plus, Users,
 } from 'lucide-react';
 import { WidgetCard, WidgetSkeleton, WidgetError, WidgetEmpty } from './WidgetCard';
@@ -17,8 +17,9 @@ import {
 } from '../../lib/lessonUtils';
 import { LessonStatusBadge } from '../lessons/LessonStatusBadge';
 import { parseCustomNotes } from '../planner/types';
-import { useTodayLogs, type MarkAllPair } from '../../hooks/useTodayLogs';
+import { useDayLogs, type MarkAllPair } from '../../hooks/useDayLogs';
 import { useProgressSummary, type ProgressSummary } from '../../hooks/useProgressSummary';
+import { ChildLogBadges } from '../progress/ChildLogBadges';
 
 interface RoutineEntry {
   id: string;
@@ -279,74 +280,6 @@ function StaticChildBadges({ names }: StaticChildBadgesProps) {
   );
 }
 
-interface ChildLogBadgesProps {
-  routine: RoutineEntry;
-  todayLogs: ReturnType<typeof useTodayLogs>;
-  tickLabels: {
-    tick: (vars: { child: string; subject: string }) => string;
-    untick: (vars: { child: string; subject: string }) => string;
-    short: (vars: { child: string; subject: string }) => string;
-  };
-}
-
-function ChildLogBadges({ routine, todayLogs, tickLabels }: ChildLogBadgesProps) {
-  const subjectId = routine.subject_id as string;
-  const subjectName = routine.subject_name ?? '';
-  if (!routine.child_ids.length) return null;
-  return (
-    <div className="flex items-center gap-1.5 flex-shrink-0">
-      <Users className="h-3 w-3 text-slate-400" aria-hidden />
-      <div
-        className="flex flex-wrap gap-1 justify-end max-w-[150px] sm:max-w-[200px]"
-        role="group"
-        aria-label={tickLabels.short({ child: '', subject: subjectName }).trim()}
-      >
-        {routine.child_ids.map((childId, idx) => {
-          const childName = routine.child_names[idx] ?? '';
-          const logged = todayLogs.isLogged(childId, subjectId);
-          const busy = todayLogs.isBusy(childId, subjectId);
-          return (
-            <button
-              key={childId}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                todayLogs.toggle(childId, subjectId, routine.duration_minutes);
-              }}
-              disabled={busy || !!todayLogs.fanout}
-              aria-pressed={logged}
-              aria-label={
-                logged
-                  ? tickLabels.untick({ child: childName, subject: subjectName })
-                  : tickLabels.tick({ child: childName, subject: subjectName })
-              }
-              title={
-                logged
-                  ? tickLabels.untick({ child: childName, subject: subjectName })
-                  : tickLabels.tick({ child: childName, subject: subjectName })
-              }
-              className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold transition-all disabled:opacity-50 ${
-                logged
-                  ? 'border-success bg-success text-white hover:bg-success/90 shadow-sm'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-primary/50 hover:bg-primary/10 hover:text-primary hover:shadow-sm'
-              }`}
-            >
-              {busy ? (
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-              ) : logged ? (
-                <Check className="h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <span aria-hidden>{childName.charAt(0).toUpperCase()}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────
 // Main widget
 // ─────────────────────────────────────────────────────────────────────────
@@ -363,7 +296,7 @@ export function TodaySchedule() {
 
   const range = useMemo(summaryRange, []);
   const summary = useProgressSummary(range.from, range.to);
-  const todayLogs = useTodayLogs(summary.refetch);
+  const todayLogs = useDayLogs(todayISO(), summary.refetch);
 
   const tickLabels = useMemo(
     () => ({
@@ -371,8 +304,6 @@ export function TodaySchedule() {
         t('checklistTickAria', vars),
       untick: (vars: { child: string; subject: string }) =>
         t('checklistUntickAria', vars),
-      short: (vars: { child: string; subject: string }) =>
-        t('checklistGroupAria', vars),
     }),
     [t],
   );
@@ -783,9 +714,15 @@ export function TodaySchedule() {
                         <div className="flex items-center pr-2 pl-1">
                           {canTick ? (
                             <ChildLogBadges
-                              routine={r}
+                              subjectId={r.subject_id as string}
+                              subjectName={r.subject_name ?? ''}
+                              kids={r.child_ids.map((id, idx) => ({
+                                id,
+                                name: r.child_names[idx] ?? '',
+                              }))}
+                              durationMinutes={r.duration_minutes}
                               todayLogs={todayLogs}
-                              tickLabels={tickLabels}
+                              labels={tickLabels}
                             />
                           ) : (
                             <StaticChildBadges names={r.child_names} />

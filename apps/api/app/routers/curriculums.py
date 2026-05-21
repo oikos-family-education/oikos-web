@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+from datetime import date
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -9,6 +10,7 @@ from app.schemas.curriculum import (
     CurriculumCreate, CurriculumUpdate, CurriculumResponse, CurriculumListResponse,
     CurriculumStatusUpdate, CurriculumSubjectCreate, CurriculumSubjectUpdate,
     CurriculumSubjectResponse, ChildCurriculumCreate, ChildCurriculumResponse,
+    EnrollmentRow,
 )
 from app.services.curriculum_service import CurriculumService
 from app.services.family_service import FamilyService
@@ -49,6 +51,19 @@ async def list_templates(
 ):
     family_id = await _get_family_id(current_user, family_service)
     return await service.list_templates(family_id)
+
+
+@router.get("/enrollments", response_model=list[EnrollmentRow])
+async def get_enrollments_for_date(
+    date_: date = Query(..., alias="date"),
+    current_user: User = Depends(get_current_user),
+    service: CurriculumService = Depends(get_curriculum_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    """Return the (subject × children) groupings for curricula active on the
+    given date. Used by the progress page's day checklist for past dates."""
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.get_enrollments_for_date(family_id, date_)
 
 
 @router.get("/{curriculum_id}", response_model=CurriculumResponse)

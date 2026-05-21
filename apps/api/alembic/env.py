@@ -24,6 +24,7 @@ from app.models.project import (
 )
 from app.models.resource import Resource
 from app.models.lesson import Lesson, LessonBlock
+from app.models.beta import BetaApplication, AdminAllowlist, AuditLog
 
 config = context.config
 

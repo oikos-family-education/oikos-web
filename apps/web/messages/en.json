@@ -9,7 +9,6 @@
     "navOpenSource": "Open source",
     "navSignIn": "Sign in",
     "navStartFree": "Get started",
-
     "heroBadge": "Open source · For families who take education home",
     "heroTitle": "An education built around <highlight>your family</highlight>.",
     "heroSubtitle": "Whether you homeschool full-time, supplement school after hours, or simply want a stronger hand in what your children learn — Oikos gives you one calm home for plans, projects, progress, and memories.",
@@ -18,7 +17,6 @@
     "heroTrust1": "Homeschool or afterschool",
     "heroTrust2": "Open source",
     "heroTrust3": "Your data, your family",
-
     "previewTodayTitle": "Today",
     "previewTodayDate": "Tuesday morning",
     "previewItem1": "Scripture & Catechism",
@@ -29,7 +27,6 @@
     "previewItem3Time": "11:00 AM · outdoor",
     "previewStreakLabel": "12-week streak",
     "previewStreakSub": "Math · Reading · Scripture",
-
     "trustHeading": "For families who take their children's education seriously",
     "trustSubheading": "Homeschool, afterschool, weekends, summers, or somewhere in between. Classical, Charlotte Mason, Montessori, unschooling, or something all your own. Oikos meets you where you are.",
     "useCaseHomeschool": "Homeschool",
@@ -38,7 +35,6 @@
     "useCaseWeekend": "Weekend learning",
     "useCaseSummer": "Summer rhythm",
     "useCaseTutored": "Co-op & tutored",
-
     "featuresKicker": "Everything you need, nothing in the way",
     "featuresHeading": "One calm home for your family's learning life.",
     "feature1Title": "A planner that fits your week",
@@ -53,7 +49,6 @@
     "feature5Body": "Capture the wins, the worries, and the quiet moments. Pin what matters and find it later.",
     "feature6Title": "Calendar that ties it together",
     "feature6Body": "Family events, field trips, project deadlines, and your weekly routine in one calm view.",
-
     "howKicker": "Get started in minutes",
     "howHeading": "From signup to first lesson in one sitting.",
     "how1Title": "Tell us about your family",
@@ -62,7 +57,6 @@
     "how2Body": "Their personalities, learning styles, what motivates them, and what to look out for.",
     "how3Title": "Start your week",
     "how3Body": "Build a plan — full curriculum or just the subjects you teach at home — drop them into a weekly rhythm, and let Oikos quietly track the rest.",
-
     "valuesKicker": "Built on principles, not engagement metrics",
     "valuesHeading": "What Oikos will never do.",
     "value1Title": "Never sell your data",
@@ -71,13 +65,11 @@
     "value2Body": "Oikos is a tool in your hand. You teach, you decide, you stay in charge.",
     "value3Title": "Never lock you in",
     "value3Body": "Open source. Export everything in one click. Your records are yours, forever.",
-
     "finalKicker": "Open source",
     "finalHeading": "Build a family education that lasts.",
     "finalBody": "Create your family in under five minutes — whether you teach every subject or just the ones that matter most — and bring a calm rhythm to learning at home.",
     "finalCtaPrimary": "Start your family",
     "finalCtaSecondary": "I already have an account",
-
     "footerTagline": "Open source family education.",
     "footerProduct": "Product",
     "footerFeatures": "Features",
@@ -88,7 +80,11 @@
     "footerGitHub": "GitHub",
     "footerPrivacy": "Privacy",
     "footerTerms": "Terms",
-    "footerCopyright": "© {year} Oikos. Built for families."
+    "footerCopyright": "© {year} Oikos. Built for families.",
+    "betaBadge": "Limited beta",
+    "betaHeading": "Join the Oikos closed beta — limited to 50 families",
+    "betaBody": "We're opening Oikos to a small group of families first. Beta members get six months free at launch and direct line to the team for feedback.",
+    "betaCta": "Apply for the closed beta"
   },
   "Auth": {
     "login": "Sign In",
@@ -156,6 +152,38 @@
     "fair": "Fair",
     "strong": "Strong",
     "veryStrong": "Very Strong"
+  },
+  "Beta": {
+    "badge": "Closed beta",
+    "title": "Apply for the Oikos closed beta",
+    "subtitle": "Tell us a bit about you. We're picking up to 50 families to use Oikos before general availability.",
+    "rule1": "50 families maximum across the entire program.",
+    "rule2": "Beta members get 6 months free at launch.",
+    "rule3": "We expect you to actually use the product and share feedback.",
+    "firstNameLabel": "First name",
+    "lastNameLabel": "Last name",
+    "emailLabel": "Email",
+    "reasonLabel": "Why do you want to use Oikos?",
+    "reasonPlaceholder": "A paragraph or two is plenty. What problem are you trying to solve?",
+    "reasonHint": "50–1000 characters.",
+    "reasonTooShort": "Please write at least 50 characters.",
+    "reasonTooLong": "Please keep it under 1000 characters.",
+    "consent": "By applying you agree to receive an email from us about your application.",
+    "submit": "Submit application",
+    "thanksTitle": "Thanks — application received",
+    "thanksBody": "We'll be in touch by email if you're selected.",
+    "alreadyApplied": "You've already applied — we'll be in touch by email if you're selected.",
+    "rateLimited": "Too many submissions. Please try again later.",
+    "backHome": "Back to home",
+    "inviteBadge": "Closed beta invite",
+    "inviteChecking": "Checking your invite link…",
+    "inviteInvalid": "This invite link is not valid.",
+    "inviteExpired": "This invite has expired — please contact the Oikos team.",
+    "inviteUsed": "This invite has already been used.",
+    "inviteError_invite_invalid": "Invite link is invalid.",
+    "inviteError_invite_used": "Invite link has already been used.",
+    "inviteError_invite_expired": "Invite link has expired.",
+    "inviteError_invite_email_mismatch": "Email does not match the invite — please use the email you applied with."
   },
   "Onboarding": {
     "step1Title": "Your Family",
@@ -252,7 +280,7 @@
     "editChild": "Edit Child",
     "saveChild": "Save Changes",
     "cancelButton": "Cancel",
-    "selectPlaceholder": "Select\u2026",
+    "selectPlaceholder": "Select…",
     "gender_male": "Male",
     "gender_female": "Female",
     "gender_prefer_not_to_say": "Prefer not to say",
@@ -271,7 +299,6 @@
     "quickLogProgress": "Log Progress",
     "quickNewNote": "New Note",
     "quickAddEvent": "Add Event",
-
     "todayTitle": "Today",
     "todayEmpty": "Nothing scheduled for today.",
     "todayEmptyHint": "Add an event or set up your week planner.",
@@ -283,21 +310,18 @@
     "linkPlanner": "Planner",
     "linkLessons": "Lessons",
     "todayLessonsOutsideSchedule": "Lessons not in today's plan",
-
     "todayLessonsTitle": "Today's Lessons",
     "todayLessonsEmpty": "No lessons planned today.",
     "todayLessonsEmptyHint": "Plan a lesson to get started.",
     "todayLessonsViewAll": "All lessons",
     "todayLessonsPlan": "Plan a lesson",
     "todayLessonsMarkComplete": "Mark complete",
-
     "curriculumsTitle": "Curriculums",
     "curriculumsViewAll": "View all",
     "curriculumsEmpty": "No active curricula.",
     "curriculumsEmptyHint": "Start one in Curriculums.",
     "curriculumsSubjects": "{count, plural, =0 {no subjects} =1 {1 subject} other {# subjects}}",
     "curriculumsChildren": "{count, plural, =0 {no children} =1 {1 child} other {# children}}",
-
     "projectsTitle": "Projects",
     "projectsViewAll": "View all",
     "projectsEmpty": "No active projects.",
@@ -305,7 +329,6 @@
     "projectsDueToday": "Due today",
     "projectsOverdue": "{days, plural, =1 {1 day} other {# days}} overdue",
     "projectsMilestones": "{done}/{total} milestones",
-
     "progressStreakWeeks": "{count, plural, =1 {1-week streak} other {#-week streak}}",
     "progressStreakStart": "Start your streak today — tick what you covered below.",
     "streakBannerAria": "Open progress report",
@@ -317,7 +340,6 @@
     "checklistMarkAll": "Mark all as taught",
     "checklistMarkAllProgress": "Logging {done} of {total}…",
     "checklistAllDone": "All marked as taught",
-
     "neglectedTitle": "Needs Attention",
     "neglectedDaysAgo": "{days, plural, =1 {1 day ago} other {# days ago}}",
     "neglectedNone": "All subjects taught recently. Great work!",
@@ -332,7 +354,6 @@
     "neglectedHelpRuleSeverity": "Amber means mildly overdue (within ~20 days). Red means very overdue or never taught.",
     "neglectedHelpRuleNever": "Tapping a subject opens its details so you can plan the next session.",
     "neglectedHelpChangeThreshold": "Want a different timeframe? Change it in <settingsLink>Settings → Dashboard</settingsLink>.",
-
     "notesTitle": "Notes",
     "notesViewAll": "All notes",
     "notesColumnTodo": "To Do",
@@ -345,7 +366,6 @@
     "notesPinned": "Pinned",
     "notesDue": "Due {date}",
     "notesOverdue": "Overdue",
-
     "journalTitle": "Journal",
     "journalViewAll": "View all",
     "journalNewEntry": "New entry",
@@ -354,10 +374,8 @@
     "journalBy": "By {name}",
     "journalToday": "Today",
     "journalYesterday": "Yesterday",
-
     "certificatesTitle": "Recent Certificates",
     "certificatesCompleted": "Completed {date}",
-
     "quickLogTitle": "Log a Session",
     "quickLogChild": "Child",
     "quickLogAllChildren": "All children",
@@ -365,7 +383,6 @@
     "quickLogMinutes": "Duration (minutes)",
     "quickLogNotes": "Notes (optional)",
     "quickLogSubmit": "Log session",
-
     "quickNoteTitle": "New Note",
     "quickNoteContent": "What's on your mind?",
     "quickNoteTags": "Tags (comma-separated)",
@@ -807,7 +824,7 @@
     "addChildButton": "Add {name}",
     "addChildDefault": "Add Child",
     "cancelButton": "Cancel",
-    "selectPlaceholder": "Select\u2026",
+    "selectPlaceholder": "Select…",
     "gender_male": "Male",
     "gender_female": "Female",
     "gender_prefer_not_to_say": "Prefer not to say"
@@ -1435,7 +1452,6 @@
   "Settings": {
     "pageTitle": "Settings",
     "pageSubtitle": "Manage your personal account preferences.",
-
     "accountTitle": "Account Information",
     "accountSubtitle": "Update your name and email address.",
     "firstName": "First name",
@@ -1444,7 +1460,6 @@
     "saveChanges": "Save changes",
     "saving": "Saving…",
     "changesSaved": "Changes saved.",
-
     "securityTitle": "Security",
     "securitySubtitle": "Change your password and review recent account activity.",
     "currentPassword": "Current password",
@@ -1454,7 +1469,6 @@
     "passwordChanged": "Password changed successfully.",
     "lastLogin": "Last sign-in",
     "lastLoginNever": "Never",
-
     "languageTitle": "Language & Region",
     "languageSubtitle": "Control how dates, times, and text appear across the app.",
     "displayLanguage": "Display language",
@@ -1464,7 +1478,6 @@
     "timeFormat12h": "12-hour",
     "timeFormat24h": "24-hour",
     "preferencesSaved": "Preferences saved.",
-
     "notificationsTitle": "Notifications",
     "notificationsSubtitle": "Choose which emails Oikos sends you.",
     "notifWeeklySummary": "Weekly planning summary",
@@ -1481,7 +1494,6 @@
     "notifMemberActivityDesc": "When a co-parent or educator makes changes.",
     "notifPlatformNews": "Platform news & updates",
     "notifPlatformNewsDesc": "Product announcements from the Oikos team.",
-
     "appearanceTitle": "Appearance & Accessibility",
     "appearanceSubtitle": "Adjust the look and feel of the app for this browser.",
     "colorTheme": "Color theme",
@@ -1498,7 +1510,6 @@
     "dyslexiaFont": "Dyslexia-friendly font",
     "dyslexiaFontDesc": "Switch body text to OpenDyslexic.",
     "resetAppearance": "Reset to defaults",
-
     "dashboardTitle": "Dashboard",
     "dashboardSubtitle": "Tune how the dashboard widgets behave for you.",
     "neglectedThresholdLabel": "Days before a subject is flagged in \"Needs Attention\"",
@@ -1507,7 +1518,6 @@
     "neglectedThresholdHelp": "Choose any value between 1 and 365 days.",
     "neglectedThresholdRangeError": "Pick a value between {min} and {max}.",
     "neglectedThresholdPreset": "{days} days",
-
     "dangerTitle": "Danger Zone",
     "dangerSubtitle": "Permanent actions that cannot be undone.",
     "deleteAccount": "Delete my account",
@@ -1522,7 +1532,6 @@
     "deleting": "Deleting…",
     "deleteError": "Could not delete account. Please check your email and password.",
     "primaryOwnerError": "Please delete or transfer your family from the Family page first.",
-
     "errorIncorrectPassword": "Incorrect current password.",
     "errorPasswordMismatch": "Passwords do not match.",
     "errorGeneric": "Something went wrong. Please try again."

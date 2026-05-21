@@ -68,8 +68,29 @@ async def register(
 ):
     ip = request.client.host if request.client else "127.0.0.1"
     await check_rate_limit(f"ratelimit:register:{ip}", 5, 3600)
-    
+
+    # If an invite token is supplied, validate it BEFORE creating the user.
+    # The submitted email must match the application's email.
+    if req.invite_token:
+        from app.services.beta_service import find_application_by_invite_token
+        from datetime import datetime as _dt, timezone as _tz
+
+        app = await find_application_by_invite_token(service.db, req.invite_token)
+        if not app:
+            raise HTTPException(status_code=400, detail={"detail": "Invite link is invalid.", "code": "invite_invalid"})
+        if app.invite_consumed_at is not None:
+            raise HTTPException(status_code=400, detail={"detail": "Invite link has already been used.", "code": "invite_used"})
+        if app.invite_token_expires_at and app.invite_token_expires_at < _dt.now(_tz.utc):
+            raise HTTPException(status_code=400, detail={"detail": "Invite link has expired.", "code": "invite_expired"})
+        if req.email.lower() != app.email.lower():
+            raise HTTPException(status_code=400, detail={"detail": "Email does not match the invite.", "code": "invite_email_mismatch"})
+
     user = await service.register_user(req)
+
+    if req.invite_token:
+        from app.services.beta_service import consume_invite_token
+        await consume_invite_token(service.db, raw_token=req.invite_token, user=user)
+
     refresh_token = set_auth_cookies(response, str(user.id))
     await store_refresh_token(str(user.id), refresh_token)
     return LoginResponse(user=user)

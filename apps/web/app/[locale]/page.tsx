@@ -151,6 +151,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Closed beta CTA */}
+      <section id="closed-beta" className="max-w-5xl mx-auto px-6 lg:px-8 py-10">
+        <div className="bg-gradient-to-br from-primary/10 via-rose-100/40 to-orange-100/40 border border-primary/20 rounded-[2.5rem] p-8 sm:p-12 text-center backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold mb-4">
+            <Sparkles className="w-3.5 h-3.5" />
+            {t('betaBadge')}
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+            {t('betaHeading')}
+          </h2>
+          <p className="text-slate-600 mt-4 max-w-2xl mx-auto">{t('betaBody')}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-6">
+            <Link
+              href="/beta"
+              className="inline-flex items-center justify-center whitespace-nowrap px-7 py-3.5 rounded-2xl bg-primary text-white font-semibold text-base hover:bg-primary-hover shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-1 active:scale-95"
+            >
+              {t('betaCta')}
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Trust strip */}
       <section className="max-w-5xl mx-auto px-6 lg:px-8 py-10 text-center">
         <h2 className="text-xl sm:text-2xl font-bold text-slate-800">{t('trustHeading')}</h2>

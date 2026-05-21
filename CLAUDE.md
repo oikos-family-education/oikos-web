@@ -84,3 +84,17 @@ Vitest + jsdom + `@testing-library/react`. Run with `npm run test` from `apps/we
 When creating or modifying forms in the frontend:
 - **Required field indicators**: All required fields MUST display a red asterisk (`*`) next to their label. Use the `required` prop on `<Input>` components from `@oikos/ui`. For custom labels (not using `<Input>`), append `<span className="text-red-500 ml-0.5">*</span>` after the label text.
 - **Button layout**: All submit/action buttons MUST use the `<Button>` component from `@oikos/ui`, which includes `inline-flex items-center justify-center whitespace-nowrap` to prevent text wrapping to multiple lines. Never override these layout classes.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `oikos-family-education/oikos-web`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context — `CONTEXT-MAP.md` at root points at per-app `CONTEXT.md` files in `apps/web/` and `apps/api/`. See `docs/agents/domain.md`.

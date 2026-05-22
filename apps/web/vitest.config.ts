@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  // `react()` resolves against the root's Vite copy while vitest brings its own.
+  // The Plugin types are nominally distinct between the two; cast away the duplicate-version friction.
+  plugins: [react() as unknown as never],
   test: {
     environment: 'jsdom',
     globals: true,

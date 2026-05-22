@@ -91,7 +91,7 @@ export function useDayRows(date: string) {
               id,
               name: r.child_names[idx] ?? '',
             })),
-            source: 'planner',
+            source: 'planner' as const,
             startMinute: r.start_minute,
           }))
           .sort((a, b) => (a.startMinute ?? 0) - (b.startMinute ?? 0));

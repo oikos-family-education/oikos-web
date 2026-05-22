@@ -11,9 +11,15 @@ import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from '../../providers/AuthProvider';
 
 const mockReplace = vi.fn();
+let mockLocale = 'en';
 
 vi.mock('../../lib/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
+  usePathname: () => '/dashboard',
+}));
+
+vi.mock('next-intl', () => ({
+  useLocale: () => mockLocale,
 }));
 
 // Helper consumer component that exposes auth context values
@@ -36,6 +42,10 @@ const mockUser = {
   last_name: 'Smith',
   has_family: true,
   has_coat_of_arms: true,
+  locale: 'en',
+  date_format: 'MM/DD/YYYY',
+  time_format: '12h',
+  timezone: 'UTC',
 };
 
 const mockFamily = {
@@ -57,6 +67,7 @@ describe('AuthProvider', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
     mockReplace.mockReset();
+    mockLocale = 'en';
   });
 
   afterEach(() => {
@@ -187,6 +198,43 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/login');
     });
+  });
+
+  it('switches locale to the user.locale when it differs from the active locale', async () => {
+    mockLocale = 'pt-BR';
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ user: { ...mockUser, locale: 'en' } }),
+    } as Response);
+
+    render(<AuthProvider><AuthConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard', { locale: 'en' });
+    });
+  });
+
+  it('does not switch locale when user.locale matches the active locale', async () => {
+    mockLocale = 'en';
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ user: mockUser }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockFamily,
+      } as Response);
+
+    render(<AuthProvider><AuthConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-email')).toHaveTextContent('alice@example.com');
+    });
+    expect(mockReplace).not.toHaveBeenCalledWith('/dashboard', expect.anything());
   });
 
   it('retries /auth/me after a successful refresh', async () => {

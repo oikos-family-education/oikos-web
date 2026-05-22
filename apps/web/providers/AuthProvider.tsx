@@ -1,7 +1,16 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { useRouter } from '../lib/navigation';
+import { useLocale } from 'next-intl';
+import { useRouter, usePathname } from '../lib/navigation';
+import { locales } from '../i18n';
+
+type AppLocale = (typeof locales)[number];
+function asAppLocale(value: unknown): AppLocale | undefined {
+  return typeof value === 'string' && (locales as readonly string[]).includes(value)
+    ? (value as AppLocale)
+    : undefined;
+}
 
 interface User {
   id: string;
@@ -54,6 +63,8 @@ const SILENT_REFRESH_INTERVAL_MS = 50 * 60 * 1000;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const currentLocale = useLocale();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [family, setFamily] = useState<Family | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +107,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!userData.has_coat_of_arms) {
           router.replace('/onboarding/coat-of-arms');
+          return;
+        }
+
+        // Stored locale preference wins over browser-detected locale. If the
+        // active URL/cookie locale doesn't match, switch and let the layout
+        // remount in the right language. Skips when locales match or the
+        // stored value isn't in our supported set.
+        const targetLocale = asAppLocale(userData.locale);
+        if (targetLocale && targetLocale !== currentLocale) {
+          router.replace(pathname, { locale: targetLocale });
           return;
         }
 

@@ -274,12 +274,12 @@ export function CalendarPage() {
 
   function onSaved() {
     closeForm();
-    fetchEvents();
+    refresh();
   }
 
   function onDeleted() {
     closeForm();
-    fetchEvents();
+    refresh();
   }
 
   const headerLabel = React.useMemo(() => {

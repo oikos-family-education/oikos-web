@@ -10,6 +10,14 @@ import { BookOpen, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Input, Button } from '@oikos/ui';
 import { Alert } from '../ui/Alert';
 import { useTranslations } from 'next-intl';
+import { locales } from '../../i18n';
+
+type AppLocale = (typeof locales)[number];
+function asAppLocale(value: unknown): AppLocale | undefined {
+  return typeof value === 'string' && (locales as readonly string[]).includes(value)
+    ? (value as AppLocale)
+    : undefined;
+}
 
 export const LoginForm = () => {
   const router = useRouter();
@@ -52,10 +60,12 @@ export const LoginForm = () => {
           setErrorMsg(result.detail?.detail || result.detail || tApi('invalidCredentials'));
         }
       } else {
-        if (result.user && !result.user.has_family) {
-          router.push('/onboarding/family');
+        const dest = result.user && !result.user.has_family ? '/onboarding/family' : '/dashboard';
+        const targetLocale = asAppLocale(result.user?.locale);
+        if (targetLocale) {
+          router.push(dest, { locale: targetLocale });
         } else {
-          router.push('/dashboard');
+          router.push(dest);
         }
       }
     } catch (err) {

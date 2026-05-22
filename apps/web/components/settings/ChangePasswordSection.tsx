@@ -30,11 +30,12 @@ export function ChangePasswordSection({ lastLoginAt }: Props) {
       path: ['confirm_password'],
     });
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  type FormValues = z.infer<typeof schema>;
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
 
-  async function onSubmit(data: { current_password: string; new_password: string; confirm_password: string }) {
+  async function onSubmit(data: FormValues) {
     setApiError('');
     setSaved(false);
     const res = await apiFetch('/api/v1/users/me/change-password', {

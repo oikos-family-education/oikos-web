@@ -5,7 +5,18 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/renderWithProviders';
 import { ChildCard } from '../../components/children/ChildCard';
 
-const baseChild = {
+interface TestChild {
+  id: string;
+  first_name: string;
+  nickname?: string;
+  birthdate?: string;
+  birth_year?: number;
+  grade_level?: string;
+  child_curriculum: string[];
+  learning_styles: string[];
+}
+
+const baseChild: TestChild = {
   id: 'c1',
   first_name: 'Alice',
   child_curriculum: [],

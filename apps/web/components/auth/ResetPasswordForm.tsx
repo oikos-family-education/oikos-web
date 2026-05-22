@@ -12,6 +12,14 @@ import { Input, Button } from '@oikos/ui';
 import { Alert } from '../ui/Alert';
 import { Link } from '../../lib/navigation';
 import { useTranslations } from 'next-intl';
+import { locales } from '../../i18n';
+
+type AppLocale = (typeof locales)[number];
+function asAppLocale(value: unknown): AppLocale | undefined {
+  return typeof value === 'string' && (locales as readonly string[]).includes(value)
+    ? (value as AppLocale)
+    : undefined;
+}
 
 export const ResetPasswordForm = () => {
   const router = useRouter();
@@ -107,8 +115,13 @@ export const ResetPasswordForm = () => {
         setErrorMsg(result.detail?.detail || tApi('invalidToken'));
       } else {
         setSuccessMsg(tAuth('passwordResetSuccess'));
+        const targetLocale = asAppLocale(result.user?.locale);
         setTimeout(() => {
-          router.push('/dashboard');
+          if (targetLocale) {
+            router.push('/dashboard', { locale: targetLocale });
+          } else {
+            router.push('/dashboard');
+          }
         }, 2000);
       }
     } catch (err) {

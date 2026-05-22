@@ -13,6 +13,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=10, max_length=128)
     confirm_password: str
     agreed_to_terms: bool
+    invite_token: Optional[str] = None
 
     @model_validator(mode='after')
     def check_passwords_match(self) -> 'RegisterRequest':

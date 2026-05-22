@@ -88,6 +88,25 @@ services:
       - /app/packages/config/node_modules
       - /app/packages/types/node_modules
 
+  admin:
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_started
+    env_file: .env
+    command: sh -c "rm -rf apps/admin/.next && exec npx turbo run dev --filter=admin"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/admin/node_modules
+      - /app/packages/ui/node_modules
+      - /app/packages/config/node_modules
+      - /app/packages/types/node_modules
+
 volumes:
   postgres_data:
   redis_data:

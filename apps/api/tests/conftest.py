@@ -192,6 +192,9 @@ TRUNCATE TABLE
     family_invitations,
     family_members,
     families,
+    beta_applications,
+    admin_allowlist,
+    audit_log,
     users
 RESTART IDENTITY CASCADE;
 """
@@ -374,9 +377,21 @@ def mock_rate_limit(monkeypatch):
 
     import app.services.auth_service as auth_service
     import app.routers.auth as auth_router
+    import app.routers.beta as beta_router
+    import app.routers.admin as admin_router
 
     monkeypatch.setattr(auth_service, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(beta_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(admin_router, "check_rate_limit", _noop)
+
+    # No-op outbound email
+    import app.services.email_service as email_service
+    import app.services.beta_service as beta_service
+    async def _no_send(**_):
+        return None
+    monkeypatch.setattr(email_service, "send_email", _no_send)
+    monkeypatch.setattr(beta_service, "send_email", _no_send)
 
     # Token store — no-ops; validate always returns True so refresh tests pass
     for fn, replacement in (

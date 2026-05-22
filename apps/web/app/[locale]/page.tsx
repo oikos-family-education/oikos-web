@@ -152,23 +152,32 @@ export default function Home() {
       </section>
 
       {/* Closed beta CTA */}
-      <section id="closed-beta" className="max-w-5xl mx-auto px-6 lg:px-8 py-10">
-        <div className="bg-gradient-to-br from-primary/10 via-rose-100/40 to-orange-100/40 border border-primary/20 rounded-[2.5rem] p-8 sm:p-12 text-center backdrop-blur-sm">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold mb-4">
-            <Sparkles className="w-3.5 h-3.5" />
-            {t('betaBadge')}
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
-            {t('betaHeading')}
-          </h2>
-          <p className="text-slate-600 mt-4 max-w-2xl mx-auto">{t('betaBody')}</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-6">
-            <Link
-              href="/beta"
-              className="inline-flex items-center justify-center whitespace-nowrap px-7 py-3.5 rounded-2xl bg-primary text-white font-semibold text-base hover:bg-primary-hover shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-1 active:scale-95"
-            >
-              {t('betaCta')}
-            </Link>
+      <section id="closed-beta" className="max-w-5xl mx-auto px-6 lg:px-8 py-12">
+        <div className="relative">
+          <div
+            aria-hidden
+            className="absolute -inset-4 bg-gradient-to-r from-primary/40 via-rose-400/40 to-orange-300/40 rounded-[3rem] blur-2xl opacity-80 pointer-events-none"
+          ></div>
+          <div className="relative bg-gradient-to-br from-primary via-primary to-rose-500 rounded-[2.5rem] p-10 sm:p-14 text-center shadow-2xl shadow-primary/40 overflow-hidden">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-semibold uppercase tracking-wider mb-5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+              </span>
+              {t('betaBadge')}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              {t('betaHeading')}
+            </h2>
+            <p className="text-white/90 mt-4 max-w-2xl mx-auto text-lg">{t('betaBody')}</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-7">
+              <Link
+                href="/beta"
+                className="inline-flex items-center justify-center whitespace-nowrap px-8 py-4 rounded-2xl bg-white text-primary font-bold text-base hover:bg-slate-50 shadow-xl shadow-black/10 transition-all transform hover:-translate-y-1 active:scale-95"
+              >
+                {t('betaCta')}
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -83,7 +83,7 @@
     "footerCopyright": "© {year} Oikos. Feito para famílias.",
     "betaBadge": "Beta limitado",
     "betaHeading": "Participe do beta fechado do Oikos — limitado a 50 famílias",
-    "betaBody": "Estamos abrindo o Oikos para um grupo pequeno de famílias primeiro. Membros do beta ganham seis meses gratuitos no lançamento e contato direto com a equipe para feedback.",
+    "betaBody": "Estamos abrindo o Oikos para um grupo pequeno de famílias primeiro. Membros do beta têm contato direto com a equipe e ajudam a moldar o produto antes do lançamento.",
     "betaCta": "Inscreva-se no beta fechado"
   },
   "Auth": {
@@ -158,7 +158,6 @@
     "title": "Inscreva-se no beta fechado do Oikos",
     "subtitle": "Conte um pouco sobre você. Vamos selecionar até 50 famílias para usar o Oikos antes do lançamento geral.",
     "rule1": "Limite de 50 famílias em todo o programa.",
-    "rule2": "Membros do beta ganham 6 meses gratuitos no lançamento.",
     "rule3": "Esperamos que você use o produto e compartilhe feedback.",
     "firstNameLabel": "Nome",
     "lastNameLabel": "Sobrenome",

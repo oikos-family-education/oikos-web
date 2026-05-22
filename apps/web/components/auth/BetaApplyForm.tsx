@@ -82,7 +82,7 @@ export const BetaApplyForm = () => {
 
   if (submitState === 'received' || submitState === 'duplicate') {
     return (
-      <div className="bg-white/80 p-8 sm:p-10 rounded-[2rem] shadow-2xl backdrop-blur-xl border border-white mt-8 mb-8">
+      <div className="mx-auto max-w-md bg-white/80 p-8 sm:p-10 rounded-[2rem] shadow-2xl backdrop-blur-xl border border-white mt-8 mb-8">
         <div className="flex flex-col items-center text-center">
           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
             <CheckCircle2 className="w-8 h-8 text-primary" />
@@ -103,7 +103,7 @@ export const BetaApplyForm = () => {
   }
 
   return (
-    <div className="bg-white/80 p-8 sm:p-10 rounded-[2rem] shadow-2xl backdrop-blur-xl border border-white mt-8 mb-8">
+    <div className="mx-auto max-w-2xl bg-white/80 p-8 sm:p-10 rounded-[2rem] shadow-2xl backdrop-blur-xl border border-white mt-8 mb-8">
       <div className="flex flex-col items-center mb-6">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
@@ -115,7 +115,6 @@ export const BetaApplyForm = () => {
         <p className="text-slate-500 mt-3 text-center font-medium">{tBeta('subtitle')}</p>
         <ul className="text-sm text-slate-600 mt-5 space-y-2 self-stretch">
           <li className="flex gap-2"><span className="text-primary">•</span>{tBeta('rule1')}</li>
-          <li className="flex gap-2"><span className="text-primary">•</span>{tBeta('rule2')}</li>
           <li className="flex gap-2"><span className="text-primary">•</span>{tBeta('rule3')}</li>
         </ul>
       </div>

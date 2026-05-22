@@ -74,12 +74,20 @@ class AuthService:
         return result.scalars().first()
 
     async def register_user(self, req: RegisterRequest) -> User:
+        # Email blacklist (populated by bans) — rejected with a generic error
+        from app.services.moderation_service import is_email_blacklisted
+        if await is_email_blacklisted(self.db, req.email):
+            raise HTTPException(
+                status_code=400,
+                detail={"detail": "We cannot create an account with this email.", "code": "email_blocked"},
+            )
+
         user = await self._get_user_by_email(req.email)
         if user:
             raise HTTPException(status_code=409, detail={"detail": "A user with this email already exists.", "code": "email_taken"})
 
         # Common password check could go here
-        
+
         db_user = User(
             email=req.email.lower(),
             first_name=req.first_name,
@@ -105,6 +113,28 @@ class AuthService:
             await self.db.commit()
             await self.db.refresh(db_user)
             return db_user
+
+        # Block/ban enforcement — auto-lift if a temporary block has expired
+        if user.moderation_status == "blocked":
+            now = datetime.now(timezone.utc)
+            if user.moderation_expires_at and user.moderation_expires_at < now:
+                user.moderation_status = "active"
+                user.moderation_reason = None
+                user.moderation_expires_at = None
+                await self.db.commit()
+            else:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "detail": f"Your account is blocked. Reason: {user.moderation_reason or 'no reason given'}. Contact support.",
+                        "code": "account_blocked",
+                    },
+                )
+        if user.moderation_status == "banned":
+            raise HTTPException(
+                status_code=403,
+                detail={"detail": "Your account is banned.", "code": "account_banned"},
+            )
 
         # Bypass password
         user.failed_login_attempts = 0

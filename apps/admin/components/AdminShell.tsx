@@ -14,12 +14,12 @@ import {
 import { useAdminAuth } from '../providers/AdminAuthProvider';
 
 const NAV = [
-  { href: '/overview', label: 'Overview', icon: LayoutDashboard, enabled: false },
+  { href: '/overview', label: 'Overview', icon: LayoutDashboard, enabled: true },
   { href: '/beta', label: 'Beta applications', icon: Mail, enabled: true },
-  { href: '/families', label: 'Families', icon: Users, enabled: false },
-  { href: '/moderation', label: 'Moderation', icon: ShieldAlert, enabled: false },
-  { href: '/audit-log', label: 'Audit log', icon: ScrollText, enabled: false },
-  { href: '/admins', label: 'Admins', icon: UserCog, enabled: false },
+  { href: '/families', label: 'Families', icon: Users, enabled: true },
+  { href: '/moderation', label: 'Moderation', icon: ShieldAlert, enabled: true },
+  { href: '/audit-log', label: 'Audit log', icon: ScrollText, enabled: true },
+  { href: '/admins', label: 'Admins', icon: UserCog, enabled: true },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

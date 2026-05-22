@@ -195,6 +195,7 @@ TRUNCATE TABLE
     beta_applications,
     admin_allowlist,
     audit_log,
+    email_blacklist,
     users
 RESTART IDENTITY CASCADE;
 """

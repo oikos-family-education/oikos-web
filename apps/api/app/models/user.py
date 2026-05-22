@@ -70,3 +70,14 @@ class User(Base):
         default=DEFAULT_UI_PREFERENCES,
         server_default='{"theme":"light","font_size":"default","reduce_motion":false,"high_contrast":false,"dyslexia_font":false}',
     )
+
+    # Moderation state — managed exclusively by admins.
+    # status: 'active' | 'blocked' | 'banned'
+    moderation_status = Column(
+        String(20), nullable=False, default="active", server_default="active", index=True
+    )
+    moderation_reason = Column(String(2000), nullable=True)
+    moderation_set_by = Column(String(255), nullable=True)
+    moderation_set_at = Column(DateTime(timezone=True), nullable=True)
+    # Only meaningful for 'blocked'. NULL means indefinite. Auto-lifts when reached.
+    moderation_expires_at = Column(DateTime(timezone=True), nullable=True)

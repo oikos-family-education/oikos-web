@@ -11,6 +11,10 @@ import { useRouter } from '../../../../../lib/navigation';
 import { useParams } from 'next/navigation';
 import { useAuth } from '../../../../../providers/AuthProvider';
 import { formatDate } from '../../../../../lib/formatDate';
+import {
+  getChildDisplayName as displayNameForChild,
+  getChildInitials as initialsForChild,
+} from '../../../../../lib/childDisplay';
 
 interface ProjectChild {
   project_id: string;
@@ -321,12 +325,12 @@ export default function ProjectDetailPage() {
 
   function getChildName(childId: string): string {
     const child = children.find((c) => c.id === childId);
-    return child?.nickname || child?.first_name || '';
+    return displayNameForChild(child);
   }
 
   function getChildInitials(childId: string): string {
     const child = children.find((c) => c.id === childId);
-    return child?.avatar_initials || (child?.first_name?.[0] ?? '?');
+    return initialsForChild(child);
   }
 
   function getSubjectName(subjectId: string): string {

@@ -4,6 +4,7 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { MiniCalendar } from './MiniCalendar';
 import { CalendarChild, EventType, EVENT_TYPE_COLORS } from './types';
+import { getChildDisplayName, getChildInitials } from '../../lib/childDisplay';
 
 interface CalendarSidebarProps {
   currentDate: Date;
@@ -69,8 +70,8 @@ export function CalendarSidebar({
             </button>
             {childrenList.map((c) => {
               const on = selectedChildIds.has(c.id);
-              const initials = c.avatar_initials || c.first_name[0];
-              const display = c.nickname || c.first_name;
+              const initials = getChildInitials(c);
+              const display = getChildDisplayName(c);
               return (
                 <button
                   key={c.id}

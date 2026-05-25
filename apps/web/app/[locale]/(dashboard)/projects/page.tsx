@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '../../../../lib/navigation';
 import { useAuth } from '../../../../providers/AuthProvider';
 import { formatDate } from '../../../../lib/formatDate';
+import { getChildDisplayName, getChildInitials } from '../../../../lib/childDisplay';
 
 interface ProjectChild {
   project_id: string;
@@ -100,12 +101,12 @@ export default function ProjectsPage() {
 
   function getChildName(childId: string): string {
     const child = children.find((c) => c.id === childId);
-    return child?.nickname || child?.first_name || '';
+    return getChildDisplayName(child);
   }
 
-  function getChildInitials(childId: string): string {
+  function getChildChipInitials(childId: string): string {
     const child = children.find((c) => c.id === childId);
-    return child?.avatar_initials || (child?.first_name?.[0] ?? '?');
+    return getChildInitials(child);
   }
 
   function getSubjectName(subjectId: string): string {
@@ -291,7 +292,7 @@ export default function ProjectsPage() {
                       title={getChildName(pc.child_id)}
                       className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center border-2 border-white"
                     >
-                      {getChildInitials(pc.child_id)}
+                      {getChildChipInitials(pc.child_id)}
                     </div>
                   ))}
                 </div>

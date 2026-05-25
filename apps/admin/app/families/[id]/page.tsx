@@ -24,7 +24,7 @@ interface Detail {
   owner_user_id: string | null;
   is_beta_approved: boolean;
   members: Member[];
-  children: { child_id: string; first_name: string; created_at: string }[];
+  children: { child_id: string; created_at: string }[];
   content_counts: Record<string, number>;
   recent_activity: { type: string; id: string; title: string | null; ts: string | null }[];
 }
@@ -120,14 +120,21 @@ export default function FamilyDetailPage() {
         {detail.children.length === 0 ? (
           <p className="text-sm text-slate-500 p-4">No children.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {detail.children.map((c) => (
-              <li key={c.child_id} className="px-4 py-2.5 text-sm flex justify-between">
-                <span className="font-medium">{c.first_name}</span>
-                <span className="text-slate-500">{new Date(c.created_at).toLocaleDateString()}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="px-4 py-2 text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+              Names are hidden — children are minors and their identifiers are PII not required for moderation.
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {detail.children.map((c, i) => (
+                <li key={c.child_id} className="px-4 py-2.5 text-sm flex justify-between">
+                  <span className="font-medium text-slate-700">Child #{i + 1}</span>
+                  <span className="text-slate-500">
+                    Added {new Date(c.created_at).toLocaleDateString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Section>
 

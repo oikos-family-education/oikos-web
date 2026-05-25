@@ -108,6 +108,46 @@ async def test_family_detail(admin_client, db):
     assert body["content_counts"]["subjects"] == 0
 
 
+@pytest.mark.asyncio
+async def test_family_detail_does_not_leak_children_names(admin_client, db):
+    """Admins should not see children's first names or nicknames — children are minors."""
+    from app.models.child import Child
+
+    user, fam = await _seed_family(db, "owner-with-kids@example.com")
+
+    db.add(
+        Child(
+            family_id=fam.id,
+            first_name="Alice",
+            nickname="Ally",
+        )
+    )
+    db.add(
+        Child(
+            family_id=fam.id,
+            first_name="Bobby",
+        )
+    )
+    await db.commit()
+
+    res = await admin_client.get(f"/api/v1/admin/families/{fam.id}")
+    assert res.status_code == 200
+    body = res.json()
+
+    assert len(body["children"]) == 2
+    payload = res.text
+    for forbidden in ("Alice", "Ally", "Bobby"):
+        assert forbidden not in payload, (
+            f"Children PII '{forbidden}' was leaked in admin family detail response"
+        )
+
+    for child in body["children"]:
+        assert "first_name" not in child
+        assert "nickname" not in child
+        assert "child_id" in child
+        assert "created_at" in child
+
+
 # ───────────────────────── Moderation: block ─────────────────────────
 
 

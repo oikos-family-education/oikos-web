@@ -260,7 +260,8 @@ async def family_detail(db: AsyncSession, *, family_id: str) -> dict:
     children = (
         await db.execute(select(Child).where(Child.family_id == fam.id))
     ).scalars().all()
-    child_list = [{"child_id": c.id, "first_name": c.first_name, "created_at": c.created_at} for c in children]
+    # Children's first names are PII for minors and intentionally omitted here.
+    child_list = [{"child_id": c.id, "created_at": c.created_at} for c in children]
 
     content_counts = {}
     for label, model in [

@@ -71,8 +71,9 @@ class FamilyMemberSummary(BaseModel):
 
 
 class ChildSummary(BaseModel):
+    """Admin-facing child summary — names are intentionally omitted as PII for minors."""
+
     child_id: uuid.UUID
-    first_name: str
     created_at: datetime
 
 

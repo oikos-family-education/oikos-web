@@ -39,3 +39,10 @@ globs: apps/web/**/*.tsx, apps/web/**/*.ts
 - Route groups: `(auth)` (public), `(dashboard)` (protected), `onboarding` (partially protected)
 - Protected routes registered in `apps/web/middleware.ts` `PROTECTED_PATHS` array
 - Navigation: use `useRouter()` from `next/navigation`
+
+## Child display (names & chips)
+- Always render a child using their **nickname when set, otherwise first_name**.
+- Use `getChildDisplayName(child)` and `getChildInitials(child)` from `apps/web/lib/childDisplay.ts` for every chip, avatar, badge, label, or tooltip.
+- Do **not** fall back to `avatar_initials` (it is not guaranteed to follow nickname edits) and do **not** take `first_name[0]` directly.
+- Backends should follow the same rule when shaping name fields: `c.nickname or c.first_name` (see `week_planner_service`, `progress_service`, `curriculum_service`).
+- Exception: printable/legal documents (e.g. `PrintableReport.tsx`) intentionally show the real `first_name` — leave them as-is.

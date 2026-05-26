@@ -16,6 +16,8 @@ from app.models.family import Family
 from app.models.family_member import FamilyMember
 from app.models.community import Community, CommunityMember
 
+pytestmark = pytest.mark.asyncio
+
 
 # ── helpers ────────────────────────────────────────────────────────────
 
@@ -183,12 +185,12 @@ async def test_cannot_create_more_than_5_communities(fam, db):
     for i in range(5):
         res = await client.post(
             "/api/v1/communities",
-            json=_community_payload(name=f"C{i}", region_scope="online", country_code=None, region=None),
+            json=_community_payload(name=f"Cap{i}", region_scope="online", country_code=None, region=None),
         )
         assert res.status_code == 201, res.text
     res = await client.post(
         "/api/v1/communities",
-        json=_community_payload(name="C6", region_scope="online", country_code=None, region=None),
+        json=_community_payload(name="Cap6", region_scope="online", country_code=None, region=None),
     )
     assert res.status_code == 409
 

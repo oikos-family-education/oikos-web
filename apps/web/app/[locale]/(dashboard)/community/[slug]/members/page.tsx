@@ -8,6 +8,8 @@ import { Link } from '../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../../components/community/CommunityTabs';
 import { InviteDialog } from '../../../../../../components/community/InviteDialog';
+import { ShieldPreview } from '../../../../../../components/onboarding/ShieldPreview';
+import type { ShieldConfig } from '../../../../../../components/onboarding/ShieldBuilder';
 import type { CommunityDetail, MembersList } from '../../../../../../components/community/types';
 
 export default function MembersPage() {
@@ -99,22 +101,37 @@ export default function MembersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
           {members.active.map((m) => (
             <div key={m.family_id} className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-start justify-between mb-2">
-                <Link
-                  href={`/discover/${m.family_name_slug}`}
-                  className="text-sm font-semibold text-slate-800 hover:text-primary"
-                >
-                  {m.family_name}
-                </Link>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {t(`role.${m.role}`)}
-                </span>
+              <div className="flex items-start gap-3 mb-2">
+                {m.shield_config && (m.shield_config as unknown as Partial<ShieldConfig>).initials ? (
+                  <div className="shrink-0">
+                    <ShieldPreview
+                      config={m.shield_config as unknown as ShieldConfig}
+                      familyName={m.family_name}
+                      showFamilyName={false}
+                      width={40}
+                      height={48}
+                    />
+                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/discover/${m.family_name_slug}`}
+                      className="text-sm font-semibold text-slate-800 hover:text-primary truncate"
+                    >
+                      {m.family_name}
+                    </Link>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                      {t(`role.${m.role}`)}
+                    </span>
+                  </div>
+                  {(m.location_region || m.location_country_code) && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {[m.location_region, m.location_country_code].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
               </div>
-              {(m.location_region || m.location_country_code) && (
-                <p className="text-xs text-slate-500 mb-2">
-                  {[m.location_region, m.location_country_code].filter(Boolean).join(', ')}
-                </p>
-              )}
               {canManage && m.role !== 'admin' && (
                 <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-slate-100">
                   {isAdmin && m.role === 'member' && (
@@ -171,7 +188,20 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {members.pending.map((m) => (
                 <div key={m.family_id} className="bg-white rounded-xl border border-amber-200 p-4">
-                  <p className="text-sm font-semibold text-slate-800 mb-2">{m.family_name}</p>
+                  <div className="flex items-start gap-3 mb-2">
+                    {m.shield_config && (m.shield_config as unknown as Partial<ShieldConfig>).initials ? (
+                      <div className="shrink-0">
+                        <ShieldPreview
+                          config={m.shield_config as unknown as ShieldConfig}
+                          familyName={m.family_name}
+                          showFamilyName={false}
+                          width={36}
+                          height={42}
+                        />
+                      </div>
+                    ) : null}
+                    <p className="text-sm font-semibold text-slate-800">{m.family_name}</p>
+                  </div>
                   <div className="flex gap-2 pt-2 border-t border-slate-100">
                     <button
                       onClick={() => act(`/api/v1/communities/${slug}/members/${m.family_id}/approve`)}

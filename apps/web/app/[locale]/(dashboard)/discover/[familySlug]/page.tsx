@@ -7,6 +7,8 @@ import { Loader2, ArrowLeft, Users } from 'lucide-react';
 import { Link } from '../../../../../lib/navigation';
 import { apiFetch } from '../../../../../lib/apiFetch';
 import { CommunityCard } from '../../../../../components/community/CommunityCard';
+import { ShieldPreview } from '../../../../../components/onboarding/ShieldPreview';
+import type { ShieldConfig } from '../../../../../components/onboarding/ShieldBuilder';
 import type { FamilyDiscoverProfile } from '../../../../../components/community/types';
 
 export default function FamilyProfilePage() {
@@ -62,21 +64,36 @@ export default function FamilyProfilePage() {
       </Link>
 
       <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <h1 className="text-2xl font-bold text-slate-800">{data.family_name}</h1>
-          {data.faith_tradition && (
-            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize">
-              {data.faith_tradition}
-              {data.faith_denomination ? ` · ${data.faith_denomination}` : ''}
-            </span>
-          )}
-        </div>
+        <div className="flex items-start gap-4 mb-4">
+          {data.shield_config && (data.shield_config as unknown as Partial<ShieldConfig>).initials ? (
+            <div className="shrink-0">
+              <ShieldPreview
+                config={data.shield_config as unknown as ShieldConfig}
+                familyName={data.family_name}
+                showFamilyName={false}
+                width={80}
+                height={96}
+              />
+            </div>
+          ) : null}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold text-slate-800">{data.family_name}</h1>
+              {data.faith_tradition && (
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize shrink-0">
+                  {data.faith_tradition}
+                  {data.faith_denomination ? ` · ${data.faith_denomination}` : ''}
+                </span>
+              )}
+            </div>
 
-        {(data.location_region || data.location_country) && (
-          <p className="text-sm text-slate-500 mb-4">
-            {[data.location_region, data.location_country].filter(Boolean).join(', ')}
-          </p>
-        )}
+            {(data.location_region || data.location_country) && (
+              <p className="text-sm text-slate-500 mt-1">
+                {[data.location_region, data.location_country].filter(Boolean).join(', ')}
+              </p>
+            )}
+          </div>
+        </div>
 
         <div className="inline-flex items-center gap-2 text-sm text-slate-500 mb-6">
           <Users className="w-4 h-4" />

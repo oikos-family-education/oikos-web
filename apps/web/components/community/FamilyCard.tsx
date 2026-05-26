@@ -4,6 +4,8 @@ import React from 'react';
 import { Link } from '../../lib/navigation';
 import { Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { ShieldPreview } from '../onboarding/ShieldPreview';
+import type { ShieldConfig } from '../onboarding/ShieldBuilder';
 import type { DiscoverFamilyCard } from './types';
 
 interface Props {
@@ -20,26 +22,41 @@ export function FamilyCard({ family, href }: Props) {
     family.children_age_min !== undefined &&
     family.children_age_max !== null &&
     family.children_age_max !== undefined;
+  const shield = family.shield_config as unknown as Partial<ShieldConfig> | null | undefined;
 
   return (
     <Link
       href={link}
       className="block bg-white rounded-xl border border-slate-200 p-5 hover:border-primary/50 hover:shadow-sm transition-all"
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-lg font-semibold text-slate-800 truncate">{family.family_name}</h3>
-        {family.faith_tradition && (
-          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize shrink-0">
-            {family.faith_tradition}
-          </span>
-        )}
+      <div className="flex items-start gap-3 mb-3">
+        {shield && shield.initials ? (
+          <div className="shrink-0">
+            <ShieldPreview
+              config={shield as unknown as ShieldConfig}
+              familyName={family.family_name}
+              showFamilyName={false}
+              width={48}
+              height={56}
+            />
+          </div>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold text-slate-800 truncate">{family.family_name}</h3>
+            {family.faith_tradition && (
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize shrink-0">
+                {family.faith_tradition}
+              </span>
+            )}
+          </div>
+          {(family.location_region || family.location_country) && (
+            <p className="text-sm text-slate-500 mt-1">
+              {[family.location_region, family.location_country].filter(Boolean).join(', ')}
+            </p>
+          )}
+        </div>
       </div>
-
-      {(family.location_region || family.location_country) && (
-        <p className="text-sm text-slate-500 mb-3">
-          {[family.location_region, family.location_country].filter(Boolean).join(', ')}
-        </p>
-      )}
 
       {family.family_culture_excerpt && (
         <p className="text-sm text-slate-600 leading-relaxed line-clamp-3 mb-3">

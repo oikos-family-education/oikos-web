@@ -41,6 +41,8 @@ export interface CommunityCard {
   cover_image_url?: string | null;
   member_count: number;
   principle_tags: PrincipleTags;
+  child_age_min?: number | null;
+  child_age_max?: number | null;
 }
 
 export interface CommunityDetail extends CommunityCard {

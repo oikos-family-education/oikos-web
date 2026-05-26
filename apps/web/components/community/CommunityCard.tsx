@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link } from '../../lib/navigation';
-import { Users, MapPin, Globe2, Lock } from 'lucide-react';
+import { Users, MapPin, Globe2, Lock, Baby } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { CommunityCard as CommunityCardData } from './types';
 
@@ -43,6 +43,18 @@ export function CommunityCard({ community, pending = false }: Props) {
           {community.join_mode === 'invite_only' && <Lock className="w-3.5 h-3.5" />}
           {t(`joinMode.${community.join_mode}`)}
         </span>
+        {(community.child_age_min !== null && community.child_age_min !== undefined) ||
+        (community.child_age_max !== null && community.child_age_max !== undefined) ? (
+          <span className="inline-flex items-center gap-1">
+            <Baby className="w-3.5 h-3.5" />
+            {community.child_age_min !== null && community.child_age_min !== undefined &&
+             community.child_age_max !== null && community.child_age_max !== undefined
+              ? t('ageRangeDisplay', { min: community.child_age_min, max: community.child_age_max })
+              : community.child_age_max !== null && community.child_age_max !== undefined
+              ? t('ageRangeOpenMin', { max: community.child_age_max })
+              : t('ageRangeOpenMax', { min: community.child_age_min as number })}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-slate-100">

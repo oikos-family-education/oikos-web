@@ -191,6 +191,107 @@ async def test_discover_excludes_private_visibility(fam, db, make_user):
     assert private_family.family_name_slug not in slugs
 
 
+# ── Community age-range filter ─────────────────────────────────────────
+
+
+async def _create_community_row(db, creator_family, *, name, age_min=None, age_max=None):
+    """Direct DB insert so we can seed communities owned by an arbitrary family."""
+    from app.models.community import CommunityMember
+    c = Community(
+        slug=f"{name.lower().replace(' ', '-')}-{uuid.uuid4().hex[:6]}",
+        name=name,
+        description="",
+        principles_text="",
+        principle_tags={},
+        region_scope="online",
+        country_code=None,
+        region=None,
+        join_mode="request_to_join",
+        child_age_min=age_min,
+        child_age_max=age_max,
+        member_count=1,
+        created_by_family_id=creator_family.id,
+    )
+    db.add(c)
+    await db.flush()
+    db.add(CommunityMember(
+        community_id=c.id,
+        family_id=creator_family.id,
+        role="admin",
+        status="active",
+        joined_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+    ))
+    await db.commit()
+    await db.refresh(c)
+    return c
+
+
+async def test_create_community_persists_age_range(fam):
+    client, _, _ = fam
+    res = await client.post(
+        "/api/v1/communities",
+        json=_community_payload(
+            name="Elementary co-op",
+            region_scope="online", country_code=None, region=None,
+            child_age_min=5, child_age_max=10,
+        ),
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["child_age_min"] == 5
+    assert body["child_age_max"] == 10
+
+
+async def test_create_community_rejects_inverted_age_range(fam):
+    client, _, _ = fam
+    res = await client.post(
+        "/api/v1/communities",
+        json=_community_payload(
+            name="Bad range",
+            region_scope="online", country_code=None, region=None,
+            child_age_min=12, child_age_max=5,
+        ),
+    )
+    assert res.status_code == 422
+
+
+async def test_discover_age_filter_matches_overlapping_ranges(fam, db, make_user):
+    client, user, family = fam
+    other_user = await make_user()
+    other_family = await _create_family(db, other_user, name="Owner")
+
+    # Community for ages 5–10 — matches a viewer with an 8-year-old (filter 8..8)
+    match = await _create_community_row(db, other_family, name="Match", age_min=5, age_max=10)
+    # Community for ages 11–14 — does NOT match
+    miss = await _create_community_row(db, other_family, name="Miss", age_min=11, age_max=14)
+    # Open community (no bounds) — always matches
+    open_c = await _create_community_row(db, other_family, name="Open")
+
+    res = await client.get("/api/v1/communities?age_min=8&age_max=8")
+    assert res.status_code == 200
+    slugs = {i["slug"] for i in res.json()["items"]}
+    assert match.slug in slugs
+    assert open_c.slug in slugs
+    assert miss.slug not in slugs
+
+
+async def test_discover_age_filter_treats_null_bounds_as_open(fam, db, make_user):
+    client, user, family = fam
+    other_user = await make_user()
+    other_family = await _create_family(db, other_user, name="Owner")
+
+    # Community for ages 5+ (no upper bound) — matches a 12-year-old filter
+    upper_open = await _create_community_row(db, other_family, name="UpperOpen", age_min=5, age_max=None)
+    # Community for up to age 6 (no lower bound) — does NOT match 12
+    lower_open = await _create_community_row(db, other_family, name="LowerOpen", age_min=None, age_max=6)
+
+    res = await client.get("/api/v1/communities?age_min=12&age_max=12")
+    assert res.status_code == 200
+    slugs = {i["slug"] for i in res.json()["items"]}
+    assert upper_open.slug in slugs
+    assert lower_open.slug not in slugs
+
+
 async def test_family_profile_visible_when_local_without_optin(
     fam, db, make_user,
 ):

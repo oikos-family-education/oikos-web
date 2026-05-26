@@ -42,6 +42,8 @@ export default function NewCommunityPage() {
   const [country, setCountry] = useState('');
   const [region, setRegion] = useState('');
   const [joinMode, setJoinMode] = useState<'request_to_join' | 'invite_only'>('request_to_join');
+  const [ageMin, setAgeMin] = useState<string>('');
+  const [ageMax, setAgeMax] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,12 @@ export default function NewCommunityPage() {
       setError(t('regionDetailRequired'));
       return;
     }
+    const lo = ageMin === '' ? null : Number(ageMin);
+    const hi = ageMax === '' ? null : Number(ageMax);
+    if (lo !== null && hi !== null && lo > hi) {
+      setError(t('ageRangeInverted'));
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await apiFetch('/api/v1/communities', {
@@ -74,6 +82,8 @@ export default function NewCommunityPage() {
           country_code: regionScope === 'online' ? null : country,
           region: regionScope === 'country_region' ? region : null,
           join_mode: joinMode,
+          child_age_min: lo,
+          child_age_max: hi,
         }),
       });
       if (res.ok) {
@@ -281,6 +291,33 @@ export default function NewCommunityPage() {
                   <div className="text-xs text-slate-500">{t('joinModeInviteDesc')}</div>
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">
+                {t('ageRangeLabel')}
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={25}
+                  value={ageMin}
+                  onChange={(e) => setAgeMin(e.target.value)}
+                  placeholder={t('ageMin')}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={25}
+                  value={ageMax}
+                  onChange={(e) => setAgeMax(e.target.value)}
+                  placeholder={t('ageMax')}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">{t('ageRangeHelp')}</p>
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}

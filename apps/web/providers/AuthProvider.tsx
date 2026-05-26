@@ -32,6 +32,8 @@ interface Family {
   shield_config: Record<string, string> | null;
   location_city: string | null;
   location_country: string | null;
+  location_country_code: string | null;
+  location_region: string | null;
   faith_tradition: string | null;
   education_purpose: string | null;
   education_methods: string[];

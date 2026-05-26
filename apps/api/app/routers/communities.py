@@ -109,6 +109,8 @@ def _to_card(c) -> dict:
         "cover_image_url": c.cover_image_url,
         "member_count": c.member_count,
         "principle_tags": c.principle_tags or {},
+        "child_age_min": c.child_age_min,
+        "child_age_max": c.child_age_max,
     }
 
 
@@ -118,6 +120,8 @@ async def discover_communities(
     region: Optional[str] = None,
     faith: Optional[str] = None,
     methods: Optional[str] = Query(None, description="comma-separated"),
+    age_min: Optional[int] = Query(None, ge=0, le=25),
+    age_max: Optional[int] = Query(None, ge=0, le=25),
     page: int = Query(1, ge=1),
     current_user: User = Depends(get_current_user),
     svc: CommunityService = Depends(get_service),
@@ -129,6 +133,8 @@ async def discover_communities(
         region=region,
         faith=faith,
         methods=method_list,
+        age_min=age_min,
+        age_max=age_max,
         page=page,
     )
     return {

@@ -347,6 +347,7 @@ class CommunityService:
 
         # Validate region requirements
         self._validate_region(data.region_scope, data.country_code, data.region)
+        self._validate_age_range(data.child_age_min, data.child_age_max)
 
         slug_seed = data.slug or data.name
         slug = await self._unique_community_slug(slug_seed)
@@ -363,6 +364,8 @@ class CommunityService:
             region=data.region,
             join_mode=data.join_mode.value,
             cover_image_url=data.cover_image_url,
+            child_age_min=data.child_age_min,
+            child_age_max=data.child_age_max,
             member_count=1,
             created_by_family_id=family.id,
         )
@@ -391,6 +394,13 @@ class CommunityService:
         if scope == RegionScope.COUNTRY_REGION and not region:
             raise HTTPException(status_code=422, detail="Region is required when scope is country_region.")
 
+    def _validate_age_range(self, lo: Optional[int], hi: Optional[int]) -> None:
+        if lo is not None and hi is not None and lo > hi:
+            raise HTTPException(
+                status_code=422,
+                detail="Minimum age must be less than or equal to maximum age.",
+            )
+
     async def update_community(
         self, user_id: uuid.UUID, slug: str, data: CommunityUpdate
     ) -> Community:
@@ -411,6 +421,10 @@ class CommunityService:
         new_country = upd.get("country_code", c.country_code)
         new_region = upd.get("region", c.region)
         self._validate_region(new_scope, new_country, new_region)
+
+        new_lo = upd["child_age_min"] if "child_age_min" in upd else c.child_age_min
+        new_hi = upd["child_age_max"] if "child_age_max" in upd else c.child_age_max
+        self._validate_age_range(new_lo, new_hi)
 
         if "slug" in upd and upd["slug"]:
             new_slug = _slugify(upd["slug"])
@@ -476,6 +490,8 @@ class CommunityService:
         region: Optional[str],
         faith: Optional[str],
         methods: list[str],
+        age_min: Optional[int] = None,
+        age_max: Optional[int] = None,
         page: int = 1,
     ) -> dict:
         family = await self.get_family_for_user(user_id)
@@ -504,6 +520,23 @@ class CommunityService:
         # principle_tags filtering: faith and methods stored as JSON
         if faith:
             q = q.where(Community.principle_tags["faith"].astext == faith)
+        # Age-range overlap: community matches when its [min, max] window
+        # overlaps the requested [age_min, age_max]. NULL on either side of
+        # the community range means "no bound" and always overlaps.
+        if age_max is not None:
+            q = q.where(
+                or_(
+                    Community.child_age_min.is_(None),
+                    Community.child_age_min <= age_max,
+                )
+            )
+        if age_min is not None:
+            q = q.where(
+                or_(
+                    Community.child_age_max.is_(None),
+                    Community.child_age_max >= age_min,
+                )
+            )
         # Methods overlap on JSON arrays — use raw JSON containment for simplicity:
         # filter in Python after the query to avoid dialect-specific JSONB ops.
         # Pagination first, then filter.

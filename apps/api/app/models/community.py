@@ -40,6 +40,10 @@ class Community(Base):
     region = Column(String(100), nullable=True, index=True)
     join_mode = Column(String(20), nullable=False)  # 'request_to_join' | 'invite_only'
     cover_image_url = Column(String(500), nullable=True)
+    # Children age range the community is aimed at. NULL on either end means
+    # "no bound on that side" — a community with both NULL is for any age.
+    child_age_min = Column(Integer, nullable=True)
+    child_age_max = Column(Integer, nullable=True)
     member_count = Column(Integer, nullable=False, server_default="1", default=1)
     created_by_family_id = Column(
         UUID(as_uuid=True),

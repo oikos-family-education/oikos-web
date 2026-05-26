@@ -1,41 +1,85 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from '../../../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2, Plus, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@oikos/ui';
 import { Link } from '../../../../lib/navigation';
 import { apiFetch } from '../../../../lib/apiFetch';
+import { useAuth } from '../../../../providers/AuthProvider';
 import { CommunityCard } from '../../../../components/community/CommunityCard';
+import { CommunityFilters, type CommunityFilterValues } from '../../../../components/community/CommunityFilters';
 import { Modal } from '../../../../components/dashboard/Modal';
 import type { CommunityCard as CommunityCardData, CommunityDetail } from '../../../../components/community/types';
+
+const EMPTY_FILTERS: CommunityFilterValues = {
+  country: '',
+  region: '',
+  faith: '',
+  ageMin: '',
+  ageMax: '',
+};
 
 export default function CommunityIndexPage() {
   const t = useTranslations('Community');
   const router = useRouter();
+  const { family } = useAuth();
   const [mine, setMine] = useState<CommunityDetail[]>([]);
   const [discover, setDiscover] = useState<CommunityCardData[]>([]);
+  const [filters, setFilters] = useState<CommunityFilterValues>(EMPTY_FILTERS);
+  const [filtersInitialised, setFiltersInitialised] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinToken, setJoinToken] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
+  // Pre-select the family's country once auth has resolved. Without this the
+  // index used to show every community globally, ignoring the spec's "scoped
+  // to your country by default" requirement.
+  useEffect(() => {
+    if (filtersInitialised) return;
+    if (family) {
+      setFilters((prev) => ({ ...prev, country: family.location_country_code ?? '' }));
+      setFiltersInitialised(true);
+    }
+  }, [family, filtersInitialised]);
+
+  const loadDiscover = useCallback(async (f: CommunityFilterValues) => {
+    setDiscoverLoading(true);
+    const qs = new URLSearchParams();
+    if (f.country) qs.set('country', f.country);
+    if (f.region) qs.set('region', f.region);
+    if (f.faith) qs.set('faith', f.faith);
+    if (f.ageMin !== '') qs.set('age_min', f.ageMin);
+    if (f.ageMax !== '') qs.set('age_max', f.ageMax);
+    try {
+      const res = await apiFetch(`/api/v1/communities?${qs.toString()}`);
+      const data = res.ok ? await res.json() : { items: [] };
+      setDiscover(data.items);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
-        const [m, d] = await Promise.all([
-          apiFetch('/api/v1/communities/mine').then((r) => (r.ok ? r.json() : [])),
-          apiFetch('/api/v1/communities').then((r) => (r.ok ? r.json() : { items: [] })),
-        ]);
+        const m = await apiFetch('/api/v1/communities/mine').then((r) => (r.ok ? r.json() : []));
         setMine(m);
-        setDiscover(d.items);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!filtersInitialised) return;
+    const id = setTimeout(() => loadDiscover(filters), 250);
+    return () => clearTimeout(id);
+  }, [filters, filtersInitialised, loadDiscover]);
 
   async function submitJoin() {
     if (!joinToken.trim()) return;
@@ -116,9 +160,16 @@ export default function CommunityIndexPage() {
 
       <section>
         <h2 className="text-lg font-semibold text-slate-800 mb-3">{t('discoverTitle')}</h2>
-        {discover.length === 0 ? (
+
+        <CommunityFilters value={filters} onChange={setFilters} />
+
+        {discoverLoading ? (
+          <div className="flex items-center justify-center py-8 text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : discover.length === 0 ? (
           <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6">
-            No communities yet.
+            No communities match these filters yet.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -23,7 +23,10 @@ export default function CommunitySettingsPage() {
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
   const [principles, setPrinciples] = useState('');
+  const [ageMin, setAgeMin] = useState<string>('');
+  const [ageMax, setAgeMax] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -36,6 +39,8 @@ export default function CommunitySettingsPage() {
         setTagline(data.tagline ?? '');
         setDescription(data.description);
         setPrinciples(data.principles_text);
+        setAgeMin(data.child_age_min == null ? '' : String(data.child_age_min));
+        setAgeMax(data.child_age_max == null ? '' : String(data.child_age_max));
       }
       setLoading(false);
     })();
@@ -43,19 +48,35 @@ export default function CommunitySettingsPage() {
 
   async function save() {
     if (!c) return;
+    setError(null);
+    const lo = ageMin === '' ? null : Number(ageMin);
+    const hi = ageMax === '' ? null : Number(ageMax);
+    if (lo !== null && hi !== null && lo > hi) {
+      setError('Minimum age must be less than or equal to maximum age.');
+      return;
+    }
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
         description,
         principles_text: principles,
+        child_age_min: lo,
+        child_age_max: hi,
       };
       if (tagline !== (c.tagline ?? '')) body.tagline = tagline;
       if (c.viewer_role === 'admin' && name !== c.name) body.name = name;
-      await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}`, {
+      const res = await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      if (res.ok) {
+        const updated: CommunityDetail = await res.json();
+        setC(updated);
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setError(b.detail || 'Could not save.');
+      }
     } finally {
       setSaving(false);
     }
@@ -127,6 +148,30 @@ export default function CommunitySettingsPage() {
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Children&apos;s age range (optional)</label>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              min={0}
+              max={25}
+              value={ageMin}
+              onChange={(e) => setAgeMin(e.target.value)}
+              placeholder="Min"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              type="number"
+              min={0}
+              max={25}
+              value={ageMax}
+              onChange={(e) => setAgeMax(e.target.value)}
+              placeholder="Max"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+        {error && <p className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end">
           <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('save')}

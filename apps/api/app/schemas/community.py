@@ -107,6 +107,8 @@ class CommunityCreate(BaseModel):
     region: Optional[str] = Field(None, max_length=100)
     join_mode: JoinMode
     cover_image_url: Optional[str] = Field(None, max_length=500)
+    child_age_min: Optional[int] = Field(None, ge=0, le=25)
+    child_age_max: Optional[int] = Field(None, ge=0, le=25)
 
     @field_validator("name")
     @classmethod
@@ -126,6 +128,8 @@ class CommunityUpdate(BaseModel):
     region: Optional[str] = Field(None, max_length=100)
     join_mode: Optional[JoinMode] = None
     cover_image_url: Optional[str] = Field(None, max_length=500)
+    child_age_min: Optional[int] = Field(None, ge=0, le=25)
+    child_age_max: Optional[int] = Field(None, ge=0, le=25)
 
 
 class CommunityCardSchema(BaseModel):
@@ -140,6 +144,8 @@ class CommunityCardSchema(BaseModel):
     cover_image_url: Optional[str] = None
     member_count: int
     principle_tags: dict = {}
+    child_age_min: Optional[int] = None
+    child_age_max: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

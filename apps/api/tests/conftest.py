@@ -36,6 +36,15 @@ from app.models.family import Family
 from app.models.family_member import FamilyMember
 from app.models.child import Child
 from app.models.subject import Subject
+# Ensure community tables are registered with Base.metadata
+from app.models.community import (  # noqa: F401
+    Community,
+    CommunityMember,
+    CommunityInvitation,
+    CommunityTopic,
+    CommunityReply,
+    CommunityReport,
+)
 
 
 # ── Test DB isolation ───────────────────────────────────────────────────────
@@ -187,6 +196,12 @@ TRUNCATE TABLE
     child_curriculums,
     curriculum_subjects,
     curriculums,
+    community_reports,
+    community_replies,
+    community_topics,
+    community_invitations,
+    community_members,
+    communities,
     children,
     subjects,
     family_invitations,

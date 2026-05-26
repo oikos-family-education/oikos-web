@@ -11,7 +11,7 @@ const intlMiddleware = createMiddleware({
 const PROTECTED_PATHS = [
   '/dashboard', '/family', '/children', '/subjects', '/curriculums',
   '/planner', '/calendar', '/projects', '/lessons', '/resources',
-  '/notes', '/progress', '/assistant', '/community', '/settings'
+  '/notes', '/progress', '/assistant', '/community', '/discover', '/settings'
 ];
 
 function splitLocale(pathname: string): { locale: string | null; rest: string } {

@@ -23,7 +23,7 @@ pytestmark = pytest.mark.asyncio
 
 
 async def _create_family(
-    db, user, name="Smith", *, discoverable=True,
+    db, user, name="Smith", *, discoverable=True, visibility="local",
     country_code="US", region="NC",
     faith_tradition="christian", denomination="Reformed",
     methods=("charlotte_mason",), languages=("en",),
@@ -38,6 +38,7 @@ async def _create_family(
         education_methods=list(methods),
         current_curriculum=[],
         discoverable=discoverable,
+        visibility=visibility,
         location_country="United States" if country_code == "US" else None,
         location_country_code=country_code,
         location_region=region,
@@ -144,6 +145,64 @@ async def test_family_profile_visible_when_discoverable(fam, db, make_user):
     assert res.status_code == 200
     body = res.json()
     assert body["family_name"] == "Open"
+
+
+# ── Regression: visibility='local' bridges to discoverable ─────────────
+# (PR #29 review: existing families with visibility='local' weren't appearing
+# in Discover until they also flipped the new `discoverable` boolean.)
+
+
+async def test_discover_includes_local_visibility_without_explicit_optin(
+    fam, db, make_user,
+):
+    """A family with visibility='local' and discoverable=False is still listed."""
+    client, user, family = fam
+    family.discoverable = False
+    family.visibility = "local"
+    family.location_country_code = "US"
+    await db.commit()
+
+    other_user = await make_user()
+    bridged = await _create_family(
+        db, other_user, name="Bridged", discoverable=False, visibility="local",
+    )
+
+    res = await client.get("/api/v1/families/discover?country=US")
+    assert res.status_code == 200, res.text
+    slugs = {i["family_name_slug"] for i in res.json()["items"]}
+    assert bridged.family_name_slug in slugs
+
+
+async def test_discover_excludes_private_visibility(fam, db, make_user):
+    """A family with visibility='private' is hidden even when other families opt in."""
+    client, user, family = fam
+    family.discoverable = True
+    family.location_country_code = "US"
+    await db.commit()
+
+    private_user = await make_user()
+    private_family = await _create_family(
+        db, private_user, name="Private", discoverable=False, visibility="private",
+    )
+
+    res = await client.get("/api/v1/families/discover?country=US")
+    assert res.status_code == 200, res.text
+    slugs = {i["family_name_slug"] for i in res.json()["items"]}
+    assert private_family.family_name_slug not in slugs
+
+
+async def test_family_profile_visible_when_local_without_optin(
+    fam, db, make_user,
+):
+    """The profile endpoint honours the same visibility bridge as the index."""
+    client, _, _ = fam
+    other_user = await make_user()
+    other = await _create_family(
+        db, other_user, name="Local", discoverable=False, visibility="local",
+    )
+    res = await client.get(f"/api/v1/families/{other.family_name_slug}/profile")
+    assert res.status_code == 200
+    assert res.json()["family_name"] == "Local"
 
 
 # ── Community create + member cap ──────────────────────────────────────

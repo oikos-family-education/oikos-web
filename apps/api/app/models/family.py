@@ -40,6 +40,10 @@ class Family(Base):
     family_culture = Column(String(2000), nullable=True)
     visibility = Column(String(10), default="local", nullable=False, index=True)
 
+    # Community discovery opt-in (spec: docs/superpowers/specs/2026-05-26-community-area-design.md §4)
+    discoverable = Column(Boolean, default=False, nullable=False, server_default="false", index=True)
+    discoverable_set_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 

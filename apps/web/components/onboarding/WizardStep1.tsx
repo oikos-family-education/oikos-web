@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Input } from '@oikos/ui';
 import type { FamilyFormData } from './FamilyWizard';
 import { MapPin } from 'lucide-react';
+import { COUNTRIES, findCountryByCode } from '../../lib/countries';
 
 interface Props {
   data: FamilyFormData;
@@ -47,12 +48,25 @@ export function WizardStep1({ data, onChange }: Props) {
             value={data.location_city}
             onChange={(e) => onChange({ location_city: e.target.value })}
           />
-          <Input
-            label={t('countryLabel')}
-            placeholder="Ireland"
-            value={data.location_country}
-            onChange={(e) => onChange({ location_country: e.target.value })}
-          />
+          <div className="w-full flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-semibold text-slate-700">{t('countryLabel')}</label>
+            <select
+              value={data.location_country_code || ''}
+              onChange={(e) => {
+                const c = findCountryByCode(e.target.value);
+                onChange({
+                  location_country_code: c?.code || '',
+                  location_country: c?.name || '',
+                });
+              }}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all hover:border-slate-300"
+            >
+              <option value="">—</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <p className="text-xs text-slate-400">{t('locationHelp')}</p>
       </div>

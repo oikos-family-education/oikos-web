@@ -26,6 +26,14 @@ from app.models.resource import Resource
 from app.models.lesson import Lesson, LessonBlock
 from app.models.beta import BetaApplication, AdminAllowlist, AuditLog
 from app.models.moderation import EmailBlacklist
+from app.models.community import (
+    Community,
+    CommunityMember,
+    CommunityInvitation,
+    CommunityTopic,
+    CommunityReply,
+    CommunityReport,
+)
 
 config = context.config
 

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import { Button, Input } from '@oikos/ui';
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { Link } from '../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../../components/community/CommunityTabs';
@@ -27,7 +27,15 @@ export default function CommunitySettingsPage() {
   const [ageMax, setAgeMax] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Auto-hide the "Saved" confirmation after 2.5s so it doesn't linger.
+  useEffect(() => {
+    if (savedAt === null) return;
+    const id = setTimeout(() => setSavedAt(null), 2500);
+    return () => clearTimeout(id);
+  }, [savedAt]);
 
   useEffect(() => {
     (async () => {
@@ -73,6 +81,7 @@ export default function CommunitySettingsPage() {
       if (res.ok) {
         const updated: CommunityDetail = await res.json();
         setC(updated);
+        setSavedAt(Date.now());
       } else {
         const b = await res.json().catch(() => ({}));
         setError(b.detail || 'Could not save.');
@@ -172,7 +181,13 @@ export default function CommunitySettingsPage() {
           </div>
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {savedAt !== null && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-success" role="status" aria-live="polite">
+              <CheckCircle2 className="w-4 h-4" />
+              Saved
+            </span>
+          )}
           <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('save')}
           </Button>

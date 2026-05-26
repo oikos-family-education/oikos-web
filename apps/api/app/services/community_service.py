@@ -180,8 +180,15 @@ class CommunityService:
         if not country:
             return {"items": [], "page": 1, "total": 0, "total_pages": 0}
 
+        # A family is reachable from Discover if EITHER (a) they explicitly opted
+        # in via the new boolean, OR (b) they have a non-private legacy
+        # visibility setting (`local` / `public`). The bridge avoids hiding every
+        # pre-existing family behind a separate opt-in that few will find.
         q = select(Family).where(
-            Family.discoverable.is_(True),
+            or_(
+                Family.discoverable.is_(True),
+                Family.visibility.in_(["local", "public"]),
+            ),
             Family.id != viewer_family.id,
             Family.location_country_code == country.upper(),
         )
@@ -210,9 +217,10 @@ class CommunityService:
 
     async def family_profile(self, viewer_family: Family, slug: str) -> dict:
         family = await self._family_by_slug(slug)
-        # Visibility check: discoverable OR shares a community with viewer.
+        # Visibility check: opt-in OR legacy non-private visibility OR shares a community.
         shares_community = await self._families_share_community(viewer_family.id, family.id)
-        if not family.discoverable and not shares_community:
+        is_public = family.discoverable or family.visibility in ("local", "public")
+        if not is_public and not shares_community:
             raise HTTPException(status_code=404, detail="Family not found.")
 
         card = await self._family_to_card(family)

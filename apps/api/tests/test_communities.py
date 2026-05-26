@@ -129,6 +129,9 @@ async def test_family_profile_404_when_not_discoverable(fam, db, make_user):
     client, _, _ = fam
     u2 = await make_user()
     hidden = await _create_family(db, u2, name="Hidden", discoverable=False)
+    # Explicitly mark visibility as 'private' so the legacy bridge doesn't expose them.
+    hidden.visibility = "private"
+    await db.commit()
     res = await client.get(f"/api/v1/families/{hidden.family_name_slug}/profile")
     assert res.status_code == 404
 

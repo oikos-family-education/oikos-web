@@ -15,6 +15,7 @@ v1 gave families a way to discover each other and to form communities with a bas
 - Give every family a reliable in-app cue when something happens in a community they're in.
 - Let each community look distinct via a two-tone banner with a chosen emblem.
 - Stop admins from missing pending join requests with a sidebar badge they can act on.
+- Surface community activity on the dashboard so families see new messages without navigating to each community.
 
 ## 3. Non-goals
 
@@ -220,7 +221,57 @@ The `Communities` sidebar entry gains a small red-dot badge with a count when th
 
 If the count is `0`, no badge renders.
 
-## 9. Data model
+## 9. Dashboard communities widget
+
+A new widget on the family dashboard (`/dashboard`) — placed in the right-rail of the dashboard grid, between `OngoingProjects` and `NeglectedSubjects`, called **Your communities**.
+
+### 9.1 What it shows
+
+- Title: "Your communities" with a small chevron link to `/community`.
+- One row per community the family is in with `status='active'`, ordered by **last activity desc** (latest topic or reply across all topics in that community). Pending memberships are not listed here.
+- Each row shows:
+  - The community's emblem icon (from §7 identity), tinted in the primary color, rendered at h-8.
+  - Community name (truncated).
+  - A small **unread chip** in red showing the count of unread `notifications` rows for this family scoped to that community. Hidden when zero.
+  - The latest forum activity summary on a second line: "<actor family> · <topic title>" truncated to one line. Plain text only — no markdown render.
+  - A relative timestamp on the right ("2h ago").
+- Clicking the row navigates to the community's forum (`/community/[slug]/forum`).
+- Empty state when the family is in zero communities: "You're not in any community yet." with a primary button linking to `/community`.
+- Soft cap: render at most 8 rows. If the family is in more (only possible via legacy data — v1 caps at 5), show "+N more" linking to `/community`.
+
+### 9.2 Data shape
+
+Hydrated from a single new endpoint to keep the dashboard fast:
+
+```
+GET /api/v1/communities/dashboard-summary
+→ [
+    {
+      community: { id, slug, name, identity, ... },
+      unread_count: number,
+      last_activity: {
+        type: "topic" | "reply",
+        topic_id: uuid,
+        topic_title: string,
+        actor_family_name: string,
+        created_at: iso8601
+      } | null
+    },
+    ...
+  ]
+```
+
+Returns at most 8 rows ordered by `last_activity.created_at DESC`, with ties broken by community name asc. `last_activity` is `null` for communities with no posts; those still appear at the bottom of the list.
+
+The endpoint is cheap by design: one query joining `community_members` × `communities`, one lateral join for last activity per community, and one count per community for unread notifications. All scoped to the caller's family.
+
+### 9.3 Behaviour
+
+- Polled by the widget every 90s (slightly slower than the notification bell to avoid duplicated load).
+- Clicking a row navigates to `/community/[slug]/forum` and marks any notifications for that community as read on arrival (existing notification mark-read fires from the topic detail when opened — no extra fan-out needed for the row itself).
+- Honours the per-community mute from §6.4: muted communities still appear in the widget (the user still belongs to them) but the unread chip is hidden — mute is about pull notifications, not about hiding the community.
+
+## 10. Data model
 
 All schema changes in one Alembic migration.
 
@@ -288,21 +339,21 @@ INDEX (recipient_family_id, read_at, created_at DESC)
 
 Notifications are a generic table on purpose: future event types can land here without schema changes.
 
-## 10. API surface
+## 11. API surface
 
 All routes under `/api/v1`, auth via existing `get_current_user` cookie.
 
-### 10.1 Forum (no new endpoints, but two response additions)
+### 11.1 Forum (no new endpoints, but two response additions)
 
 Existing topic/reply responses unchanged. The toolbar and permalinks are pure frontend additions.
 
-### 10.2 Community identity
+### 11.2 Community identity
 
 - `PATCH /communities/{slug}` — accepts the new `identity` JSON field. Admin + co-admin only.
 
 No new dedicated endpoints; the v1 update endpoint extends.
 
-### 10.3 Meetups
+### 11.3 Meetups
 
 - `GET /communities/{slug}/meetups?from=<iso>&to=<iso>` — returns expanded occurrences in the window (default: next 8 weeks). Includes the viewer's RSVP for each occurrence and aggregated counts.
 - `POST /communities/{slug}/meetups` — member action. Body matches §5.1.
@@ -311,22 +362,26 @@ No new dedicated endpoints; the v1 update endpoint extends.
 - `POST /communities/{slug}/meetups/{meetup_id}/cancel` — owner or admin/co-admin.
 - `POST /communities/{slug}/meetups/{meetup_id}/rsvp` — body: `{ occurrence_date, response }`.
 
-### 10.4 Notifications
+### 11.4 Notifications
 
 - `GET /notifications?unread=<bool>&limit=<n>&before=<iso>` — paginated, recent-first, unread first when sort is default. Default `limit=25`, hard cap 100.
 - `GET /notifications/unread-count` — cheap `{ count: n }` endpoint for the bell badge poll.
 - `POST /notifications/{id}/read` — marks one notification read.
 - `POST /notifications/mark-all-read` — marks every unread for the caller's family as read.
 
-### 10.5 Mute toggle
+### 11.5 Mute toggle
 
 - `PATCH /communities/{slug}/mute` — body `{ muted: bool }`. Members only.
 
-### 10.6 Admin pending count
+### 11.6 Admin pending count
 
 - `GET /communities/admin-pending-count` — returns `{ count: n }` summing pending join requests across every community where the caller's family is `admin` or `co_admin` and `status='active'`. Used by the sidebar badge in §8.
 
-## 11. Service layer
+### 11.7 Dashboard summary
+
+- `GET /communities/dashboard-summary` — returns the array described in §9.2. Used by the dashboard widget. Scoped to the caller's family. Hard cap of 8 rows.
+
+## 12. Service layer
 
 New service files:
 - `apps/api/app/services/meetup_service.py` — create, edit, cancel, RSVP, expand recurrence into occurrences.
@@ -340,9 +395,9 @@ def expand_occurrences(meetup, window_start, window_end) -> list[date]: ...
 ```
 Returns the list of dates within `[window_start, window_end]` that the meetup falls on. Tested with focused unit tests on the edge cases (DST switch, recurrence_until before window, single non-recurring meetup outside window).
 
-## 12. Frontend
+## 13. Frontend
 
-### 12.1 New routes
+### 13.1 New routes
 
 ```
 apps/web/app/[locale]/(dashboard)/community/[slug]/meetups/page.tsx           -- list
@@ -352,7 +407,7 @@ apps/web/app/[locale]/(dashboard)/community/[slug]/meetups/new/page.tsx       --
 
 Plus a small `Meetups` tab added to `CommunityTabs` between Forum and Settings.
 
-### 12.2 New components
+### 13.2 New components
 
 - `MarkdownToolbar` — buttons + link-popover, takes a `textareaRef` and a value getter/setter.
 - `CopyLinkButton` — small icon button + toast hook.
@@ -362,21 +417,24 @@ Plus a small `Meetups` tab added to `CommunityTabs` between Forum and Settings.
 - `NotificationBell` — bell + badge + dropdown. Lives in `TopBar`.
 - `NotificationItem` — single row in the bell dropdown.
 - `MuteToggle` — small switch on community overview.
+- `DashboardCommunities` — the widget described in §9. Lives in `components/dashboard/` next to the other dashboard widgets. Uses the same `WidgetCard` shell as `OngoingProjects` and friends. Reuses `EmblemIcon` from §7's emblem set helper.
 
-### 12.3 i18n
+### 13.3 i18n
 
 New namespaces:
 - `Meetups` — labels, recurrence options, RSVP controls, "Add to calendar" (no-op for v2 but reserved).
 - `Notifications` — bell tooltip, empty state, list strings.
 - Extensions to existing `Community.identity` and `Community.forum.toolbar.*` namespaces.
+- `Dashboard.communitiesWidget` — title, empty state, "+N more" link, unread chip label for screen readers ("{count} unread messages").
 
-### 12.4 Wiring
+### 13.4 Wiring
 
 - `TopBar` gains `NotificationBell`. Single new import. No layout reflow.
 - `Sidebar` polls the admin-pending-count endpoint when the viewer has any community membership with admin/co-admin role; badge rendered next to the Communities item.
 - `CommunityFilters`, `CommunityCard`, `CommunityTabs` all gain identity colour hints (border, underline, top strip).
+- `app/[locale]/(dashboard)/dashboard/page.tsx` mounts `<DashboardCommunities />` in the right-rail between `OngoingProjects` and `NeglectedSubjects`. The widget is render-once-fail-silently — a failed fetch hides the widget rather than blocking the page.
 
-## 13. Privacy & permissions
+## 14. Privacy & permissions
 
 | Action | admin | co_admin | member | non-member |
 |--------|:-----:|:--------:|:------:|:----------:|
@@ -393,14 +451,14 @@ New namespaces:
 
 No new fields are exposed publicly. Notifications are scoped to the recipient family — never visible to anyone else.
 
-## 14. Migration & rollout
+## 15. Migration & rollout
 
 - Single Alembic migration adds the three new tables and the `identity` + `notifications_muted` columns.
 - No data backfill required — defaults are all benign (`notifications_muted=false`, `identity=NULL` falls back to the neutral gradient).
 - The notification fan-out runs at write time for new posts only — historical topics/replies don't generate retroactive notifications.
 - Sidebar badge and bell ship behind no feature flag. Closed-beta cohort sees them immediately.
 
-## 15. Testing
+## 16. Testing
 
 **Backend**
 - `test_community_v2_identity.py` — round-trip the `identity` JSON, validate emblem id is in the allowlist.
@@ -412,21 +470,23 @@ No new fields are exposed publicly. Notifications are scoped to the recipient fa
 - Vitest for `CommunityBanner` — fallback styling when `identity` is null.
 - Vitest for `NotificationBell` — empty state, unread count badge, "Mark all read" button.
 - Vitest for the per-occurrence RSVP control state machine.
+- Vitest for `DashboardCommunities` — empty state, ordering by `last_activity.created_at`, unread chip shown/hidden, muted communities hide the chip but still appear.
 
 **Manual rollout checklist**
 - Create a meetup as the admin, RSVP as a second family, see the count update.
 - Post a topic and confirm the second family sees a notification within ~60s.
 - Mute the community and confirm new posts no longer notify.
 - Edit a community's identity and reload — banner reflects the change.
+- Post a topic as a second family and confirm the first family's dashboard widget shows the unread chip and the latest-activity line within ~90s.
 
-## 16. Open questions
+## 17. Open questions
 
 1. **DST in recurrence**: weekly meetups stored as `starts_at TIMESTAMPTZ` will shift by an hour at DST transitions if the creator's timezone changes. v2 stores in UTC and renders in viewer's tz; we accept the shift. Document in i18n copy.
 2. **Notification retention**: how long do read notifications stick around? Default proposal: hard-delete `read=true AND created_at < now() - 30 days` via a scheduled job. Not implemented in v2 unless the table grows fast — add monitoring first.
 3. **Mute granularity**: spec ships per-community mute only. If users ask for per-event-type mute (notify on topics but not replies), revisit in v3.
 4. **Emblem set vetting**: the final list of 50+ icons needs a pass against lucide-react's actual exports during implementation. Some names in §7.2 may not exist — substitute the nearest available icon.
 
-## 17. Out of scope (v3+)
+## 18. Out of scope (v3+)
 
 - Email or browser-push notifications, websockets.
 - Meetup ICS export / Google Calendar sync.

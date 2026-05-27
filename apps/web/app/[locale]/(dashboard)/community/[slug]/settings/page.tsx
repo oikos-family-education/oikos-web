@@ -9,8 +9,13 @@ import { ArrowLeft, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { Link } from '../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../../components/community/CommunityTabs';
+import { CommunityBanner } from '../../../../../../components/community/CommunityBanner';
+import { EmblemPicker } from '../../../../../../components/community/EmblemPicker';
+import {
+  DEFAULT_EMBLEM_COLOR, DEFAULT_PRIMARY, DEFAULT_SECONDARY, findEmblem,
+} from '../../../../../../lib/communityEmblems';
 import { Modal } from '../../../../../../components/dashboard/Modal';
-import type { CommunityDetail } from '../../../../../../components/community/types';
+import type { CommunityDetail, CommunityIdentity } from '../../../../../../components/community/types';
 
 export default function CommunitySettingsPage() {
   const t = useTranslations('Community.settings');
@@ -25,6 +30,8 @@ export default function CommunitySettingsPage() {
   const [principles, setPrinciples] = useState('');
   const [ageMin, setAgeMin] = useState<string>('');
   const [ageMax, setAgeMax] = useState<string>('');
+  const [identity, setIdentity] = useState<CommunityIdentity>({});
+  const [emblemPickerOpen, setEmblemPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -47,6 +54,7 @@ export default function CommunitySettingsPage() {
         setTagline(data.tagline ?? '');
         setDescription(data.description);
         setPrinciples(data.principles_text);
+        setIdentity(data.identity ?? {});
         setAgeMin(data.child_age_min == null ? '' : String(data.child_age_min));
         setAgeMax(data.child_age_max == null ? '' : String(data.child_age_max));
       }
@@ -70,6 +78,7 @@ export default function CommunitySettingsPage() {
         principles_text: principles,
         child_age_min: lo,
         child_age_max: hi,
+        identity,
       };
       if (tagline !== (c.tagline ?? '')) body.tagline = tagline;
       if (c.viewer_role === 'admin' && name !== c.name) body.name = name;
@@ -192,6 +201,85 @@ export default function CommunitySettingsPage() {
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('save')}
           </Button>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 mb-6">
+        <h3 className="text-sm font-semibold text-slate-800">Identity</h3>
+        <CommunityBanner identity={identity} name={c.name} tagline={c.tagline} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Primary color</label>
+            <input
+              type="color"
+              value={identity.primary_color || DEFAULT_PRIMARY}
+              onChange={(e) => setIdentity({ ...identity, primary_color: e.target.value })}
+              className="w-full h-10 border border-slate-200 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Accent color</label>
+            <input
+              type="color"
+              value={identity.secondary_color || DEFAULT_SECONDARY}
+              onChange={(e) => setIdentity({ ...identity, secondary_color: e.target.value })}
+              className="w-full h-10 border border-slate-200 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Emblem</label>
+            <button
+              type="button"
+              onClick={() => setEmblemPickerOpen(true)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-left hover:border-slate-300 inline-flex items-center gap-2"
+            >
+              {(() => {
+                const e = findEmblem(identity.emblem);
+                if (!e) return <span className="text-slate-400">Pick an emblem</span>;
+                const Icon = e.Icon;
+                return (
+                  <>
+                    <Icon className="w-4 h-4 text-slate-700" />
+                    <span className="capitalize">{e.id.replace(/_/g, ' ')}</span>
+                  </>
+                );
+              })()}
+            </button>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Emblem color</label>
+            <input
+              type="color"
+              value={identity.emblem_color || DEFAULT_EMBLEM_COLOR}
+              onChange={(e) => setIdentity({ ...identity, emblem_color: e.target.value })}
+              className="w-full h-10 border border-slate-200 rounded-lg"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Layout</label>
+          <div className="flex gap-2">
+            {(['left', 'center'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setIdentity({ ...identity, layout: l })}
+                className={`text-xs px-3 py-1.5 rounded border capitalize ${
+                  (identity.layout || 'left') === l
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-slate-600 border-slate-200'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <EmblemPicker
+          open={emblemPickerOpen}
+          onClose={() => setEmblemPickerOpen(false)}
+          onPick={(id) => setIdentity({ ...identity, emblem: id })}
+          current={identity.emblem}
+        />
       </div>
 
       {isAdmin && (

@@ -8,6 +8,8 @@ import { Button } from '@oikos/ui';
 import { Link } from '../../../../../lib/navigation';
 import { apiFetch } from '../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../components/community/CommunityTabs';
+import { CommunityBanner } from '../../../../../components/community/CommunityBanner';
+import { MuteToggle } from '../../../../../components/community/MuteToggle';
 import { MarkdownLite } from '../../../../../components/community/MarkdownLite';
 import type { CommunityDetail } from '../../../../../components/community/types';
 
@@ -83,7 +85,9 @@ export default function CommunityOverviewPage() {
         <ArrowLeft className="w-4 h-4 mr-1" /> {t('indexTitle')}
       </Link>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <CommunityBanner identity={c.identity} name={c.name} tagline={c.tagline} />
+
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6 mt-4">
         <div className="flex items-start justify-between gap-3 mb-2">
           <h1 className="text-2xl font-bold text-slate-800">{c.name}</h1>
           <div className="flex gap-2">
@@ -98,14 +102,17 @@ export default function CommunityOverviewPage() {
               </span>
             )}
             {isMember && (
-              <button
-                onClick={leave}
-                disabled={acting}
-                className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-red-600"
-              >
-                <LogOut className="w-4 h-4" />
-                {tOv('leave')}
-              </button>
+              <>
+                <MuteToggle slug={slug} initialMuted={!!c.viewer_muted} />
+                <button
+                  onClick={leave}
+                  disabled={acting}
+                  className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-red-600"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {tOv('leave')}
+                </button>
+              </>
             )}
           </div>
         </div>

@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities
+from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(beta.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(communities.router, prefix="/api/v1")
+app.include_router(meetups.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
 
 # E2E test-seed router — only mounted when the secret is configured.
 # This guard is deliberately at the include site (not inside the router file)

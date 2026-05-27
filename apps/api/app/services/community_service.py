@@ -23,6 +23,7 @@ from app.models.community import (
     CommunityReply,
     CommunityReport,
     CommunityTopic,
+    Notification,
 )
 from app.models.family import Family
 from app.models.family_member import FamilyMember
@@ -366,6 +367,7 @@ class CommunityService:
             cover_image_url=data.cover_image_url,
             child_age_min=data.child_age_min,
             child_age_max=data.child_age_max,
+            identity=data.identity.model_dump(exclude_none=True) if data.identity else None,
             member_count=1,
             created_by_family_id=family.id,
         )
@@ -446,6 +448,11 @@ class CommunityService:
             upd["join_mode"] = v.value if hasattr(v, "value") else v
         if "country_code" in upd and upd["country_code"]:
             upd["country_code"] = upd["country_code"].upper()
+
+        if "identity" in upd and upd["identity"] is not None:
+            iv = upd["identity"]
+            if hasattr(iv, "model_dump"):
+                upd["identity"] = iv.model_dump(exclude_none=True)
 
         for k, v in upd.items():
             setattr(c, k, v)
@@ -916,6 +923,13 @@ class CommunityService:
             last_reply_at=utcnow(),
         )
         self.db.add(t)
+        await self.db.flush()  # need t.id for fan-out
+        # Fan out notifications inside the same transaction so we never end up
+        # with the post but no notifications.
+        from app.services.notification_service import NotificationService
+        await NotificationService(self.db).fanout_topic_created(
+            community_id=c.id, topic_id=t.id, actor_family_id=family.id,
+        )
         await self.db.commit()
         await self.db.refresh(t)
         return t
@@ -1064,6 +1078,11 @@ class CommunityService:
         self.db.add(r)
         t.reply_count += 1
         t.last_reply_at = utcnow()
+        await self.db.flush()  # need r.id for fan-out
+        from app.services.notification_service import NotificationService
+        await NotificationService(self.db).fanout_reply_created(
+            community_id=c.id, topic_id=t.id, reply_id=r.id, actor_family_id=family.id,
+        )
         await self.db.commit()
         await self.db.refresh(r)
         return r
@@ -1139,3 +1158,139 @@ class CommunityService:
             await self.db.commit()
             await self.db.refresh(family)
         return family
+
+    # ── v2: dashboard summary, admin pending count, mute toggle ───────
+
+    async def dashboard_summary(self, user_id: uuid.UUID) -> list[dict]:
+        """Per-community summary for the dashboard widget (v2 spec §9.2).
+
+        Capped at 8 rows. Ordered by last activity desc; ties by name asc.
+        """
+        family = await self.get_family_for_user(user_id)
+
+        # Communities the family is in (active)
+        res = await self.db.execute(
+            select(Community, CommunityMember.notifications_muted)
+            .join(CommunityMember, CommunityMember.community_id == Community.id)
+            .where(
+                CommunityMember.family_id == family.id,
+                CommunityMember.status == "active",
+                Community.deleted_at.is_(None),
+            )
+        )
+        rows = list(res.all())
+        if not rows:
+            return []
+
+        community_ids = [c.id for c, _ in rows]
+        muted_map = {c.id: muted for c, muted in rows}
+
+        # Latest topic per community (single query)
+        latest_topic_q = await self.db.execute(
+            select(
+                CommunityTopic.community_id,
+                CommunityTopic.id,
+                CommunityTopic.title,
+                CommunityTopic.last_reply_at,
+                CommunityTopic.created_at,
+                CommunityTopic.author_family_id,
+                Family.family_name,
+            )
+            .join(Family, Family.id == CommunityTopic.author_family_id)
+            .where(
+                CommunityTopic.community_id.in_(community_ids),
+                CommunityTopic.deleted_at.is_(None),
+            )
+            .order_by(
+                CommunityTopic.community_id,
+                CommunityTopic.last_reply_at.desc().nulls_last(),
+                CommunityTopic.created_at.desc(),
+            )
+        )
+        # Take the first row per community (since we ordered by recency desc).
+        latest_per_c: dict = {}
+        for cid, tid, ttitle, tlast, tcreated, _aid, aname in latest_topic_q.all():
+            if cid in latest_per_c:
+                continue
+            latest_per_c[cid] = {
+                "type": "reply" if tlast and tlast > tcreated else "topic",
+                "topic_id": tid,
+                "topic_title": ttitle,
+                "actor_family_name": aname,
+                "created_at": tlast or tcreated,
+            }
+
+        # Unread notification counts per community for this family
+        unread_q = await self.db.execute(
+            select(Notification.community_id, func.count())
+            .where(
+                Notification.recipient_family_id == family.id,
+                Notification.read_at.is_(None),
+                Notification.community_id.in_(community_ids),
+            )
+            .group_by(Notification.community_id)
+        )
+        unread_per_c = {cid: cnt for cid, cnt in unread_q.all()}
+
+        items = []
+        for c, _ in rows:
+            la = latest_per_c.get(c.id)
+            # Muted communities hide the unread chip but still appear.
+            unread = 0 if muted_map.get(c.id) else int(unread_per_c.get(c.id, 0))
+            items.append({
+                "community": {
+                    "id": c.id,
+                    "slug": c.slug,
+                    "name": c.name,
+                    "tagline": c.tagline,
+                    "region_scope": c.region_scope,
+                    "country_code": c.country_code,
+                    "region": c.region,
+                    "join_mode": c.join_mode,
+                    "cover_image_url": c.cover_image_url,
+                    "member_count": c.member_count,
+                    "principle_tags": c.principle_tags or {},
+                    "child_age_min": c.child_age_min,
+                    "child_age_max": c.child_age_max,
+                    "identity": c.identity,
+                },
+                "unread_count": unread,
+                "last_activity": la,
+            })
+
+        def sort_key(row):
+            la = row["last_activity"]
+            return (-(la["created_at"].timestamp() if la else 0), row["community"]["name"].lower())
+
+        items.sort(key=sort_key)
+        return items[:8]
+
+    async def admin_pending_count(self, user_id: uuid.UUID) -> int:
+        """Total pending join requests across every community where the
+        caller's family is admin or co_admin. v2 spec §8."""
+        family = await self.get_family_for_user(user_id)
+        # Communities where I'm admin/co_admin (active)
+        my_admin_q = await self.db.execute(
+            select(CommunityMember.community_id).where(
+                CommunityMember.family_id == family.id,
+                CommunityMember.role.in_(["admin", "co_admin"]),
+                CommunityMember.status == "active",
+            )
+        )
+        admin_cids = [row[0] for row in my_admin_q.all()]
+        if not admin_cids:
+            return 0
+        res = await self.db.execute(
+            select(func.count()).select_from(CommunityMember).where(
+                CommunityMember.community_id.in_(admin_cids),
+                CommunityMember.status == "pending",
+            )
+        )
+        return int(res.scalar_one() or 0)
+
+    async def set_mute(self, user_id: uuid.UUID, slug: str, muted: bool) -> bool:
+        family, c, me = await self._require_member(user_id, slug)
+        if me.notifications_muted != muted:
+            me.notifications_muted = muted
+            await self.db.commit()
+        return me.notifications_muted

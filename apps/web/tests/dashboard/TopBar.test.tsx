@@ -1,6 +1,13 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+
+// v2: NotificationBell uses next-intl + apiFetch which is more than this test
+// needs. Stub it out so we keep covering TopBar's own behaviour in isolation.
+vi.mock('../../components/community/NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell-stub" />,
+}));
+
 import { TopBar } from '../../components/dashboard/TopBar';
 
 describe('TopBar', () => {
@@ -16,8 +23,14 @@ describe('TopBar', () => {
     expect(onMenuClick).toHaveBeenCalledOnce();
   });
 
-  it('is hidden on large screens (uses lg:hidden class)', () => {
-    const { container } = render(<TopBar onMenuClick={() => {}} />);
-    expect(container.querySelector('header')?.className).toContain('lg:hidden');
+  it('hides the menu button on large screens (lg:invisible)', () => {
+    render(<TopBar onMenuClick={() => {}} />);
+    const btn = screen.getByRole('button', { name: /open menu/i });
+    expect(btn.className).toContain('lg:invisible');
+  });
+
+  it('mounts the notification bell on every page', () => {
+    render(<TopBar onMenuClick={() => {}} />);
+    expect(screen.getByTestId('notification-bell-stub')).toBeInTheDocument();
   });
 });

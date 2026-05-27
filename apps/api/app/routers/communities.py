@@ -145,6 +145,26 @@ async def discover_communities(
     }
 
 
+# Bare /communities/{specific} routes MUST be declared before /communities/{slug}
+# so FastAPI matches them as literals, not as a `{slug}` value (v2 spec §11.6, §11.7).
+
+
+@router.get("/communities/admin-pending-count")
+async def admin_pending_count(
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    return {"count": await svc.admin_pending_count(current_user.id)}
+
+
+@router.get("/communities/dashboard-summary")
+async def dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    return await svc.dashboard_summary(current_user.id)
+
+
 @router.get("/communities/mine", response_model=list[CommunityDetail])
 async def list_my_communities(
     current_user: User = Depends(get_current_user),
@@ -161,6 +181,7 @@ async def list_my_communities(
             "updated_at": c.updated_at,
             "viewer_role": m.role,
             "viewer_status": m.status,
+            "viewer_muted": bool(m.notifications_muted),
         })
         out.append(d)
     return out
@@ -181,6 +202,7 @@ async def create_community(
         "updated_at": c.updated_at,
         "viewer_role": "admin",
         "viewer_status": "active",
+        "viewer_muted": False,
     })
     return d
 
@@ -200,6 +222,7 @@ async def get_community(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -221,6 +244,7 @@ async def update_community(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -401,6 +425,7 @@ async def accept_invitation(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -508,3 +533,18 @@ async def create_report(
     svc: CommunityService = Depends(get_service),
 ):
     return await svc.report(current_user.id, slug, data)
+
+
+# Mute toggle (slug-scoped, OK to declare after /communities/{slug})
+
+
+@router.patch("/communities/{slug}/mute")
+async def set_mute(
+    slug: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    muted = bool(body.get("muted", False))
+    new_value = await svc.set_mute(current_user.id, slug, muted)
+    return {"muted": new_value}

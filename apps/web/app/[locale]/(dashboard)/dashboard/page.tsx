@@ -8,6 +8,7 @@ import { NeglectedSubjects } from '../../../../components/dashboard/NeglectedSub
 import { DashboardNotes } from '../../../../components/dashboard/DashboardNotes';
 import { DashboardJournal } from '../../../../components/dashboard/DashboardJournal';
 import { RecentCertificates } from '../../../../components/dashboard/RecentCertificates';
+import { DashboardCommunities } from '../../../../components/dashboard/DashboardCommunities';
 import { DiscoverableBanner } from '../../../../components/community/DiscoverableBanner';
 
 export default function DashboardPage() {
@@ -22,10 +23,11 @@ export default function DashboardPage() {
           <TodaySchedule />
         </div>
 
-        {/* Side rail — curricula, projects, and subjects that need attention */}
+        {/* Side rail — curricula, projects, communities, and subjects that need attention */}
         <div className="lg:col-span-4 space-y-6">
           <ActiveCurriculums />
           <OngoingProjects />
+          <DashboardCommunities />
           <NeglectedSubjects />
         </div>
       </div>

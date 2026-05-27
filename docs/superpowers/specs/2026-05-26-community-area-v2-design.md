@@ -173,16 +173,20 @@ All fields optional; defaults applied at render time. The two existing fields `t
 
 ### 7.2 Emblem set
 
-A curated set of **at least 50** `lucide-react` icons grouped into themes the admin can browse. Stored as a string identifier matching the lucide component name. Initial grouping (final list to be vetted against lucide's actual exports during implementation):
+A curated set of **at least 80** `lucide-react` icons grouped into themes the admin can browse. Stored as a string identifier matching the lucide component name. Initial grouping (final list to be vetted against lucide's actual exports during implementation):
 
 - **Nature** (15): `Leaf`, `Flower`, `Sprout`, `TreePine`, `Trees`, `Sun`, `Moon`, `Star`, `Cloud`, `Mountain`, `Waves`, `Wind`, `Snowflake`, `Wheat`, `Flame`
+- **Weather & sky** (4): `Sunrise`, `Sunset`, `Rainbow`, `CloudRain`
 - **Faith** (8): `Cross`, `Anchor`, `Heart`, `Feather`, `Crown`, `Church`, `Sparkles`, `Lamp`
 - **Education** (12): `BookOpen`, `Book`, `GraduationCap`, `Scroll`, `Pen`, `Brain`, `Lightbulb`, `Microscope`, `Telescope`, `Globe`, `Compass`, `Map`
 - **Family & home** (8): `Home`, `Users`, `Baby`, `Tent`, `Castle`, `Building`, `Key`, `Shield`
 - **Animals** (10): `Bird`, `Fish`, `Owl`, `Cat`, `Dog`, `Rabbit`, `Squirrel`, `Turtle`, `Snail`, `Bug`
 - **Tools & symbols** (10): `Hammer`, `Wrench`, `Paintbrush`, `Palette`, `Music`, `Mic`, `Camera`, `Rocket`, `Award`, `Trophy`
+- **Food & hearth** (7): `Coffee`, `Apple`, `Cherry`, `Carrot`, `Cake`, `ChefHat`, `Soup`
+- **Music & arts** (5): `Drum`, `Guitar`, `Piano`, `Theater`, `Film`
+- **Sports & games** (5): `Bike`, `Dumbbell`, `Gamepad2`, `Puzzle`, `Dice5`
 
-That's ~63 candidates. Final curated list lives in `apps/web/lib/communityEmblems.ts`:
+That's ~84 candidates across 10 themes. Final curated list lives in `apps/web/lib/communityEmblems.ts`:
 ```ts
 export interface Emblem { id: string; group: string; }
 export const EMBLEMS: Emblem[] = [ ... ];

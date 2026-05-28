@@ -159,6 +159,7 @@ class NotificationService:
                 "topic_id": n.topic_id,
                 "topic_title": topic_title,
                 "reply_id": n.reply_id,
+                "thread_id": n.thread_id,
                 "actor_family_id": n.actor_family_id,
                 "actor_family_name": actor_name,
                 "actor_shield_config": actor_shield,

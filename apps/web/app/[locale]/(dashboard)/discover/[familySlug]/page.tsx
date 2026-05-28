@@ -10,6 +10,8 @@ import { CommunityCard } from '../../../../../components/community/CommunityCard
 import { ShieldPreview } from '../../../../../components/onboarding/ShieldPreview';
 import type { ShieldConfig } from '../../../../../components/onboarding/ShieldBuilder';
 import type { FamilyDiscoverProfile } from '../../../../../components/community/types';
+import { SendMessageButton } from '../../../../../components/messages/SendMessageButton';
+import { useAuth } from '../../../../../providers/AuthProvider';
 
 export default function FamilyProfilePage() {
   const t = useTranslations('Discover');
@@ -18,6 +20,7 @@ export default function FamilyProfilePage() {
   const [data, setData] = useState<FamilyDiscoverProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const { family: myFamily } = useAuth();
 
   useEffect(() => {
     (async () => {
@@ -95,12 +98,20 @@ export default function FamilyProfilePage() {
           </div>
         </div>
 
-        <div className="inline-flex items-center gap-2 text-sm text-slate-500 mb-6">
-          <Users className="w-4 h-4" />
-          <span>
-            {t('childrenSummary', { count: data.children_count })}
-            {showAges && `, ${t('childrenAges', { min: data.children_age_min as number, max: data.children_age_max as number })}`}
-          </span>
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className="inline-flex items-center gap-2 text-sm text-slate-500">
+            <Users className="w-4 h-4" />
+            <span>
+              {t('childrenSummary', { count: data.children_count })}
+              {showAges && `, ${t('childrenAges', { min: data.children_age_min as number, max: data.children_age_max as number })}`}
+            </span>
+          </div>
+          {myFamily && myFamily.id !== data.id && (
+            <SendMessageButton
+              familyId={data.id}
+              familyName={data.family_name}
+            />
+          )}
         </div>
 
         {data.family_culture && (

@@ -48,6 +48,13 @@ from app.models.community import (  # noqa: F401
     CommunityMeetupRsvp,
     Notification,
 )
+from app.models.message import (  # noqa: F401
+    MessageThread,
+    MessageThreadParticipant,
+    MessageItem,
+    FamilyBlock,
+    MessageReport,
+)
 
 
 # ── Test DB isolation ───────────────────────────────────────────────────────
@@ -199,6 +206,11 @@ TRUNCATE TABLE
     child_curriculums,
     curriculum_subjects,
     curriculums,
+    message_reports,
+    messages,
+    message_thread_participants,
+    message_threads,
+    family_blocks,
     notifications,
     community_meetup_rsvps,
     community_meetups,

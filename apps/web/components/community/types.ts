@@ -67,13 +67,18 @@ export interface CommunityDetail extends CommunityCard {
 
 export interface NotificationItem {
   id: string;
-  event_type: 'topic_created' | 'reply_created';
+  event_type:
+    | 'topic_created'
+    | 'reply_created'
+    | 'message_received'
+    | 'message_thread_started';
   community_id?: string | null;
   community_slug?: string | null;
   community_name?: string | null;
   topic_id?: string | null;
   topic_title?: string | null;
   reply_id?: string | null;
+  thread_id?: string | null;
   actor_family_id?: string | null;
   actor_family_name?: string | null;
   actor_shield_config?: Record<string, string> | null;

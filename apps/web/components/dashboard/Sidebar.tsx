@@ -5,6 +5,7 @@ import {
   Home, Users, Star, BookOpen, LayoutGrid, Calendar, Layers,
   Library, StickyNote, BarChart3, Sparkles, Globe, Settings,
   ChevronsLeft, ChevronsRight, GraduationCap, NotebookPen, Compass,
+  MessageCircle,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { SidebarNavItem } from './SidebarNavItem';
@@ -23,6 +24,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const t = useTranslations('Navigation');
   const [collapsed, setCollapsed] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -45,6 +47,27 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     }
     fetchCount();
     const id = setInterval(fetchCount, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // Poll unread-thread count for the Messages sidebar badge.
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const res = await apiFetch('/api/v1/messages/unread-count');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setUnreadMessages(Number(data.threads) || 0);
+      } catch {
+        /* swallow */
+      }
+    }
+    fetchUnread();
+    const id = setInterval(fetchUnread, 60_000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -97,6 +120,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Support group */}
         <SidebarNavGroup label={t('groupSupport')} collapsed={collapsed}>
+          <SidebarNavItem
+            href="/messages"
+            label={t('messages')}
+            icon={MessageCircle}
+            collapsed={collapsed}
+            badge={unreadMessages}
+          />
           <SidebarNavItem href="/discover" label={t('discover')} icon={Compass} collapsed={collapsed} />
           <SidebarNavItem
             href="/community"

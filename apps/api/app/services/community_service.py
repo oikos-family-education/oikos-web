@@ -27,6 +27,7 @@ from app.models.community import (
 )
 from app.models.family import Family
 from app.models.family_member import FamilyMember
+from app.models.message import FamilyBlock
 from app.models.user import User
 from app.schemas.community import (
     CommunityCreate,
@@ -185,6 +186,15 @@ class CommunityService:
         # in via the new boolean, OR (b) they have a non-private legacy
         # visibility setting (`local` / `public`). The bridge avoids hiding every
         # pre-existing family behind a separate opt-in that few will find.
+        # Exclude families the viewer has blocked or has been blocked by
+        # (spec: family-messages §4.4, cross-service touchpoint).
+        blocked_subq_a = select(FamilyBlock.blocked_family_id).where(
+            FamilyBlock.blocker_family_id == viewer_family.id
+        )
+        blocked_subq_b = select(FamilyBlock.blocker_family_id).where(
+            FamilyBlock.blocked_family_id == viewer_family.id
+        )
+
         q = select(Family).where(
             or_(
                 Family.discoverable.is_(True),
@@ -192,6 +202,8 @@ class CommunityService:
             ),
             Family.id != viewer_family.id,
             Family.location_country_code == country.upper(),
+            Family.id.not_in(blocked_subq_a),
+            Family.id.not_in(blocked_subq_b),
         )
         if region:
             q = q.where(Family.location_region == region)
@@ -218,6 +230,25 @@ class CommunityService:
 
     async def family_profile(self, viewer_family: Family, slug: str) -> dict:
         family = await self._family_by_slug(slug)
+        # If either side has blocked the other, the profile is unreachable
+        # (spec: family-messages §4.4 — never leak existence to either side).
+        if family.id != viewer_family.id:
+            block_res = await self.db.execute(
+                select(FamilyBlock.id).where(
+                    or_(
+                        and_(
+                            FamilyBlock.blocker_family_id == viewer_family.id,
+                            FamilyBlock.blocked_family_id == family.id,
+                        ),
+                        and_(
+                            FamilyBlock.blocker_family_id == family.id,
+                            FamilyBlock.blocked_family_id == viewer_family.id,
+                        ),
+                    )
+                )
+            )
+            if block_res.scalars().first():
+                raise HTTPException(status_code=404, detail="Family not found.")
         # Visibility check: opt-in OR legacy non-private visibility OR shares a community.
         shares_community = await self._families_share_community(viewer_family.id, family.id)
         is_public = family.discoverable or family.visibility in ("local", "public")

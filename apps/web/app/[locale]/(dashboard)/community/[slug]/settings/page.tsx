@@ -32,6 +32,8 @@ export default function CommunitySettingsPage() {
   const [ageMax, setAgeMax] = useState<string>('');
   const [identity, setIdentity] = useState<CommunityIdentity>({});
   const [identityDirty, setIdentityDirty] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [closedSaving, setClosedSaving] = useState(false);
   const [emblemPickerOpen, setEmblemPickerOpen] = useState(false);
   const [identitySaving, setIdentitySaving] = useState(false);
   const [identitySavedAt, setIdentitySavedAt] = useState<number | null>(null);
@@ -101,6 +103,7 @@ export default function CommunitySettingsPage() {
         setDescription(data.description);
         setPrinciples(data.principles_text);
         setIdentity(data.identity ?? {});
+        setClosed(!!data.closed_to_new_members);
         setAgeMin(data.child_age_min == null ? '' : String(data.child_age_min));
         setAgeMax(data.child_age_max == null ? '' : String(data.child_age_max));
       }
@@ -144,6 +147,25 @@ export default function CommunitySettingsPage() {
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleClosed(next: boolean) {
+    if (!c) return;
+    setClosedSaving(true);
+    try {
+      const res = await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ closed_to_new_members: next }),
+      });
+      if (res.ok) {
+        const updated: CommunityDetail = await res.json();
+        setC(updated);
+        setClosed(!!updated.closed_to_new_members);
+      }
+    } finally {
+      setClosedSaving(false);
     }
   }
 
@@ -341,6 +363,25 @@ export default function CommunitySettingsPage() {
           </Button>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-3 mb-6">
+          <h3 className="text-sm font-semibold text-slate-800">Close to new joiners</h3>
+          <p className="text-xs text-slate-500">
+            Hide this community from Discover and reject new join requests. Existing members keep full access.
+          </p>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={closed}
+              disabled={closedSaving}
+              onChange={(e) => toggleClosed(e.target.checked)}
+            />
+            <span>{closed ? 'Closed — not visible to new joiners' : 'Open to new joiners'}</span>
+            {closedSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
+          </label>
+        </div>
+      )}
 
       {isAdmin && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6">

@@ -104,6 +104,20 @@ class FamilyDiscoverPage(BaseModel):
 # ── Communities ───────────────────────────────────────────────────────────
 
 
+class JoinRequest(BaseModel):
+    message: Optional[str] = Field(None, max_length=500)
+    # Must be True. The client gates the submit button on the same checkbox.
+    agreed_to_principles: bool = Field(...)
+
+
+class DenyRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class ClosedFlagRequest(BaseModel):
+    closed: bool
+
+
 class CommunityCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=60)
     slug: Optional[str] = Field(None, min_length=3, max_length=80)
@@ -140,6 +154,7 @@ class CommunityUpdate(BaseModel):
     child_age_min: Optional[int] = Field(None, ge=0, le=25)
     child_age_max: Optional[int] = Field(None, ge=0, le=25)
     identity: Optional[CommunityIdentity] = None
+    closed_to_new_members: Optional[bool] = None
 
 
 class CommunityCardSchema(BaseModel):
@@ -157,6 +172,7 @@ class CommunityCardSchema(BaseModel):
     child_age_min: Optional[int] = None
     child_age_max: Optional[int] = None
     identity: Optional[dict] = None
+    closed_to_new_members: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -192,6 +208,8 @@ class MemberCard(BaseModel):
     role: str
     status: str
     joined_at: Optional[datetime] = None
+    # Only populated for pending rows so admins can read the request.
+    join_message: Optional[str] = None
 
 
 class MembersList(BaseModel):

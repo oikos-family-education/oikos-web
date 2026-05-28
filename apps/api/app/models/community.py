@@ -47,6 +47,11 @@ class Community(Base):
     # Visual identity (v2): {primary_color, secondary_color, emblem, emblem_color, layout}.
     # NULL = fall back to a neutral gradient with no emblem in the UI.
     identity = Column(JSONB, nullable=True)
+    # Admin can close the community to new joiners (existing members keep access).
+    # When True: not surfaced by discover_communities, join_or_request rejects.
+    closed_to_new_members = Column(
+        Boolean, nullable=False, server_default="false", default=False,
+    )
     member_count = Column(Integer, nullable=False, server_default="1", default=1)
     created_by_family_id = Column(
         UUID(as_uuid=True),
@@ -101,7 +106,16 @@ class CommunityMember(Base):
     status = Column(String(20), nullable=False, default="pending")
     joined_at = Column(DateTime(timezone=True), nullable=True)
     removed_at = Column(DateTime(timezone=True), nullable=True)
+    # Set on:
+    #   - admin Remove → "removed by admin: <reason>"
+    #   - admin Deny of a pending request → the rejection reason
     removed_reason = Column(String(500), nullable=True)
+    # Free-text message a family includes with their join request so the admin
+    # can decide. Cleared once they're accepted.
+    join_message = Column(String(500), nullable=True)
+    # Timestamp the requester confirmed they've read the community's
+    # description + core principles. Required at request time.
+    agreed_to_principles_at = Column(DateTime(timezone=True), nullable=True)
     # v2: per-recipient mute. True = notification fan-out skips this family for
     # this community. Does not affect anyone else.
     notifications_muted = Column(

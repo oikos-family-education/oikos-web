@@ -13,11 +13,13 @@ from app.schemas.community import (
     CommunityDetail,
     CommunityListPage,
     CommunityUpdate,
+    DenyRequest,
     FamilyDiscoverPage,
     FamilyDiscoverProfile,
     InvitationAcceptRequest,
     InvitationCreate,
     InvitationResponseSchema,
+    JoinRequest,
     MembersList,
     ReplyCreate,
     ReplyUpdate,
@@ -114,6 +116,7 @@ def _to_card(c) -> dict:
         # v2: identity must round-trip so the settings UI doesn't appear to
         # reset after Save (PR #31 regression).
         "identity": c.identity,
+        "closed_to_new_members": bool(c.closed_to_new_members),
     }
 
 
@@ -268,10 +271,16 @@ async def delete_community(
 @router.post("/communities/{slug}/join", status_code=status.HTTP_201_CREATED)
 async def join_community(
     slug: str,
+    body: JoinRequest,
     current_user: User = Depends(get_current_user),
     svc: CommunityService = Depends(get_service),
 ):
-    m = await svc.join_or_request(current_user.id, slug)
+    m = await svc.join_or_request(
+        current_user.id,
+        slug,
+        message=body.message,
+        agreed_to_principles=body.agreed_to_principles,
+    )
     return {"status": m.status, "role": m.role}
 
 
@@ -309,10 +318,11 @@ async def approve_member(
 async def deny_member(
     slug: str,
     family_id: UUID,
+    body: DenyRequest,
     current_user: User = Depends(get_current_user),
     svc: CommunityService = Depends(get_service),
 ):
-    await svc.deny_member(current_user.id, slug, family_id)
+    await svc.deny_member(current_user.id, slug, family_id, reason=body.reason)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

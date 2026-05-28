@@ -511,6 +511,9 @@ class CommunityService:
         )
         q = select(Community).where(
             Community.deleted_at.is_(None),
+            # Communities the admin has closed to new joiners are hidden from
+            # discover; existing members still see them via /communities/mine.
+            Community.closed_to_new_members.is_(False),
             ~Community.id.in_(select(sub.c.community_id)),
         )
         if country:
@@ -568,23 +571,46 @@ class CommunityService:
 
     # ── Membership: join / leave / approve / deny / remove / promote ──
 
-    async def join_or_request(self, user_id: uuid.UUID, slug: str) -> CommunityMember:
+    async def join_or_request(
+        self,
+        user_id: uuid.UUID,
+        slug: str,
+        message: Optional[str] = None,
+        agreed_to_principles: bool = False,
+    ) -> CommunityMember:
         family = await self.get_family_for_user(user_id)
         c = await self._get_community(slug)
 
         if c.join_mode == "invite_only":
             raise HTTPException(status_code=403, detail="This community is invite-only.")
+        if c.closed_to_new_members:
+            raise HTTPException(
+                status_code=403,
+                detail="This community is currently closed to new joiners.",
+            )
+        if not agreed_to_principles:
+            raise HTTPException(
+                status_code=422,
+                detail="Please confirm you've read the description and core principles.",
+            )
+
+        clean_message = (message or "").strip() or None
+        agreed_at = utcnow()
 
         existing = await self._get_membership(c.id, family.id)
         if existing and existing.status in ("active", "pending"):
             raise HTTPException(status_code=409, detail="You already have a request or membership.")
         if existing and existing.status == "removed":
-            # Re-request after removal — overwrite
+            # Re-request after removal/deny — overwrite. Carries the new
+            # message + agreement, clears the prior rejection reason so the
+            # admin sees a clean pending row.
             existing.status = "pending"
             existing.role = "member"
             existing.joined_at = None
             existing.removed_at = None
             existing.removed_reason = None
+            existing.join_message = clean_message
+            existing.agreed_to_principles_at = agreed_at
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -599,6 +625,8 @@ class CommunityService:
         m = CommunityMember(
             community_id=c.id,
             family_id=family.id,
+            join_message=clean_message,
+            agreed_to_principles_at=agreed_at,
             role="member",
             status="pending",
         )
@@ -664,6 +692,9 @@ class CommunityService:
                 "role": m.role,
                 "status": m.status,
                 "joined_at": m.joined_at,
+                # Surface the request note for pending rows so admins can
+                # make an informed approve/deny decision.
+                "join_message": m.join_message if m.status == "pending" else None,
             }
 
         active = [to_card(m, f) for m, f in rows if m.status == "active"]
@@ -691,12 +722,28 @@ class CommunityService:
         await self.db.refresh(m)
         return m
 
-    async def deny_member(self, user_id: uuid.UUID, slug: str, family_id: uuid.UUID) -> None:
+    async def deny_member(
+        self,
+        user_id: uuid.UUID,
+        slug: str,
+        family_id: uuid.UUID,
+        reason: str,
+    ) -> None:
         viewer_family, c, my = await self._require_admin(user_id, slug)
         m = await self._get_membership(c.id, family_id)
         if not m or m.status != "pending":
             raise HTTPException(status_code=404, detail="No pending request for that family.")
-        await self.db.delete(m)
+        reason = (reason or "").strip()
+        if not reason:
+            raise HTTPException(
+                status_code=422,
+                detail="A reason is required when denying a join request.",
+            )
+        # Keep the row but flip to 'removed' with the reason captured. The
+        # original join_message is preserved so the audit picture stays whole.
+        m.status = "removed"
+        m.removed_at = utcnow()
+        m.removed_reason = reason[:500]
         await self.db.commit()
 
     async def remove_member(self, user_id: uuid.UUID, slug: str, family_id: uuid.UUID) -> None:

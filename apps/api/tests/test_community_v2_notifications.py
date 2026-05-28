@@ -59,7 +59,7 @@ async def two_members(authed_with_family, db, make_user, make_client):
     family_b = await _create_family(db, user_b, name="Jones")
     client_b = await make_client(user_b)
 
-    await client_b.post(f"/api/v1/communities/{slug}/join")
+    await client_b.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True})
     await client_a.post(
         f"/api/v1/communities/{slug}/members/{family_b.id}/approve",
     )
@@ -184,7 +184,7 @@ async def test_admin_pending_count_aggregates(two_members, db, make_user, make_c
     user_c = await make_user()
     family_c = await _create_family(db, user_c, name="Cuz")
     client_c = await make_client(user_c)
-    await client_c.post(f"/api/v1/communities/{slug}/join")
+    await client_c.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True})
 
     # A is admin → sees 1 pending
     cnt = await client_a.get("/api/v1/communities/admin-pending-count")

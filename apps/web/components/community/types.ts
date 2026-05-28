@@ -52,6 +52,7 @@ export interface CommunityCard {
   child_age_min?: number | null;
   child_age_max?: number | null;
   identity?: CommunityIdentity | null;
+  closed_to_new_members?: boolean;
 }
 
 export interface CommunityDetail extends CommunityCard {
@@ -139,6 +140,8 @@ export interface MemberCard {
   role: 'admin' | 'co_admin' | 'member';
   status: 'pending' | 'active' | 'removed';
   joined_at?: string | null;
+  /** Only populated for pending rows — the message the family sent. */
+  join_message?: string | null;
 }
 
 export interface MembersList {

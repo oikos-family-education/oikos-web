@@ -1660,7 +1660,33 @@
       "requestToJoin": "Request to join",
       "joining": "Sending request…",
       "requestPending": "Your request is pending.",
-      "leave": "Leave community"
+      "leave": "Leave community",
+      "closedBadge": "Closed to new joiners",
+      "closedNote": "The admin has closed this community to new joiners."
+    },
+    "joinRequest": {
+      "title": "Ask to join {community}",
+      "body": "Tell the admin a bit about your family. They'll review your request and approve, or get back to you.",
+      "messageLabel": "Message to the admin (optional)",
+      "messagePlaceholder": "We're a homeschooling family from…",
+      "agreementHeading": "Before you send",
+      "agreementBody": "I've read this community's description and core principles, and I agree with them.",
+      "submit": "Send request",
+      "submitting": "Sending…",
+      "cancel": "Cancel"
+    },
+    "deny": {
+      "title": "Decline this family's request",
+      "body": "Briefly explain why so the family understands. They'll see this reason.",
+      "reasonLabel": "Reason",
+      "submit": "Send decline",
+      "submitting": "Sending…",
+      "cancel": "Cancel"
+    },
+    "settingsExtra": {
+      "closeCommunity": "Close to new joiners",
+      "closeCommunityHelp": "Hide this community from Discover and reject new join requests. Existing members keep full access.",
+      "saveClosed": "Save"
     },
     "members": {
       "title": "Members",

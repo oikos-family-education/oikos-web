@@ -10,6 +10,7 @@ import { apiFetch } from '../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../components/community/CommunityTabs';
 import { CommunityBanner } from '../../../../../components/community/CommunityBanner';
 import { MuteToggle } from '../../../../../components/community/MuteToggle';
+import { JoinRequestDialog } from '../../../../../components/community/JoinRequestDialog';
 import { MarkdownLite } from '../../../../../components/community/MarkdownLite';
 import type { CommunityDetail } from '../../../../../components/community/types';
 
@@ -21,6 +22,8 @@ export default function CommunityOverviewPage() {
   const [c, setC] = useState<CommunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   async function reload() {
     const res = await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}`);
@@ -34,11 +37,22 @@ export default function CommunityOverviewPage() {
     })();
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function join() {
+  async function submitJoin(payload: { message: string; agreed: true }) {
     setActing(true);
+    setJoinError(null);
     try {
-      await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}/join`, { method: 'POST' });
-      await reload();
+      const res = await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: payload.message || null, agreed_to_principles: true }),
+      });
+      if (res.ok) {
+        setJoinOpen(false);
+        await reload();
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setJoinError(typeof b.detail === 'string' ? b.detail : 'Could not send your request.');
+      }
     } finally {
       setActing(false);
     }
@@ -91,10 +105,15 @@ export default function CommunityOverviewPage() {
         <div className="flex items-start justify-between gap-3 mb-2">
           <h1 className="text-2xl font-bold text-slate-800">{c.name}</h1>
           <div className="flex gap-2">
-            {!isMember && c.viewer_status !== 'pending' && c.join_mode === 'request_to_join' && (
-              <Button onClick={join} disabled={acting}>
-                {acting ? tOv('joining') : tOv('requestToJoin')}
+            {!isMember && c.viewer_status !== 'pending' && c.join_mode === 'request_to_join' && !c.closed_to_new_members && (
+              <Button onClick={() => { setJoinError(null); setJoinOpen(true); }} disabled={acting}>
+                {tOv('requestToJoin')}
               </Button>
+            )}
+            {!isMember && c.closed_to_new_members && (
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700">
+                {tOv('closedBadge')}
+              </span>
             )}
             {c.viewer_status === 'pending' && (
               <span className="text-sm text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg">
@@ -152,6 +171,15 @@ export default function CommunityOverviewPage() {
         <h2 className="text-lg font-semibold text-slate-800 mb-3">{tOv('principles')}</h2>
         {c.principles_text ? <MarkdownLite source={c.principles_text} /> : <p className="text-sm text-slate-500">—</p>}
       </div>
+
+      <JoinRequestDialog
+        open={joinOpen}
+        onClose={() => setJoinOpen(false)}
+        communityName={c.name}
+        onSubmit={submitJoin}
+        submitting={acting}
+      />
+      {joinError && <p className="mt-3 text-sm text-red-500">{joinError}</p>}
     </div>
   );
 }

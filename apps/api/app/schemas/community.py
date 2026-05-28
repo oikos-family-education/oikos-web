@@ -49,6 +49,15 @@ class PrincipleTags(BaseModel):
     home_languages: list[str] = Field(default_factory=list)
 
 
+class CommunityIdentity(BaseModel):
+    """Visual identity for a community banner (v2 spec §7.1)."""
+    primary_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    secondary_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    emblem: Optional[str] = Field(None, max_length=40)
+    emblem_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    layout: Optional[str] = Field(None, pattern=r"^(left|center)$")
+
+
 # ── Discover ──────────────────────────────────────────────────────────────
 
 
@@ -95,6 +104,20 @@ class FamilyDiscoverPage(BaseModel):
 # ── Communities ───────────────────────────────────────────────────────────
 
 
+class JoinRequest(BaseModel):
+    message: Optional[str] = Field(None, max_length=500)
+    # Must be True. The client gates the submit button on the same checkbox.
+    agreed_to_principles: bool = Field(...)
+
+
+class DenyRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class ClosedFlagRequest(BaseModel):
+    closed: bool
+
+
 class CommunityCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=60)
     slug: Optional[str] = Field(None, min_length=3, max_length=80)
@@ -109,6 +132,7 @@ class CommunityCreate(BaseModel):
     cover_image_url: Optional[str] = Field(None, max_length=500)
     child_age_min: Optional[int] = Field(None, ge=0, le=25)
     child_age_max: Optional[int] = Field(None, ge=0, le=25)
+    identity: Optional[CommunityIdentity] = None
 
     @field_validator("name")
     @classmethod
@@ -130,6 +154,8 @@ class CommunityUpdate(BaseModel):
     cover_image_url: Optional[str] = Field(None, max_length=500)
     child_age_min: Optional[int] = Field(None, ge=0, le=25)
     child_age_max: Optional[int] = Field(None, ge=0, le=25)
+    identity: Optional[CommunityIdentity] = None
+    closed_to_new_members: Optional[bool] = None
 
 
 class CommunityCardSchema(BaseModel):
@@ -146,6 +172,8 @@ class CommunityCardSchema(BaseModel):
     principle_tags: dict = {}
     child_age_min: Optional[int] = None
     child_age_max: Optional[int] = None
+    identity: Optional[dict] = None
+    closed_to_new_members: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -158,6 +186,7 @@ class CommunityDetail(CommunityCardSchema):
     # Membership context for the calling family
     viewer_role: Optional[str] = None
     viewer_status: Optional[str] = None
+    viewer_muted: Optional[bool] = None
 
 
 class CommunityListPage(BaseModel):
@@ -180,6 +209,8 @@ class MemberCard(BaseModel):
     role: str
     status: str
     joined_at: Optional[datetime] = None
+    # Only populated for pending rows so admins can read the request.
+    join_message: Optional[str] = None
 
 
 class MembersList(BaseModel):

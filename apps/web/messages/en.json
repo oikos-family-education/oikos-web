@@ -1616,6 +1616,7 @@
       "overview": "Overview",
       "members": "Members",
       "forum": "Forum",
+      "meetups": "Meetups",
       "settings": "Settings"
     },
     "create": {
@@ -1659,7 +1660,33 @@
       "requestToJoin": "Request to join",
       "joining": "Sending request…",
       "requestPending": "Your request is pending.",
-      "leave": "Leave community"
+      "leave": "Leave community",
+      "closedBadge": "Closed to new joiners",
+      "closedNote": "The admin has closed this community to new joiners."
+    },
+    "joinRequest": {
+      "title": "Ask to join {community}",
+      "body": "Tell the admin a bit about your family. They'll review your request and approve, or get back to you.",
+      "messageLabel": "Message to the admin (optional)",
+      "messagePlaceholder": "We're a homeschooling family from…",
+      "agreementHeading": "Before you send",
+      "agreementBody": "I've read this community's description and core principles, and I agree with them.",
+      "submit": "Send request",
+      "submitting": "Sending…",
+      "cancel": "Cancel"
+    },
+    "deny": {
+      "title": "Decline this family's request",
+      "body": "Briefly explain why so the family understands. They'll see this reason.",
+      "reasonLabel": "Reason",
+      "submit": "Send decline",
+      "submitting": "Sending…",
+      "cancel": "Cancel"
+    },
+    "settingsExtra": {
+      "closeCommunity": "Close to new joiners",
+      "closeCommunityHelp": "Hide this community from Discover and reject new join requests. Existing members keep full access.",
+      "saveClosed": "Save"
     },
     "members": {
       "title": "Members",
@@ -1709,7 +1736,21 @@
       "lock": "Lock",
       "unlock": "Unlock",
       "edited": "(edited)",
-      "lockedNotice": "This topic is locked. No new replies."
+      "lockedNotice": "This topic is locked. No new replies.",
+      "toolbar": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "link": "Link",
+        "code": "Inline code",
+        "ul": "Bulleted list",
+        "ol": "Numbered list",
+        "quote": "Quote",
+        "codeBlock": "Code block",
+        "linkUrlPlaceholder": "https://...",
+        "linkInsert": "Insert link",
+        "copyLink": "Copy link",
+        "linkCopied": "Link copied"
+      }
     },
     "report": {
       "title": "Report this content",
@@ -1737,6 +1778,78 @@
     },
     "cap": {
       "label": "Communities {used}/{max}"
+    },
+    "identity": {
+      "title": "Identity",
+      "primaryColor": "Primary color",
+      "secondaryColor": "Accent color",
+      "emblem": "Emblem",
+      "emblemColor": "Emblem color",
+      "layout": "Layout",
+      "layoutLeft": "Left",
+      "layoutCenter": "Center",
+      "pickEmblem": "Pick an emblem",
+      "noEmblem": "No emblem",
+      "preview": "Preview"
+    },
+    "_meta": { "comment": "Forum toolbar lives under Community.forum.toolbar" }
+  },
+  "Meetups": {
+    "title": "Meetups",
+    "tabUpcoming": "Upcoming",
+    "tabPast": "Past",
+    "newMeetup": "New meetup",
+    "emptyUpcoming": "No upcoming meetups.",
+    "emptyPast": "No past meetups.",
+    "rsvpGoing": "Going",
+    "rsvpMaybe": "Maybe",
+    "rsvpNot": "Not going",
+    "rsvpYour": "Your RSVP",
+    "rsvpCounts": "{going} going · {maybe} maybe",
+    "details": {
+      "online": "Online meeting",
+      "inPerson": "In-person",
+      "openLink": "Open meeting link",
+      "cancel": "Cancel meetup",
+      "cancelled": "Cancelled",
+      "edit": "Edit meetup",
+      "byAuthor": "Created by {family}"
+    },
+    "form": {
+      "title": "Title",
+      "description": "Description",
+      "startsAt": "Starts at",
+      "duration": "Duration (minutes)",
+      "recurrence": "Repeats",
+      "recurrenceNone": "Doesn't repeat",
+      "recurrenceWeekly": "Weekly",
+      "recurrenceBiweekly": "Every 2 weeks",
+      "recurrenceMonthly": "Monthly",
+      "recurrenceUntil": "Repeat until (optional)",
+      "location": "Location (in-person)",
+      "meetingUrl": "Meeting URL (online)",
+      "needLocationOrUrl": "Add a location, a meeting URL, or both.",
+      "submit": "Create meetup",
+      "save": "Save changes"
     }
+  },
+  "Notifications": {
+    "bellTitle": "Notifications",
+    "empty": "You're all caught up.",
+    "markAllRead": "Mark all read",
+    "topicCreated": "{actor} posted in {community}",
+    "replyCreated": "{actor} replied in {topic}",
+    "muteThisCommunity": "Mute notifications",
+    "muted": "Notifications muted",
+    "unmuted": "Notifications on"
+  },
+  "DashboardCommunities": {
+    "title": "Your communities",
+    "viewAll": "View all",
+    "empty": "You're not in any community yet.",
+    "joinACommunity": "Find a community",
+    "unreadLabel": "{count, plural, =1 {1 new message} other {# new messages}}",
+    "more": "+{n} more",
+    "noActivity": "No discussions yet."
   }
 }

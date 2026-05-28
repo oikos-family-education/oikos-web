@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '../../../../../../../lib/navigation';
 import { useTranslations } from 'next-intl';
@@ -8,6 +8,7 @@ import { Button, Input } from '@oikos/ui';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Link } from '../../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../../lib/apiFetch';
+import { MarkdownToolbar } from '../../../../../../../components/community/MarkdownToolbar';
 
 export default function NewTopicPage() {
   const t = useTranslations('Community.forum');
@@ -17,6 +18,7 @@ export default function NewTopicPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   async function submit() {
     if (!title.trim() || !body.trim()) return;
@@ -55,12 +57,14 @@ export default function NewTopicPage() {
           <label className="block text-sm font-semibold text-slate-700 mb-1">
             {t('topicBody')} <span className="text-red-500 ml-0.5">*</span>
           </label>
+          <MarkdownToolbar value={body} onChange={setBody} textareaRef={bodyRef} />
           <textarea
+            ref={bodyRef}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
             maxLength={20000}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 border border-slate-300 border-t-0 rounded-b-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <p className="text-xs text-slate-500 mt-1">
             Markdown supported: **bold**, *italic*, `code`, [links](url), - lists, &gt; quotes.

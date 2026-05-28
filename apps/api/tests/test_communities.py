@@ -377,7 +377,7 @@ async def test_request_join_and_approve(two_families):
     slug = create.json()["slug"]
 
     # Joiner requests
-    req = await joiner_client.post(f"/api/v1/communities/{slug}/join")
+    req = await joiner_client.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True, "message": "Hi, we just moved to NC."})
     assert req.status_code == 201
     assert req.json()["status"] == "pending"
 
@@ -403,7 +403,8 @@ async def test_invite_only_community_rejects_join_request(two_families):
         "/api/v1/communities", json=_community_payload(join_mode="invite_only"),
     )
     slug = create.json()["slug"]
-    res = await joiner_client.post(f"/api/v1/communities/{slug}/join")
+    res = await joiner_client.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True})
+    # invite-only community rejects join requests with 403
     assert res.status_code == 403
 
 
@@ -429,7 +430,7 @@ async def test_admin_leaves_oldest_member_becomes_admin(two_families, db):
     admin_client, admin_family, joiner_client, joiner_family = two_families
     create = await admin_client.post("/api/v1/communities", json=_community_payload())
     slug = create.json()["slug"]
-    await joiner_client.post(f"/api/v1/communities/{slug}/join")
+    await joiner_client.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True})
     await admin_client.post(
         f"/api/v1/communities/{slug}/members/{joiner_family.id}/approve"
     )
@@ -451,7 +452,7 @@ async def test_post_topic_and_reply_and_report(two_families):
     admin_client, admin_family, joiner_client, joiner_family = two_families
     create = await admin_client.post("/api/v1/communities", json=_community_payload())
     slug = create.json()["slug"]
-    await joiner_client.post(f"/api/v1/communities/{slug}/join")
+    await joiner_client.post(f"/api/v1/communities/{slug}/join", json={"agreed_to_principles": True})
     await admin_client.post(
         f"/api/v1/communities/{slug}/members/{joiner_family.id}/approve"
     )

@@ -44,6 +44,14 @@ class Community(Base):
     # "no bound on that side" — a community with both NULL is for any age.
     child_age_min = Column(Integer, nullable=True)
     child_age_max = Column(Integer, nullable=True)
+    # Visual identity (v2): {primary_color, secondary_color, emblem, emblem_color, layout}.
+    # NULL = fall back to a neutral gradient with no emblem in the UI.
+    identity = Column(JSONB, nullable=True)
+    # Admin can close the community to new joiners (existing members keep access).
+    # When True: not surfaced by discover_communities, join_or_request rejects.
+    closed_to_new_members = Column(
+        Boolean, nullable=False, server_default="false", default=False,
+    )
     member_count = Column(Integer, nullable=False, server_default="1", default=1)
     created_by_family_id = Column(
         UUID(as_uuid=True),
@@ -98,7 +106,21 @@ class CommunityMember(Base):
     status = Column(String(20), nullable=False, default="pending")
     joined_at = Column(DateTime(timezone=True), nullable=True)
     removed_at = Column(DateTime(timezone=True), nullable=True)
+    # Set on:
+    #   - admin Remove → "removed by admin: <reason>"
+    #   - admin Deny of a pending request → the rejection reason
     removed_reason = Column(String(500), nullable=True)
+    # Free-text message a family includes with their join request so the admin
+    # can decide. Cleared once they're accepted.
+    join_message = Column(String(500), nullable=True)
+    # Timestamp the requester confirmed they've read the community's
+    # description + core principles. Required at request time.
+    agreed_to_principles_at = Column(DateTime(timezone=True), nullable=True)
+    # v2: per-recipient mute. True = notification fan-out skips this family for
+    # this community. Does not affect anyone else.
+    notifications_muted = Column(
+        Boolean, nullable=False, server_default="false", default=False,
+    )
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -232,3 +254,136 @@ class CommunityReport(Base):
     resolution_note = Column(String(2000), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+# ── v2 additions ────────────────────────────────────────────────────────
+
+
+class CommunityMeetup(Base):
+    """A meetup (single or recurring) belonging to a community.
+
+    Spec: docs/superpowers/specs/2026-05-26-community-area-v2-design.md §5
+    """
+    __tablename__ = "community_meetups"
+    __table_args__ = (
+        CheckConstraint(
+            "recurrence IN ('none','weekly','biweekly','monthly')",
+            name="ck_community_meetups_recurrence_valid",
+        ),
+        CheckConstraint(
+            "location_text IS NOT NULL OR meeting_url IS NOT NULL",
+            name="ck_community_meetups_has_location_or_url",
+        ),
+        CheckConstraint(
+            "duration_minutes BETWEEN 1 AND 1440",
+            name="ck_community_meetups_duration_valid",
+        ),
+        Index("ix_community_meetups_community_starts", "community_id", "starts_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    community_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("communities.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    created_by_family_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("families.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    title = Column(String(120), nullable=False)
+    description = Column(Text, nullable=False, server_default="", default="")
+    starts_at = Column(DateTime(timezone=True), nullable=False)
+    duration_minutes = Column(Integer, nullable=False, server_default="60", default=60)
+    recurrence = Column(String(20), nullable=False, server_default="none", default="none")
+    recurrence_until = Column(DateTime(timezone=True), nullable=True)
+    location_text = Column(String(200), nullable=True)
+    meeting_url = Column(String(500), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    rsvps = relationship("CommunityMeetupRsvp", back_populates="meetup", cascade="all, delete-orphan")
+
+
+class CommunityMeetupRsvp(Base):
+    """Per-occurrence RSVP. A weekly meetup may have different attendees each week."""
+    __tablename__ = "community_meetup_rsvps"
+    __table_args__ = (
+        UniqueConstraint(
+            "meetup_id", "family_id", "occurrence_date",
+            name="uq_community_meetup_rsvps_unique",
+        ),
+        CheckConstraint(
+            "response IN ('going','maybe','not_going')",
+            name="ck_community_meetup_rsvps_response_valid",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    meetup_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_meetups.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    family_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # Plain date (no tz) — represents the calendar day of the occurrence the
+    # RSVP is for, in the meetup's anchor timezone (i.e. the day implied by
+    # starts_at). We don't expand series into rows, so this is how we
+    # disambiguate per-week RSVPs.
+    occurrence_date = Column(DateTime(timezone=False), nullable=False)
+    response = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    meetup = relationship("CommunityMeetup", back_populates="rsvps")
+
+
+class Notification(Base):
+    """One notification row per recipient per event.
+
+    Generic on purpose — future event types land here without schema changes.
+    Spec §6.2.
+    """
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index(
+            "ix_notifications_recipient_unread",
+            "recipient_family_id", "read_at", "created_at",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    recipient_family_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    community_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("communities.id", ondelete="CASCADE"),
+        nullable=True, index=True,
+    )
+    event_type = Column(String(30), nullable=False)  # 'topic_created' | 'reply_created'
+    topic_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_topics.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    reply_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_replies.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    actor_family_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("families.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)

@@ -17,6 +17,7 @@ export function CommunityTabs({ slug, canSettings }: Props) {
     { key: 'overview', label: t('overview'), href: `/community/${slug}` },
     { key: 'members', label: t('members'), href: `/community/${slug}/members` },
     { key: 'forum', label: t('forum'), href: `/community/${slug}/forum` },
+    { key: 'meetups', label: t('meetups'), href: `/community/${slug}/meetups` },
   ];
   if (canSettings) {
     tabs.push({ key: 'settings', label: t('settings'), href: `/community/${slug}/settings` });

@@ -8,6 +8,7 @@ import { Link } from '../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../lib/apiFetch';
 import { CommunityTabs } from '../../../../../../components/community/CommunityTabs';
 import { InviteDialog } from '../../../../../../components/community/InviteDialog';
+import { DenyDialog } from '../../../../../../components/community/DenyDialog';
 import { ShieldPreview } from '../../../../../../components/onboarding/ShieldPreview';
 import type { ShieldConfig } from '../../../../../../components/onboarding/ShieldBuilder';
 import type { CommunityDetail, MembersList } from '../../../../../../components/community/types';
@@ -23,6 +24,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const [denying, setDenying] = useState<{ id: string; name: string } | null>(null);
 
   async function reload() {
     const [c, m] = await Promise.all([
@@ -44,6 +46,22 @@ export default function MembersPage() {
     setActing(true);
     try {
       await apiFetch(path, { method: 'POST' });
+      await reload();
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function submitDeny(reason: string) {
+    if (!denying) return;
+    setActing(true);
+    try {
+      await apiFetch(`/api/v1/communities/${slug}/members/${denying.id}/deny`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      setDenying(null);
       await reload();
     } finally {
       setActing(false);
@@ -202,6 +220,11 @@ export default function MembersPage() {
                     ) : null}
                     <p className="text-sm font-semibold text-slate-800">{m.family_name}</p>
                   </div>
+                  {m.join_message && (
+                    <blockquote className="text-xs text-slate-600 bg-slate-50 border-l-2 border-amber-300 pl-2 py-1 mb-2 italic">
+                      &ldquo;{m.join_message}&rdquo;
+                    </blockquote>
+                  )}
                   <div className="flex gap-2 pt-2 border-t border-slate-100">
                     <button
                       onClick={() => act(`/api/v1/communities/${slug}/members/${m.family_id}/approve`)}
@@ -211,7 +234,7 @@ export default function MembersPage() {
                       {tM('approve')}
                     </button>
                     <button
-                      onClick={() => act(`/api/v1/communities/${slug}/members/${m.family_id}/deny`)}
+                      onClick={() => setDenying({ id: m.family_id, name: m.family_name })}
                       disabled={acting}
                       className="text-xs px-3 py-1 border border-slate-200 rounded hover:bg-slate-50"
                     >
@@ -226,6 +249,15 @@ export default function MembersPage() {
       )}
 
       <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} slug={slug} />
+      {denying && (
+        <DenyDialog
+          open={!!denying}
+          onClose={() => setDenying(null)}
+          familyName={denying.name}
+          onSubmit={submitDeny}
+          submitting={acting}
+        />
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { SidebarNavItem } from './SidebarNavItem';
 import { SidebarNavGroup } from './SidebarNavGroup';
 import { FamilyIdentity } from './FamilyIdentity';
+import { apiFetch } from '../../lib/apiFetch';
 
 const STORAGE_KEY = 'oikos-sidebar-collapsed';
 
@@ -21,10 +22,33 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const t = useTranslations('Navigation');
   const [collapsed, setCollapsed] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'true') setCollapsed(true);
+  }, []);
+
+  // v2: poll admin pending-request count for the Communities sidebar badge.
+  // Fail silently — the badge just stays hidden when the endpoint errors.
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCount() {
+      try {
+        const res = await apiFetch('/api/v1/communities/admin-pending-count');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setPendingCount(Number(data.count) || 0);
+      } catch {
+        /* swallow */
+      }
+    }
+    fetchCount();
+    const id = setInterval(fetchCount, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   function toggleCollapse() {
@@ -74,7 +98,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {/* Support group */}
         <SidebarNavGroup label={t('groupSupport')} collapsed={collapsed}>
           <SidebarNavItem href="/discover" label={t('discover')} icon={Compass} collapsed={collapsed} />
-          <SidebarNavItem href="/community" label={t('communities')} icon={Globe} collapsed={collapsed} />
+          <SidebarNavItem
+            href="/community"
+            label={t('communities')}
+            icon={Globe}
+            collapsed={collapsed}
+            badge={pendingCount}
+          />
           <SidebarNavItem href="/assistant" label={t('assistant')} icon={Sparkles} collapsed={collapsed} soon />
         </SidebarNavGroup>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Pin, Lock, Flag, Trash2 } from 'lucide-react';
@@ -8,6 +8,8 @@ import { Button } from '@oikos/ui';
 import { Link } from '../../../../../../../lib/navigation';
 import { apiFetch } from '../../../../../../../lib/apiFetch';
 import { MarkdownLite } from '../../../../../../../components/community/MarkdownLite';
+import { MarkdownToolbar } from '../../../../../../../components/community/MarkdownToolbar';
+import { CopyLinkButton } from '../../../../../../../components/community/CopyLinkButton';
 import { ReportDialog } from '../../../../../../../components/community/ReportDialog';
 import type { CommunityDetail, TopicDetail } from '../../../../../../../components/community/types';
 
@@ -23,6 +25,22 @@ export default function TopicDetailPage() {
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [report, setReport] = useState<{ type: 'topic' | 'reply'; id: string } | null>(null);
+  const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Permalink hash highlight (v2 spec §4.2): when the URL has #reply-<id>,
+  // briefly highlight that reply and scroll into view.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !topic) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#reply-')) return;
+    const id = hash.replace('#reply-', '');
+    setHighlightedReplyId(id);
+    const el = document.getElementById(`reply-${id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => setHighlightedReplyId(null), 2000);
+    return () => clearTimeout(t);
+  }, [topic]);
 
   async function reload() {
     const [c, tp] = await Promise.all([
@@ -162,6 +180,7 @@ export default function TopicDetailPage() {
               </button>
             </>
           )}
+          <CopyLinkButton url={`/community/${slug}/forum/${topic.id}`} />
           <button
             onClick={() => setReport({ type: 'topic', id: topic.id })}
             className="inline-flex items-center gap-1 px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 ml-auto"
@@ -173,7 +192,13 @@ export default function TopicDetailPage() {
 
       <section className="space-y-3 mb-6">
         {topic.replies.map((r) => (
-          <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-5">
+          <div
+            key={r.id}
+            id={`reply-${r.id}`}
+            className={`bg-white rounded-xl border p-5 transition-colors ${
+              highlightedReplyId === r.id ? 'border-amber-300 bg-amber-50' : 'border-slate-200'
+            }`}
+          >
             <header className="mb-2">
               <p className="text-xs text-slate-500">
                 {t('byAuthor', { family: r.author_family_name })}
@@ -182,6 +207,7 @@ export default function TopicDetailPage() {
             </header>
             <MarkdownLite source={r.body} />
             <footer className="flex gap-2 pt-3 mt-3 border-t border-slate-100 text-xs">
+              <CopyLinkButton url={`/community/${slug}/forum/${topic.id}#reply-${r.id}`} />
               {isAdmin && !r.deleted_at && (
                 <button
                   onClick={() => deleteReply(r.id)}
@@ -206,8 +232,11 @@ export default function TopicDetailPage() {
           {t('lockedNotice')}
         </p>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-b-xl border border-slate-200 p-0">
+          <MarkdownToolbar value={replyBody} onChange={setReplyBody} textareaRef={replyRef} />
+          <div className="p-5 pt-3">
           <textarea
+            ref={replyRef}
             value={replyBody}
             onChange={(e) => setReplyBody(e.target.value)}
             rows={4}
@@ -219,6 +248,7 @@ export default function TopicDetailPage() {
             <Button onClick={reply} disabled={replying || !replyBody.trim()}>
               {replying ? t('replying') : t('reply')}
             </Button>
+          </div>
           </div>
         </div>
       )}

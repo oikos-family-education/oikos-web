@@ -13,11 +13,13 @@ from app.schemas.community import (
     CommunityDetail,
     CommunityListPage,
     CommunityUpdate,
+    DenyRequest,
     FamilyDiscoverPage,
     FamilyDiscoverProfile,
     InvitationAcceptRequest,
     InvitationCreate,
     InvitationResponseSchema,
+    JoinRequest,
     MembersList,
     ReplyCreate,
     ReplyUpdate,
@@ -111,6 +113,10 @@ def _to_card(c) -> dict:
         "principle_tags": c.principle_tags or {},
         "child_age_min": c.child_age_min,
         "child_age_max": c.child_age_max,
+        # v2: identity must round-trip so the settings UI doesn't appear to
+        # reset after Save (PR #31 regression).
+        "identity": c.identity,
+        "closed_to_new_members": bool(c.closed_to_new_members),
     }
 
 
@@ -145,6 +151,26 @@ async def discover_communities(
     }
 
 
+# Bare /communities/{specific} routes MUST be declared before /communities/{slug}
+# so FastAPI matches them as literals, not as a `{slug}` value (v2 spec §11.6, §11.7).
+
+
+@router.get("/communities/admin-pending-count")
+async def admin_pending_count(
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    return {"count": await svc.admin_pending_count(current_user.id)}
+
+
+@router.get("/communities/dashboard-summary")
+async def dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    return await svc.dashboard_summary(current_user.id)
+
+
 @router.get("/communities/mine", response_model=list[CommunityDetail])
 async def list_my_communities(
     current_user: User = Depends(get_current_user),
@@ -161,6 +187,7 @@ async def list_my_communities(
             "updated_at": c.updated_at,
             "viewer_role": m.role,
             "viewer_status": m.status,
+            "viewer_muted": bool(m.notifications_muted),
         })
         out.append(d)
     return out
@@ -181,6 +208,7 @@ async def create_community(
         "updated_at": c.updated_at,
         "viewer_role": "admin",
         "viewer_status": "active",
+        "viewer_muted": False,
     })
     return d
 
@@ -200,6 +228,7 @@ async def get_community(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -221,6 +250,7 @@ async def update_community(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -241,10 +271,16 @@ async def delete_community(
 @router.post("/communities/{slug}/join", status_code=status.HTTP_201_CREATED)
 async def join_community(
     slug: str,
+    body: JoinRequest,
     current_user: User = Depends(get_current_user),
     svc: CommunityService = Depends(get_service),
 ):
-    m = await svc.join_or_request(current_user.id, slug)
+    m = await svc.join_or_request(
+        current_user.id,
+        slug,
+        message=body.message,
+        agreed_to_principles=body.agreed_to_principles,
+    )
     return {"status": m.status, "role": m.role}
 
 
@@ -282,10 +318,11 @@ async def approve_member(
 async def deny_member(
     slug: str,
     family_id: UUID,
+    body: DenyRequest,
     current_user: User = Depends(get_current_user),
     svc: CommunityService = Depends(get_service),
 ):
-    await svc.deny_member(current_user.id, slug, family_id)
+    await svc.deny_member(current_user.id, slug, family_id, reason=body.reason)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -401,6 +438,7 @@ async def accept_invitation(
         "updated_at": c.updated_at,
         "viewer_role": member.role if member else None,
         "viewer_status": member.status if member else None,
+        "viewer_muted": bool(member.notifications_muted) if member else None,
     })
     return d
 
@@ -508,3 +546,18 @@ async def create_report(
     svc: CommunityService = Depends(get_service),
 ):
     return await svc.report(current_user.id, slug, data)
+
+
+# Mute toggle (slug-scoped, OK to declare after /communities/{slug})
+
+
+@router.patch("/communities/{slug}/mute")
+async def set_mute(
+    slug: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    svc: CommunityService = Depends(get_service),
+):
+    muted = bool(body.get("muted", False))
+    new_value = await svc.set_mute(current_user.id, slug, muted)
+    return {"muted": new_value}

@@ -29,6 +29,14 @@ export interface FamilyDiscoverProfile extends DiscoverFamilyCard {
   visible_communities: CommunityCard[];
 }
 
+export interface CommunityIdentity {
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  emblem?: string | null;
+  emblem_color?: string | null;
+  layout?: 'left' | 'center' | null;
+}
+
 export interface CommunityCard {
   id: string;
   slug: string;
@@ -43,6 +51,8 @@ export interface CommunityCard {
   principle_tags: PrincipleTags;
   child_age_min?: number | null;
   child_age_max?: number | null;
+  identity?: CommunityIdentity | null;
+  closed_to_new_members?: boolean;
 }
 
 export interface CommunityDetail extends CommunityCard {
@@ -52,6 +62,66 @@ export interface CommunityDetail extends CommunityCard {
   updated_at: string;
   viewer_role: 'admin' | 'co_admin' | 'member' | null;
   viewer_status: 'pending' | 'active' | 'removed' | null;
+  viewer_muted?: boolean | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  event_type: 'topic_created' | 'reply_created';
+  community_id?: string | null;
+  community_slug?: string | null;
+  community_name?: string | null;
+  topic_id?: string | null;
+  topic_title?: string | null;
+  reply_id?: string | null;
+  actor_family_id?: string | null;
+  actor_family_name?: string | null;
+  actor_shield_config?: Record<string, string> | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface MeetupOccurrence {
+  meetup_id: string;
+  occurrence_date: string;
+  starts_at: string;
+  title: string;
+  description: string;
+  duration_minutes: number;
+  location_text?: string | null;
+  meeting_url?: string | null;
+  created_by_family_id: string;
+  rsvp_counts: { going: number; maybe: number; not_going: number };
+  viewer_rsvp?: 'going' | 'maybe' | 'not_going' | null;
+}
+
+export interface MeetupDetail {
+  id: string;
+  community_id: string;
+  created_by_family_id: string;
+  created_by_family_name: string;
+  title: string;
+  description: string;
+  starts_at: string;
+  duration_minutes: number;
+  recurrence: 'none' | 'weekly' | 'biweekly' | 'monthly';
+  recurrence_until?: string | null;
+  location_text?: string | null;
+  meeting_url?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+}
+
+export interface DashboardCommunityRow {
+  community: CommunityCard & { identity?: CommunityIdentity | null };
+  unread_count: number;
+  last_activity?: {
+    type: 'topic' | 'reply';
+    topic_id: string;
+    topic_title: string;
+    actor_family_name: string;
+    created_at: string;
+  } | null;
 }
 
 export interface PrincipleTags {
@@ -70,6 +140,8 @@ export interface MemberCard {
   role: 'admin' | 'co_admin' | 'member';
   status: 'pending' | 'active' | 'removed';
   joined_at?: string | null;
+  /** Only populated for pending rows — the message the family sent. */
+  join_message?: string | null;
 }
 
 export interface MembersList {

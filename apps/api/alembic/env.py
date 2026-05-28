@@ -33,6 +33,9 @@ from app.models.community import (
     CommunityTopic,
     CommunityReply,
     CommunityReport,
+    CommunityMeetup,
+    CommunityMeetupRsvp,
+    Notification,
 )
 
 config = context.config

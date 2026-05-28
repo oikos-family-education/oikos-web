@@ -44,6 +44,9 @@ from app.models.community import (  # noqa: F401
     CommunityTopic,
     CommunityReply,
     CommunityReport,
+    CommunityMeetup,
+    CommunityMeetupRsvp,
+    Notification,
 )
 
 
@@ -196,6 +199,9 @@ TRUNCATE TABLE
     child_curriculums,
     curriculum_subjects,
     curriculums,
+    notifications,
+    community_meetup_rsvps,
+    community_meetups,
     community_reports,
     community_replies,
     community_topics,

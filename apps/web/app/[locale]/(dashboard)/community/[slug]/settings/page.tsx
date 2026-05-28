@@ -31,7 +31,11 @@ export default function CommunitySettingsPage() {
   const [ageMin, setAgeMin] = useState<string>('');
   const [ageMax, setAgeMax] = useState<string>('');
   const [identity, setIdentity] = useState<CommunityIdentity>({});
+  const [identityDirty, setIdentityDirty] = useState(false);
   const [emblemPickerOpen, setEmblemPickerOpen] = useState(false);
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identitySavedAt, setIdentitySavedAt] = useState<number | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -43,6 +47,48 @@ export default function CommunitySettingsPage() {
     const id = setTimeout(() => setSavedAt(null), 2500);
     return () => clearTimeout(id);
   }, [savedAt]);
+
+  useEffect(() => {
+    if (identitySavedAt === null) return;
+    const id = setTimeout(() => setIdentitySavedAt(null), 2500);
+    return () => clearTimeout(id);
+  }, [identitySavedAt]);
+
+  // Wrap setIdentity so any change marks the section dirty (and clears stale
+  // success / error feedback).
+  function updateIdentity(next: CommunityIdentity) {
+    setIdentity(next);
+    setIdentityDirty(true);
+    setIdentitySavedAt(null);
+    setIdentityError(null);
+  }
+
+  async function saveIdentity() {
+    if (!c) return;
+    setIdentitySaving(true);
+    setIdentityError(null);
+    try {
+      const res = await apiFetch(`/api/v1/communities/${encodeURIComponent(slug)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity }),
+      });
+      if (res.ok) {
+        const updated: CommunityDetail = await res.json();
+        setC(updated);
+        setIdentity(updated.identity ?? {});
+        setIdentityDirty(false);
+        setIdentitySavedAt(Date.now());
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setIdentityError(typeof b.detail === 'string' ? b.detail : 'Could not save identity.');
+      }
+    } catch {
+      setIdentityError('Could not save identity.');
+    } finally {
+      setIdentitySaving(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -73,12 +119,13 @@ export default function CommunitySettingsPage() {
     }
     setSaving(true);
     try {
+      // Identity has its own dedicated Save button below — don't piggyback on
+      // the main save, otherwise the two flows fight over the same field.
       const body: Record<string, unknown> = {
         description,
         principles_text: principles,
         child_age_min: lo,
         child_age_max: hi,
-        identity,
       };
       if (tagline !== (c.tagline ?? '')) body.tagline = tagline;
       if (c.viewer_role === 'admin' && name !== c.name) body.name = name;
@@ -212,7 +259,7 @@ export default function CommunitySettingsPage() {
             <input
               type="color"
               value={identity.primary_color || DEFAULT_PRIMARY}
-              onChange={(e) => setIdentity({ ...identity, primary_color: e.target.value })}
+              onChange={(e) => updateIdentity({ ...identity, primary_color: e.target.value })}
               className="w-full h-10 border border-slate-200 rounded-lg"
             />
           </div>
@@ -221,7 +268,7 @@ export default function CommunitySettingsPage() {
             <input
               type="color"
               value={identity.secondary_color || DEFAULT_SECONDARY}
-              onChange={(e) => setIdentity({ ...identity, secondary_color: e.target.value })}
+              onChange={(e) => updateIdentity({ ...identity, secondary_color: e.target.value })}
               className="w-full h-10 border border-slate-200 rounded-lg"
             />
           </div>
@@ -250,7 +297,7 @@ export default function CommunitySettingsPage() {
             <input
               type="color"
               value={identity.emblem_color || DEFAULT_EMBLEM_COLOR}
-              onChange={(e) => setIdentity({ ...identity, emblem_color: e.target.value })}
+              onChange={(e) => updateIdentity({ ...identity, emblem_color: e.target.value })}
               className="w-full h-10 border border-slate-200 rounded-lg"
             />
           </div>
@@ -262,7 +309,7 @@ export default function CommunitySettingsPage() {
               <button
                 key={l}
                 type="button"
-                onClick={() => setIdentity({ ...identity, layout: l })}
+                onClick={() => updateIdentity({ ...identity, layout: l })}
                 className={`text-xs px-3 py-1.5 rounded border capitalize ${
                   (identity.layout || 'left') === l
                     ? 'bg-primary text-white border-primary'
@@ -277,9 +324,22 @@ export default function CommunitySettingsPage() {
         <EmblemPicker
           open={emblemPickerOpen}
           onClose={() => setEmblemPickerOpen(false)}
-          onPick={(id) => setIdentity({ ...identity, emblem: id })}
+          onPick={(id) => updateIdentity({ ...identity, emblem: id })}
           current={identity.emblem}
         />
+
+        {identityError && <p className="text-sm text-red-500">{identityError}</p>}
+        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+          {identitySavedAt !== null && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-success" role="status" aria-live="polite">
+              <CheckCircle2 className="w-4 h-4" />
+              Saved
+            </span>
+          )}
+          <Button onClick={saveIdentity} disabled={identitySaving || !identityDirty}>
+            {identitySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save identity'}
+          </Button>
+        </div>
       </div>
 
       {isAdmin && (

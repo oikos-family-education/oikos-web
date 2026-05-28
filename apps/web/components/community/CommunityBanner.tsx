@@ -10,15 +10,20 @@ interface Props {
   identity?: CommunityIdentity | null;
   name: string;
   tagline?: string | null;
-  height?: number; // px; defaults to 140 (overview banner). Set 8 for a card strip.
+  height?: number; // px; defaults to 140 (overview banner). Set <=16 for a card strip.
   showName?: boolean; // when true, overlays the name + tagline on the gradient
 }
 
 /**
  * Renders the community identity (gradient + emblem) per v2 spec §7.3.
  *
- * When `identity` is null or missing fields, falls back to a neutral
- * indigo→slate gradient with no emblem.
+ * Layout:
+ *   - "left":  [emblem] [name / tagline]  — emblem sits to the left, text flows
+ *              to its right so they never overlap.
+ *   - "center": stacked vertically and centred: emblem on top, name + tagline below.
+ *
+ * Falls back to a neutral indigo→slate gradient with no emblem when `identity`
+ * is null. Set `height <= 16` for a thin strip (no overlay text) used on cards.
  */
 export function CommunityBanner({
   identity, name, tagline, height = 140, showName = true,
@@ -32,34 +37,50 @@ export function CommunityBanner({
 
   const minimal = height <= 16;
 
+  if (minimal) {
+    return (
+      <div
+        className="w-full rounded-xl"
+        style={{
+          height,
+          background: `linear-gradient(120deg, ${primary} 0%, ${secondary} 100%)`,
+        }}
+        aria-hidden
+      />
+    );
+  }
+
   return (
     <div
-      className={`relative w-full rounded-xl overflow-hidden ${minimal ? '' : 'shadow-sm'}`}
+      className="w-full rounded-xl overflow-hidden shadow-sm px-6 py-4"
       style={{
-        height,
+        minHeight: height,
         background: `linear-gradient(120deg, ${primary} 0%, ${secondary} 100%)`,
       }}
-      aria-hidden={minimal ? true : undefined}
     >
-      {!minimal && Icon && (
-        <div
-          className={`absolute inset-0 flex items-center ${
-            layout === 'center' ? 'justify-center' : 'justify-start pl-6'
-          }`}
-        >
-          <Icon style={{ color: emblemColor }} className="w-16 h-16 opacity-90" />
-        </div>
-      )}
-      {!minimal && showName && (
-        <div
-          className={`absolute inset-0 flex flex-col justify-end px-6 py-4 ${
-            layout === 'center' && Icon ? 'items-center text-center' : 'items-start'
-          }`}
-        >
-          <h1 className="text-xl sm:text-2xl font-bold text-white drop-shadow">{name}</h1>
-          {tagline && <p className="text-white/85 text-sm mt-0.5">{tagline}</p>}
-        </div>
-      )}
+      <div
+        className={`h-full flex gap-4 ${
+          layout === 'center'
+            ? 'flex-col items-center text-center justify-center'
+            : 'flex-row items-center'
+        }`}
+        style={{ minHeight: height - 32 /* account for py-4 */ }}
+      >
+        {Icon && (
+          <div className="shrink-0">
+            <Icon
+              style={{ color: emblemColor }}
+              className={layout === 'center' ? 'w-12 h-12 opacity-95' : 'w-14 h-14 opacity-95'}
+            />
+          </div>
+        )}
+        {showName && (
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white drop-shadow truncate">{name}</h1>
+            {tagline && <p className="text-white/85 text-sm mt-0.5 line-clamp-2">{tagline}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

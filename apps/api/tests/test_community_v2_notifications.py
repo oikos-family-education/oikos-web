@@ -165,7 +165,7 @@ async def test_dashboard_summary_lists_my_communities(two_members):
     # A posts → B has 1 unread for this community
     await client_a.post(
         f"/api/v1/communities/{slug}/topics",
-        json={"title": "Hi", "body": "Body"},
+        json={"title": "Hey", "body": "Body"},
     )
 
     summary = await client_b.get("/api/v1/communities/dashboard-summary")
@@ -175,7 +175,7 @@ async def test_dashboard_summary_lists_my_communities(two_members):
     assert rows[0]["community"]["slug"] == slug
     assert rows[0]["unread_count"] == 1
     assert rows[0]["last_activity"] is not None
-    assert rows[0]["last_activity"]["topic_title"] == "Hi"
+    assert rows[0]["last_activity"]["topic_title"] == "Hey"
 
 
 async def test_admin_pending_count_aggregates(two_members, db, make_user, make_client):

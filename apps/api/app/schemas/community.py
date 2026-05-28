@@ -132,6 +132,7 @@ class CommunityCreate(BaseModel):
     cover_image_url: Optional[str] = Field(None, max_length=500)
     child_age_min: Optional[int] = Field(None, ge=0, le=25)
     child_age_max: Optional[int] = Field(None, ge=0, le=25)
+    identity: Optional[CommunityIdentity] = None
 
     @field_validator("name")
     @classmethod

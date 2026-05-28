@@ -87,24 +87,26 @@ def expand_occurrences(
         return out
 
     # monthly — same day-of-month, falling back to last day of the month
-    # when the source day doesn't exist (e.g. anchor on the 31st).
-    def add_months(d: date, n: int) -> date:
-        m = d.month - 1 + n
-        y = d.year + m // 12
+    # when the source day doesn't exist (e.g. anchor on the 31st). Always
+    # clamp against the original anchor day so Feb 28 → Mar 31 (not Mar 28).
+    def month_offset(anchor_d: date, n: int) -> date:
+        m = anchor_d.month - 1 + n
+        y = anchor_d.year + m // 12
         m = m % 12 + 1
-        # last day of target month
         if m == 12:
             last = 31
         else:
             last = (date(y, m + 1, 1) - timedelta(days=1)).day
-        return date(y, m, min(d.day, last))
+        return date(y, m, min(anchor_d.day, last))
 
-    d = anchor
-    # Walk forward; bail when past window_end
-    while d <= window_end and (upper is None or d <= upper):
+    n = 0
+    while True:
+        d = month_offset(anchor, n)
+        if d > window_end or (upper is not None and d > upper):
+            break
         if window_start <= d <= window_end:
             out.append(d)
-        d = add_months(d, 1)
+        n += 1
     return out
 
 

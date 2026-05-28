@@ -94,6 +94,16 @@ export function NotificationBell() {
       setUnread((u) => Math.max(0, u - 1));
     }
     setOpen(false);
+    // Message events route to the inbox thread.
+    if (
+      (item.event_type === 'message_received' ||
+        item.event_type === 'message_thread_started') &&
+      item.thread_id
+    ) {
+      router.push(`/messages/${item.thread_id}`);
+      return;
+    }
+    // Community-forum events route to the topic / reply anchor.
     if (item.community_slug && item.topic_id) {
       const url = item.reply_id
         ? `/community/${item.community_slug}/forum/${item.topic_id}#reply-${item.reply_id}`
@@ -104,10 +114,22 @@ export function NotificationBell() {
 
   function describe(item: NotificationItem): string {
     const actor = item.actor_family_name || 'A family';
-    if (item.event_type === 'topic_created') {
-      return t('topicCreated', { actor, community: item.community_name || 'community' });
+    switch (item.event_type) {
+      case 'topic_created':
+        return item.community_name
+          ? t('topicCreated', { actor, community: item.community_name })
+          : t('topicCreatedNoCommunity', { actor });
+      case 'reply_created':
+        return item.topic_title
+          ? t('replyCreated', { actor, topic: item.topic_title })
+          : t('replyCreatedNoTopic', { actor });
+      case 'message_received':
+        return t('messageReceived', { actor });
+      case 'message_thread_started':
+        return t('messageThreadStarted', { actor });
+      default:
+        return actor;
     }
-    return t('replyCreated', { actor, topic: item.topic_title || 'topic' });
   }
 
   return (

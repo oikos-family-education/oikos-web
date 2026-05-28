@@ -10,13 +10,15 @@ from pydantic import BaseModel
 
 class NotificationItem(BaseModel):
     id: UUID
-    event_type: str  # 'topic_created' | 'reply_created'
+    # 'topic_created' | 'reply_created' | 'message_received' | 'message_thread_started'
+    event_type: str
     community_id: Optional[UUID] = None
     community_slug: Optional[str] = None
     community_name: Optional[str] = None
     topic_id: Optional[UUID] = None
     topic_title: Optional[str] = None
     reply_id: Optional[UUID] = None
+    thread_id: Optional[UUID] = None
     actor_family_id: Optional[UUID] = None
     actor_family_name: Optional[str] = None
     actor_shield_config: Optional[dict] = None

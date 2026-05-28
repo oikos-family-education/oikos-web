@@ -1839,7 +1839,11 @@
     "empty": "You're all caught up.",
     "markAllRead": "Mark all read",
     "topicCreated": "{actor} posted in {community}",
+    "topicCreatedNoCommunity": "{actor} posted a new topic",
     "replyCreated": "{actor} replied in {topic}",
+    "replyCreatedNoTopic": "{actor} replied to a topic",
+    "messageReceived": "{actor} sent you a message",
+    "messageThreadStarted": "{actor} started a conversation with you",
     "muteThisCommunity": "Mute notifications",
     "muted": "Notifications muted",
     "unmuted": "Notifications on"

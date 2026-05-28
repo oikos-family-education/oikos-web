@@ -385,5 +385,12 @@ class Notification(Base):
         ForeignKey("families.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Family-to-family messaging events ('message_received', 'message_thread_started')
+    # populate this column instead of topic_id / reply_id.
+    thread_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("message_threads.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     read_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)

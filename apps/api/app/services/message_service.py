@@ -463,6 +463,7 @@ class MessageService:
         family: Family,
         thread_id: uuid.UUID,
         before: Optional[datetime] = None,
+        after: Optional[datetime] = None,
         limit: int = DEFAULT_MESSAGES_PAGE_SIZE,
     ) -> dict:
         thread = await self._get_thread(thread_id)
@@ -480,16 +481,33 @@ class MessageService:
         blocked_by_them = b_blocked_a
         can_send = not (blocked_by_me or blocked_by_them)
 
-        q = select(MessageItem).where(MessageItem.thread_id == thread.id)
-        if before is not None:
-            q = q.where(MessageItem.created_at < before)
-        q = q.order_by(MessageItem.created_at.desc()).limit(limit + 1)
-        rows = list((await self.db.execute(q)).scalars().all())
-        has_more = len(rows) > limit
-        rows = rows[:limit]
-        # Return chronological (oldest first) for the UI
-        rows.reverse()
-        next_cursor = rows[0].created_at if has_more and rows else None
+        # `after` is the polling delta cursor — fetch strictly-newer messages,
+        # ascending, no history pagination. `after` takes precedence over
+        # `before` if both are somehow passed (callers should send one).
+        if after is not None:
+            q = (
+                select(MessageItem)
+                .where(
+                    MessageItem.thread_id == thread.id,
+                    MessageItem.created_at > after,
+                )
+                .order_by(MessageItem.created_at.asc())
+                .limit(limit)
+            )
+            rows = list((await self.db.execute(q)).scalars().all())
+            # No history-direction cursor when polling forward.
+            next_cursor = None
+        else:
+            q = select(MessageItem).where(MessageItem.thread_id == thread.id)
+            if before is not None:
+                q = q.where(MessageItem.created_at < before)
+            q = q.order_by(MessageItem.created_at.desc()).limit(limit + 1)
+            rows = list((await self.db.execute(q)).scalars().all())
+            has_more = len(rows) > limit
+            rows = rows[:limit]
+            # Return chronological (oldest first) for the UI
+            rows.reverse()
+            next_cursor = rows[0].created_at if has_more and rows else None
 
         messages = [
             {

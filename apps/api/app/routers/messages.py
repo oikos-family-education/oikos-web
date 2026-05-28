@@ -84,12 +84,15 @@ async def start_thread(
 async def get_thread(
     thread_id: UUID,
     before: Optional[datetime] = None,
+    after: Optional[datetime] = None,
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     svc: MessageService = Depends(get_service),
 ):
     family = await svc.get_family_for_user(current_user.id)
-    return await svc.get_thread_detail(family, thread_id, before=before, limit=limit)
+    return await svc.get_thread_detail(
+        family, thread_id, before=before, after=after, limit=limit,
+    )
 
 
 @router.post(

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -13,12 +13,42 @@ import { MessageList } from '../../../../../components/messages/MessageList';
 import { Composer } from '../../../../../components/messages/Composer';
 import { BlockConfirmDialog } from '../../../../../components/messages/BlockConfirmDialog';
 import { ReportDialog } from '../../../../../components/messages/ReportDialog';
+import { mergeMessages } from '../../../../../components/messages/merge';
 import type {
   InboxFilter,
   InboxPage,
   MessageItemRead,
   ThreadDetail,
 } from '../../../../../components/messages/types';
+
+const POLL_INTERVAL_MS = 10_000;
+
+/**
+ * Apply a thread response to current state. Used both for the initial load
+ * and for every polling delta:
+ *   - Initial load: `current` is null, so we adopt the response wholesale.
+ *   - Poll: we keep the existing message list, append any new messages
+ *     from the response (dedupe by id), and sync the side-state fields
+ *     (can_send, blocked_by_*, mute, last_read_at). We *never* drop
+ *     locally-known messages — only add.
+ */
+function applyThreadResponse(
+  current: ThreadDetail | null,
+  incoming: ThreadDetail,
+): ThreadDetail {
+  if (!current) return incoming;
+  const messages = mergeMessages(current.messages, incoming.messages);
+  return {
+    ...current,
+    can_send: incoming.can_send,
+    blocked_by_me: incoming.blocked_by_me,
+    blocked_by_them: incoming.blocked_by_them,
+    notifications_muted: incoming.notifications_muted,
+    last_read_at: incoming.last_read_at,
+    other_family: incoming.other_family,
+    messages,
+  };
+}
 
 export default function ThreadPage() {
   const t = useTranslations('Messages');
@@ -37,6 +67,31 @@ export default function ThreadPage() {
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
+  const myFamilyId = family?.id ?? null;
+
+  // The poll cursor: ISO string of the chronologically-latest message we
+  // already have in state. A ref so the setInterval callback can read the
+  // current value without re-binding on every render (avoids stale closures
+  // and stale-cursor bugs).
+  const cursorRef = useRef<string | null>(null);
+
+  // Refs for stable identifiers so the polling effect doesn't need to
+  // re-key when these strings change in a render-cycle.
+  const myFamilyIdRef = useRef<string | null>(myFamilyId);
+  useEffect(() => {
+    myFamilyIdRef.current = myFamilyId;
+  }, [myFamilyId]);
+
+  // Keep cursorRef in sync with the latest message in state.
+  useEffect(() => {
+    if (!thread || thread.messages.length === 0) {
+      cursorRef.current = null;
+      return;
+    }
+    const last = thread.messages[thread.messages.length - 1];
+    cursorRef.current = last.created_at;
+  }, [thread]);
+
   const fetchThread = useCallback(async () => {
     setLoadingThread(true);
     try {
@@ -47,9 +102,11 @@ export default function ThreadPage() {
       }
       if (res.ok) {
         const data: ThreadDetail = await res.json();
-        setThread(data);
+        setThread((cur) => applyThreadResponse(cur, data));
         // Mark read.
-        await apiFetch(`/api/v1/messages/threads/${threadId}/read`, { method: 'POST' });
+        await apiFetch(`/api/v1/messages/threads/${threadId}/read`, {
+          method: 'POST',
+        });
       }
     } finally {
       setLoadingThread(false);
@@ -65,12 +122,86 @@ export default function ThreadPage() {
   }, []);
 
   useEffect(() => {
+    // Reset state when navigating to a different thread.
+    setThread(null);
+    setNotFound(false);
+    cursorRef.current = null;
     fetchThread();
   }, [fetchThread]);
 
   useEffect(() => {
     fetchInbox(filter);
   }, [filter, fetchInbox]);
+
+  // ── Polling: every 10s while the thread is open + tab visible ────────
+  //
+  // Strategy:
+  //   * One setInterval, but the callback no-ops when the tab is hidden.
+  //   * `visibilitychange` triggers an immediate poll on becoming visible
+  //     so messages that arrived while backgrounded show up at once.
+  //   * The cursor lives in a ref kept in sync via a separate effect;
+  //     this keeps the interval callback closure-stable across renders.
+  //   * `cancelled` guards against setState after unmount or thread switch.
+  //   * Mark-read only fires when the poll brought *new incoming* messages,
+  //     not on every empty tick.
+  useEffect(() => {
+    if (!threadId) return;
+    if (notFound) return;
+    let cancelled = false;
+
+    async function pollOnce() {
+      if (cancelled) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      const cursor = cursorRef.current;
+      // Until we have at least one message in state, the initial load is
+      // still in flight (or this is a brand-new empty thread). Skip the
+      // delta — there's nothing meaningful to ask for.
+      if (!cursor) return;
+
+      try {
+        const res = await apiFetch(
+          `/api/v1/messages/threads/${threadId}?after=${encodeURIComponent(cursor)}`,
+        );
+        if (cancelled || !res.ok) return;
+        const data: ThreadDetail = await res.json();
+
+        // Identify *new* incoming messages BEFORE merging (so we can
+        // decide whether to mark-read).
+        const myId = myFamilyIdRef.current;
+        const newIncoming = data.messages.filter(
+          (m) => m.author_family_id !== myId,
+        );
+
+        setThread((cur) => applyThreadResponse(cur, data));
+
+        if (newIncoming.length > 0) {
+          // Fire-and-forget read marking. Errors are non-fatal.
+          apiFetch(`/api/v1/messages/threads/${threadId}/read`, {
+            method: 'POST',
+          }).catch(() => undefined);
+        }
+      } catch {
+        // Network blip — just try again on the next tick.
+      }
+    }
+
+    const id = setInterval(pollOnce, POLL_INTERVAL_MS);
+    function onVisibility() {
+      if (document.visibilityState === 'visible') {
+        // Catch up immediately; the interval continues on its own cadence.
+        pollOnce();
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [threadId, notFound]);
 
   async function send(body: string) {
     const res = await apiFetch(
@@ -83,8 +214,12 @@ export default function ThreadPage() {
     );
     if (res.ok) {
       const msg: MessageItemRead = await res.json();
+      // Same merge path as the poll: dedupes by id, so if a concurrent
+      // poll already pulled this row, we don't double-render.
       setThread((cur) =>
-        cur ? { ...cur, messages: [...cur.messages, msg] } : cur,
+        cur
+          ? { ...cur, messages: mergeMessages(cur.messages, [msg]) }
+          : cur,
       );
       // Refresh inbox excerpt
       fetchInbox(filter);
@@ -172,7 +307,7 @@ export default function ThreadPage() {
               />
               <MessageList
                 messages={thread.messages}
-                myFamilyId={family?.id ?? null}
+                myFamilyId={myFamilyId}
               />
               <Composer
                 disabled={!thread.can_send}

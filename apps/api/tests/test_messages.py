@@ -317,6 +317,70 @@ async def test_delete_thread_hides_for_caller_only(two_families):
     assert inbox_b.json()["total"] == 1
 
 
+async def test_after_cursor_returns_only_newer_messages(two_families):
+    """The ?after=<iso> query param is the polling delta cursor.
+
+    Strict greater-than: a message with created_at equal to the cursor must
+    NOT be returned again (would cause client-side duplication).
+    """
+    client_a, family_a, client_b, family_b = two_families
+
+    r = await client_a.post(
+        "/api/v1/messages/threads",
+        json={"recipient_family_id": str(family_b.id), "body": "first"},
+    )
+    thread_id = r.json()["thread"]["id"]
+    first_msg_at = r.json()["message"]["created_at"]
+
+    # Poll with the just-sent message's created_at as cursor — no new messages.
+    delta0 = await client_a.get(
+        f"/api/v1/messages/threads/{thread_id}?after={first_msg_at}",
+    )
+    assert delta0.status_code == 200
+    assert delta0.json()["messages"] == []
+
+    # B replies; A polls; sees only the reply.
+    r2 = await client_b.post(
+        f"/api/v1/messages/threads/{thread_id}/messages",
+        json={"body": "reply"},
+    )
+    reply_id = r2.json()["id"]
+
+    delta1 = await client_a.get(
+        f"/api/v1/messages/threads/{thread_id}?after={first_msg_at}",
+    )
+    assert delta1.status_code == 200
+    items = delta1.json()["messages"]
+    assert [m["id"] for m in items] == [reply_id]
+
+
+async def test_after_cursor_state_fields_still_returned(two_families):
+    """A polling delta still syncs can_send / block flags / mute state."""
+    client_a, family_a, client_b, family_b = two_families
+
+    r = await client_a.post(
+        "/api/v1/messages/threads",
+        json={"recipient_family_id": str(family_b.id), "body": "hi"},
+    )
+    thread_id = r.json()["thread"]["id"]
+    first_msg_at = r.json()["message"]["created_at"]
+
+    # B blocks A. A polls — should see can_send=false even though no new
+    # messages came in.
+    await client_b.post(
+        "/api/v1/messages/blocks", json={"family_id": str(family_a.id)},
+    )
+
+    delta = await client_a.get(
+        f"/api/v1/messages/threads/{thread_id}?after={first_msg_at}",
+    )
+    assert delta.status_code == 200
+    body = delta.json()
+    assert body["messages"] == []
+    assert body["can_send"] is False
+    assert body["blocked_by_them"] is True
+
+
 async def test_new_message_un_deletes_for_recipient(two_families):
     client_a, family_a, client_b, family_b = two_families
 

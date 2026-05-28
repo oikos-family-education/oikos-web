@@ -111,6 +111,9 @@ def _to_card(c) -> dict:
         "principle_tags": c.principle_tags or {},
         "child_age_min": c.child_age_min,
         "child_age_max": c.child_age_max,
+        # v2: identity must round-trip so the settings UI doesn't appear to
+        # reset after Save (PR #31 regression).
+        "identity": c.identity,
     }
 
 

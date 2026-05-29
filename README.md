@@ -3,7 +3,7 @@
 > A modern, open source platform to help families organize and enrich their children's education journey.
 
 [![CI](https://github.com/oikos-family/oikos-web/actions/workflows/ci.yml/badge.svg)](https://github.com/oikos-family/oikos-web/actions/workflows/ci.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
@@ -357,4 +357,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide including coding stand
 
 ## License
 
-Oikos is open source software licensed under the [GNU General Public License v3.0](LICENSE).
+Oikos is open source software licensed under the [Apache License 2.0](LICENSE).

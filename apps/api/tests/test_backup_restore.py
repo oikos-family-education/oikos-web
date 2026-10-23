@@ -1,6 +1,7 @@
 """Desktop restore of a family backup (.oikos): validation, safety copy, atomic import, platform remapping."""
 import io
 import json
+import re
 import uuid
 import zipfile
 from datetime import date, datetime, timezone
@@ -550,6 +551,26 @@ async def test_keeps_five_most_recent_safety_copies(desktop_client, valid_backup
     assert len(stamps) == 5
     assert "20200101T000000000000Z" not in stamps and "20200102T000000000000Z" not in stamps
     assert keep.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("slug", ["../evil", "a/b:c", "../../.."])
+async def test_safety_copy_names_ignore_crafted_slugs(desktop_client, valid_backup_bytes, backup_dir, slug):
+    """A restored family's slug comes from the uploaded file; it must never steer where the next
+    safety copy is written, nor make it unwritable."""
+    crafted = rewrite_table(valid_backup_bytes, "families.json", lambda rows: [
+        {**r, "family_name_slug": slug} for r in rows
+    ])
+    first = await _restore(desktop_client, crafted)
+    assert first.status_code == 200, first.text
+
+    second = await _restore(desktop_client, valid_backup_bytes)
+    assert second.status_code == 200, second.text
+    root = backup_dir.parent
+    written = [p for p in root.rglob("*") if p.is_file()]
+    assert written and all(p.parent == backup_dir for p in written), written
+    for path in written:
+        assert re.fullmatch(r"auto-prerestore-\d{8}T\d{12}Z-[a-z0-9-]+\.oikos", path.name), path.name
 
 
 @pytest.mark.asyncio

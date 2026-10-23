@@ -1,6 +1,7 @@
 """Restores a .oikos backup on the desktop app: replaces all family and user data, in one transaction."""
 import io
 import json
+import re
 import secrets
 import zipfile
 from datetime import datetime, timezone
@@ -81,6 +82,16 @@ def read_backup(data: bytes) -> tuple[dict, dict[str, list[dict]]]:
     return manifest, tables
 
 
+def _safety_copy_path(directory: Path, stamp: str, family_id, slug: str) -> Path:
+    # A restored family's slug comes from the uploaded file: keep only what locally made slugs use,
+    # so it can't leave BACKUP_DIR or make the name unwritable
+    safe = re.sub(r"[^a-z0-9-]", "", slug.lower())[:60] or str(family_id)
+    path = directory / f"{SAFETY_COPY_PREFIX}{stamp}-{safe}.oikos"
+    if path.resolve().parent != directory.resolve():
+        raise RuntimeError(f"Safety copy path {path} is outside {directory}")
+    return path
+
+
 async def write_safety_copy(db: AsyncSession) -> list[Path]:
     """Back up every family on this computer before a restore replaces them; keep the 5 latest restores."""
     if not settings.BACKUP_DIR:
@@ -93,7 +104,7 @@ async def write_safety_copy(db: AsyncSession) -> list[Path]:
     written = []
     for family_id, slug in families:
         _, content = await export_family_backup(db, family_id)
-        path = directory / f"{SAFETY_COPY_PREFIX}{stamp}-{slug}.oikos"
+        path = _safety_copy_path(directory, stamp, family_id, slug)
         path.write_bytes(content)
         written.append(path)
 

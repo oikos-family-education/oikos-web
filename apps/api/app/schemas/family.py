@@ -172,8 +172,3 @@ class InvitationResponse(BaseModel):
 
 class InvitationAccept(BaseModel):
     token: str = Field(..., min_length=16, max_length=128)
-
-
-class ExportResponse(BaseModel):
-    status: str  # 'pending' | 'ready'
-    url: Optional[str] = None

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     SESSIONS_DB_PATH: str = ""
     BACKUP_DIR: str = ""
 
+    # Alembic config, used to stamp backups with the schema revision
+    ALEMBIC_INI_PATH: str = str(Path(__file__).resolve().parents[2] / "alembic.ini")
+
     # Auth
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"

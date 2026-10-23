@@ -308,7 +308,8 @@ def desktop_mode(monkeypatch):
 async def desktop_client(desktop_mode):
     """A client over a freshly built desktop-mode app (cloud-only routers unmounted)."""
     transport = ASGITransport(app=create_app())
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    # The desktop app only answers to local host names (DNS-rebinding guard)
+    async with AsyncClient(transport=transport, base_url="http://127.0.0.1") as ac:
         yield ac
 
 
@@ -429,6 +430,7 @@ def mock_rate_limit(monkeypatch):
     import app.routers.admin as admin_router
     import app.routers.auth_local as auth_local_router
     import app.routers.families as families_router
+    import app.routers.desktop as desktop_router
 
     monkeypatch.setattr(auth_service, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_router, "check_rate_limit", _noop)
@@ -436,6 +438,8 @@ def mock_rate_limit(monkeypatch):
     monkeypatch.setattr(admin_router, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_local_router, "check_rate_limit", _noop)
     monkeypatch.setattr(families_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(desktop_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(desktop_router, "clear_all_sessions", _noop)
 
     # No-op outbound email
     import app.services.email_service as email_service

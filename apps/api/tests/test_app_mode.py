@@ -34,3 +34,22 @@ async def test_family_invite_unchanged_in_cloud(authed_with_family):
     client, _, _ = authed_with_family
     res = await client.post("/api/v1/families/me/members/invite", json={"email": "x@example.com"})
     assert res.status_code != 404
+
+
+@pytest.mark.asyncio
+async def test_desktop_rejects_foreign_host(desktop_client):
+    """DNS rebinding: a page on another site must not reach the unauthenticated desktop endpoints."""
+    res = await desktop_client.get("/health", headers={"Host": "evil.example"})
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_desktop_accepts_localhost(desktop_client):
+    res = await desktop_client.get("/health", headers={"Host": "localhost:8000"})
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_cloud_accepts_any_host(client):
+    res = await client.get("/health", headers={"Host": "evil.example"})
+    assert res.status_code == 200

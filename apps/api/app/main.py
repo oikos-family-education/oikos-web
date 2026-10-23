@@ -5,8 +5,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.core.app_mode import is_desktop
-from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications, messages, child_reports, auth_local
+from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications, messages, child_reports, auth_local, desktop
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ CLOUD_ONLY_ROUTERS: list[APIRouter] = [
 # Local-app features (backup, updates, ...); not mounted in cloud mode.
 DESKTOP_ONLY_ROUTERS: list[APIRouter] = [
     auth_local.router,
+    desktop.router,
 ]
 
 
@@ -59,6 +61,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if is_desktop():
+        # The desktop endpoints need no login; refuse requests a DNS-rebinding page could make
+        application.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 
     routers = list(SHARED_ROUTERS)
     routers += DESKTOP_ONLY_ROUTERS if is_desktop() else CLOUD_ONLY_ROUTERS

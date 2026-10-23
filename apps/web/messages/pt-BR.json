@@ -1526,6 +1526,10 @@
     "cloudOnlyPageTitle": "Disponível na versão online",
     "onlineOnlyNote": "Disponível apenas na versão online do Oikos.",
     "communitiesCardTitle": "Comunidades",
-    "communitiesCardBody": "Conecte-se com outras famílias na versão online do Oikos."
+    "communitiesCardBody": "Conecte-se com outras famílias na versão online do Oikos.",
+    "setPasswordTitle": "Definir uma nova senha",
+    "setPasswordSubtitle": "Digite o e-mail que você usa no Oikos e escolha uma nova senha.",
+    "setPasswordButton": "Salvar e entrar",
+    "accountNotFound": "Não existe uma conta com esse e-mail neste computador."
   }
 }

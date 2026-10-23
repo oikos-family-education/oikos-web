@@ -4,13 +4,14 @@ import { apiFetch } from '../../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input, Button } from '@oikos/ui';
-import { AlertTriangle, Loader2, Mail, UserPlus, Users } from 'lucide-react';
+import { AlertTriangle, Loader2, Mail, UserPlus, UserRound, Users } from 'lucide-react';
 
 interface Member {
   kind: 'member' | 'invitation';
   id: string;
   user_id: string | null;
-  email: string;
+  email: string | null;
+  has_account: boolean;
   first_name: string | null;
   last_name: string | null;
   role: 'primary' | 'co_parent';
@@ -22,14 +23,14 @@ interface Member {
 
 function initialsOf(m: Member): string {
   if (m.first_name || m.last_name) {
-    return `${(m.first_name || '')[0] ?? ''}${(m.last_name || '')[0] ?? ''}`.toUpperCase() || m.email[0].toUpperCase();
+    return `${(m.first_name || '')[0] ?? ''}${(m.last_name || '')[0] ?? ''}`.toUpperCase() || (m.email ?? '?')[0].toUpperCase();
   }
-  return m.email.slice(0, 2).toUpperCase();
+  return (m.email ?? '?').slice(0, 2).toUpperCase();
 }
 
 function nameOf(m: Member): string {
   const n = `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim();
-  return n || m.email;
+  return n || m.email || '';
 }
 
 export function MembersTab() {
@@ -45,6 +46,12 @@ export function MembersTab() {
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [confirmingRemove, setConfirmingRemove] = useState<Member | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [profileFirst, setProfileFirst] = useState('');
+  const [profileLast, setProfileLast] = useState('');
+  const [profileNameError, setProfileNameError] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Member | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -62,8 +69,61 @@ export function MembersTab() {
     load();
   }, []);
 
-  const hasCoParentSlot = !members.some((m) => m.kind === 'member' && m.role === 'co_parent')
-    && !members.some((m) => m.kind === 'invitation' && m.status === 'pending');
+  const hasPendingInvite = members.some((m) => m.kind === 'invitation' && m.status === 'pending');
+  const coParent = members.find((m) => m.kind === 'member' && m.role === 'co_parent');
+  // A parent without a login still leaves room for an invitation: accepting it
+  // links the new account to their existing profile.
+  const hasCoParentSlot = (!coParent || !coParent.has_account) && !hasPendingInvite;
+  const canAddProfile = !coParent && !hasPendingInvite;
+  const showProfileForm = canAddProfile || editingProfile !== null;
+
+  const startEditProfile = (m: Member) => {
+    setEditingProfile(m);
+    setProfileFirst(m.first_name ?? '');
+    setProfileLast(m.last_name ?? '');
+    setProfileNameError('');
+    setProfileError('');
+  };
+
+  const cancelEditProfile = () => {
+    setEditingProfile(null);
+    setProfileFirst('');
+    setProfileLast('');
+    setProfileNameError('');
+    setProfileError('');
+  };
+
+  const submitProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileNameError('');
+    setProfileError('');
+    if (!profileFirst.trim()) {
+      setProfileNameError(t('addParentNameRequired'));
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const url = editingProfile
+        ? `/api/v1/families/me/members/profiles/${editingProfile.id}`
+        : '/api/v1/families/me/members/profiles';
+      const res = await apiFetch(url, {
+        method: editingProfile ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: profileFirst.trim(), last_name: profileLast.trim() || null }),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        setProfileError(t('addParentError'));
+        return;
+      }
+      cancelEditProfile();
+      await load();
+    } catch {
+      setProfileError(t('addParentError'));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const submitInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,10 +170,13 @@ export function MembersTab() {
   };
 
   const removeMember = async () => {
-    if (!confirmingRemove || !confirmingRemove.user_id) return;
+    if (!confirmingRemove) return;
+    const url = confirmingRemove.has_account
+      ? `/api/v1/families/me/members/${confirmingRemove.user_id}`
+      : `/api/v1/families/me/members/profiles/${confirmingRemove.id}`;
     setRemoving(true);
     try {
-      await apiFetch(`/api/v1/families/me/members/${confirmingRemove.user_id}`, {
+      await apiFetch(url, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -125,7 +188,7 @@ export function MembersTab() {
   };
 
   const statusLabel = (m: Member) => {
-    if (m.kind === 'member') return t('membersActive');
+    if (m.kind === 'member') return m.has_account ? t('membersActive') : t('membersNoAccount');
     return m.status === 'expired' ? t('membersExpired') : t('membersPending');
   };
 
@@ -161,7 +224,7 @@ export function MembersTab() {
                       {m.role === 'primary' ? t('membersPrimaryBadge') : t('membersCoParentBadge')}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 truncate">{m.email}</div>
+                  {m.email && <div className="text-xs text-slate-500 truncate">{m.email}</div>}
                   <div className="text-xs text-slate-400 mt-0.5">{statusLabel(m)}</div>
                 </div>
                 {m.kind === 'invitation' && (
@@ -182,7 +245,25 @@ export function MembersTab() {
                     </button>
                   </div>
                 )}
-                {m.kind === 'member' && m.role === 'co_parent' && (
+                {m.kind === 'member' && m.role === 'co_parent' && !m.has_account && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => startEditProfile(m)}
+                      className="text-xs font-medium text-primary hover:text-primary-hover"
+                    >
+                      {t('membersEdit')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingRemove(m)}
+                      className="text-xs font-medium text-red-500 hover:text-red-600"
+                    >
+                      {t('membersRemoveProfile')}
+                    </button>
+                  </div>
+                )}
+                {m.kind === 'member' && m.role === 'co_parent' && m.has_account && (
                   <button
                     type="button"
                     onClick={() => setConfirmingRemove(m)}
@@ -197,6 +278,67 @@ export function MembersTab() {
         )}
       </div>
 
+      {!loading && showProfileForm && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 lg:p-8">
+          <div className="flex items-center gap-2 mb-3">
+            <UserRound className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-slate-800">
+              {editingProfile ? nameOf(editingProfile) : t('addParentHeading')}
+            </h2>
+          </div>
+          {!editingProfile && <p className="text-sm text-slate-600 mb-4">{t('addParentIntro')}</p>}
+
+          <form onSubmit={submitProfile} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                id="parentFirstName"
+                label={t('addParentFirstName')}
+                required
+                maxLength={100}
+                value={profileFirst}
+                onChange={(e) => setProfileFirst(e.target.value)}
+                error={profileNameError || undefined}
+              />
+              <Input
+                id="parentLastName"
+                label={t('addParentLastName')}
+                maxLength={100}
+                value={profileLast}
+                onChange={(e) => setProfileLast(e.target.value)}
+              />
+            </div>
+
+            {profileError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                {profileError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              {editingProfile && (
+                <button
+                  type="button"
+                  onClick={cancelEditProfile}
+                  disabled={savingProfile}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 disabled:opacity-50"
+                >
+                  {t('cancel')}
+                </button>
+              )}
+              <Button type="submit" disabled={!profileFirst.trim() || savingProfile} className="px-6">
+                {savingProfile ? (
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                ) : editingProfile ? (
+                  t('saveParent')
+                ) : (
+                  t('addParentButton')
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {hasCoParentSlot && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 lg:p-8">
           <div className="flex items-center gap-2 mb-3">
@@ -204,6 +346,9 @@ export function MembersTab() {
             <h2 className="text-lg font-semibold text-slate-800">{t('inviteHeading')}</h2>
           </div>
           <p className="text-sm text-slate-600 mb-4">{t('inviteIntro')}</p>
+          {coParent && !coParent.has_account && (
+            <p className="text-sm text-slate-600 mb-4">{t('inviteLinksProfile', { name: nameOf(coParent) })}</p>
+          )}
 
           <div
             role="note"
@@ -273,9 +418,13 @@ export function MembersTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-slate-800">
-              {t('removeMemberTitle', { name: nameOf(confirmingRemove) })}
+              {confirmingRemove.has_account
+                ? t('removeMemberTitle', { name: nameOf(confirmingRemove) })
+                : t('removeProfileTitle', { name: nameOf(confirmingRemove) })}
             </h3>
-            <p className="text-sm text-slate-600 mt-2">{t('removeMemberBody')}</p>
+            <p className="text-sm text-slate-600 mt-2">
+              {confirmingRemove.has_account ? t('removeMemberBody') : t('removeProfileBody')}
+            </p>
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
@@ -291,7 +440,13 @@ export function MembersTab() {
                 disabled={removing}
                 className="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed"
               >
-                {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : t('removeMemberConfirm')}
+                {removing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : confirmingRemove.has_account ? (
+                  t('removeMemberConfirm')
+                ) : (
+                  t('removeProfileConfirm')
+                )}
               </button>
             </div>
           </div>

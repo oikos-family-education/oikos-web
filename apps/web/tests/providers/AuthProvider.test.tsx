@@ -237,6 +237,48 @@ describe('AuthProvider', () => {
     expect(mockReplace).not.toHaveBeenCalledWith('/dashboard', expect.anything());
   });
 
+  it('refreshFamily refetches /families/me and updates context state', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ user: mockUser }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockFamily,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ...mockFamily, family_name: 'Updated Family' }),
+      } as Response);
+
+    function RefreshFamilyConsumer() {
+      const { family, isLoading, refreshFamily } = useAuth();
+      if (isLoading) return <div>Loading...</div>;
+      return (
+        <div>
+          <div data-testid="family-name">{family?.family_name ?? 'no-family'}</div>
+          <button onClick={() => refreshFamily()}>Refresh</button>
+        </div>
+      );
+    }
+
+    render(<AuthProvider><RefreshFamilyConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('family-name')).toHaveTextContent('Smith Family');
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /refresh/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('family-name')).toHaveTextContent('Updated Family');
+    });
+  });
+
   it('retries /auth/me after a successful refresh', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) } as Response) // first /me → 401

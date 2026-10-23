@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getServiceMeta } from '../../lib/getServiceMeta';
 import { getTypeKey } from './ResourceCard';
+import { TYPE_ICONS } from './resourceTypeIcons';
 
 interface SubjectResource {
   id: string;
@@ -28,11 +29,6 @@ interface FamilyResource {
   author: string | null;
 }
 
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  book: BookOpen, article: FileText, video: Video, course: GraduationCap,
-  podcast: Headphones, documentary: Film, printable: FileSpreadsheet,
-  website: Globe, curriculum: Package, other: HelpCircle,
-};
 
 const TYPE_COLORS: Record<string, string> = {
   book: 'bg-blue-100 text-blue-700', article: 'bg-amber-100 text-amber-700',

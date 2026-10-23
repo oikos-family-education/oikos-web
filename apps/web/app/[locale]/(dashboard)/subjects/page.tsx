@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '../../../../lib/navigation';
 import { SubjectCard } from '../../../../components/subjects/SubjectCard';
 import { categoryKey } from '../../../../lib/categoryLabel';
+import { useAuth } from '../../../../providers/AuthProvider';
+import { useFamilyParents, getParentDisplayName } from '../../../../hooks/useFamilyParents';
 
 interface Subject {
   id: string;
@@ -23,6 +25,8 @@ interface Subject {
   is_public: boolean;
   default_session_duration_minutes: number;
   default_weekly_frequency: number;
+  archived_at: string | null;
+  responsible_member_id: string | null;
 }
 
 const CATEGORIES = [
@@ -34,15 +38,22 @@ const CATEGORIES = [
 export default function SubjectsPage() {
   const t = useTranslations('Subjects');
   const router = useRouter();
+  const { family } = useAuth();
+  const { parentsById } = useFamilyParents();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<string>('mine');
   const [category, setCategory] = useState<string>('');
+  const [status, setStatus] = useState<'active' | 'archived'>('active');
   const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Subject | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [unarchiveError, setUnarchiveError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleSearchChange = useCallback((value: string) => {
@@ -58,13 +69,14 @@ export default function SubjectsPage() {
   useEffect(() => {
     fetchSubjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, category, debouncedSearch]);
+  }, [source, category, status, debouncedSearch]);
 
   async function fetchSubjects() {
     setIsLoading(true);
     const params = new URLSearchParams();
     if (source) params.set('source', source);
     if (category) params.set('category', category);
+    params.set('status', status);
     if (debouncedSearch) params.set('search', debouncedSearch);
 
     const res = await apiFetch(`/api/v1/subjects?${params}`, { credentials: 'include' });
@@ -121,6 +133,56 @@ export default function SubjectsPage() {
     setIsDeleting(false);
   }
 
+  function openArchive(subject: Subject) {
+    setArchiveTarget(subject);
+    setArchiveError(null);
+  }
+
+  function closeArchive() {
+    setArchiveTarget(null);
+    setArchiveError(null);
+    setIsArchiving(false);
+  }
+
+  async function handleArchive() {
+    if (!archiveTarget) return;
+    setIsArchiving(true);
+    setArchiveError(null);
+    const res = await apiFetch(`/api/v1/subjects/${archiveTarget.id}/archive`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (res.ok) {
+      setSubjects((prev) => prev.filter((s) => s.id !== archiveTarget.id));
+      closeArchive();
+      return;
+    }
+    if (res.status === 409) {
+      const body = await res.json().catch(() => ({}));
+      const names: string[] = body.detail?.curriculums ?? [];
+      setArchiveError(t('archiveInUse', { names: names.join(', ') }));
+    } else {
+      setArchiveError(t('archiveGenericError'));
+    }
+    setIsArchiving(false);
+  }
+
+  async function handleUnarchive(subject: Subject) {
+    setUnarchiveError(null);
+    const res = await apiFetch(`/api/v1/subjects/${subject.id}/unarchive`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (res.ok) {
+      setSubjects((prev) => prev.filter((s) => s.id !== subject.id));
+    } else {
+      setUnarchiveError(t('unarchiveGenericError'));
+    }
+  }
+
+  const isOwnSubject = (subject: Subject) =>
+    !subject.is_platform_subject && Boolean(family) && subject.family_id === family?.id;
+
   return (
     <div className="max-w-5xl">
       {/* Header */}
@@ -170,12 +232,32 @@ export default function SubjectsPage() {
             <option key={cat} value={cat}>{t(categoryKey(cat))}</option>
           ))}
         </select>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as 'active' | 'archived')}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        >
+          <option value="active">{t('filterStatusActive')}</option>
+          <option value="archived">{t('filterStatusArchived')}</option>
+        </select>
       </div>
+
+      {unarchiveError && (
+        <p className="text-xs font-medium text-red-500 mb-4">{unarchiveError}</p>
+      )}
 
       {/* Content */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : subjects.length === 0 && status === 'archived' ? (
+        <div className="text-center py-20">
+          <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4">
+            <BookOpen className="h-10 w-10 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 mb-2">{t('emptyArchivedTitle')}</h3>
+          <p className="text-slate-500">{t('emptyArchivedDescription')}</p>
         </div>
       ) : subjects.length === 0 ? (
         <div className="text-center py-20">
@@ -201,8 +283,47 @@ export default function SubjectsPage() {
               onFork={() => handleFork(subject.id)}
               onEdit={() => router.push(`/subjects/${subject.id}/edit`)}
               onDelete={() => openDelete(subject)}
+              onArchive={isOwnSubject(subject) ? () => openArchive(subject) : undefined}
+              onUnarchive={isOwnSubject(subject) ? () => handleUnarchive(subject) : undefined}
+              responsibleName={
+                subject.responsible_member_id && parentsById[subject.responsible_member_id]
+                  ? getParentDisplayName(parentsById[subject.responsible_member_id])
+                  : null
+              }
             />
           ))}
+        </div>
+      )}
+
+      {archiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/30" onClick={closeArchive} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+              {t('archiveConfirmTitle')}
+            </h3>
+            <p className="text-sm text-slate-600 mb-2">
+              <span className="font-medium text-slate-800">{archiveTarget.name}</span>
+            </p>
+            <p className={`text-sm mb-4 ${archiveError ? 'text-red-500' : 'text-slate-500'}`}>
+              {archiveError || t('archiveConfirmMessage')}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeArchive}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={isArchiving || Boolean(archiveError)}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isArchiving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('confirmArchive')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

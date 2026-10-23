@@ -13,7 +13,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { Loader2, Printer, Settings, Trash2, icons } from 'lucide-react';
+import { CalendarDays, CalendarRange, Loader2, Printer, Settings, Trash2, icons } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@oikos/ui';
 import { useAuth } from '../../../../providers/AuthProvider';
@@ -25,6 +25,11 @@ import { ContextMenu } from '../../../../components/planner/ContextMenu';
 import { DuplicateDaysPopup } from '../../../../components/planner/DuplicateDaysPopup';
 import { PrintablePlanner } from '../../../../components/planner/PrintablePlanner';
 import { GridConfigPopup } from '../../../../components/planner/GridConfigPopup';
+import { PlannerDayView } from '../../../../components/planner/PlannerDayView';
+import { PrintableDayPlanner } from '../../../../components/planner/PrintableDayPlanner';
+import type { DayResource } from '../../../../components/planner/DayAgendaTable';
+import { defaultDayIndex } from '../../../../components/planner/dayView';
+import { useFamilyParents } from '../../../../hooks/useFamilyParents';
 import {
   RoutineEntryData,
   WeekTemplateData,
@@ -35,7 +40,11 @@ import {
   DragSubjectPayload,
   GridConfig,
   encodeCustomNotes,
+  visibleDayIndices,
 } from '../../../../components/planner/types';
+
+type PlannerView = 'week' | 'day';
+const VIEW_STORAGE_KEY = 'oikos.planner.view';
 
 export default function PlannerPage() {
   const t = useTranslations('WeekPlanner');
@@ -60,6 +69,51 @@ export default function PlannerPage() {
   const [clearConfirm, setClearConfirm] = useState(false);
   const [gridConfigOpen, setGridConfigOpen] = useState(false);
   const [savingGridConfig, setSavingGridConfig] = useState(false);
+
+  // Day view (read-only)
+  const [view, setView] = useState<PlannerView>('week');
+  const [dayIndex, setDayIndex] = useState<number | null>(null);
+  const [resourcesBySubject, setResourcesBySubject] = useState<Record<string, DayResource[]> | null>(null);
+  const { parentsById } = useFamilyParents();
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(VIEW_STORAGE_KEY) === 'day') setView('day');
+    } catch {
+      // storage unavailable — stay on the week view
+    }
+  }, []);
+
+  function changeView(next: PlannerView) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Subject resources are only shown in the day view — load them on first use
+  useEffect(() => {
+    if (view !== 'day' || resourcesBySubject) return;
+    apiFetch('/api/v1/resources', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((resources: { id: string; title: string; type: string; subjects: { subject_id: string; progress_notes: string | null }[] }[]) => {
+        const map: Record<string, DayResource[]> = {};
+        for (const r of resources) {
+          for (const link of r.subjects ?? []) {
+            (map[link.subject_id] ??= []).push({
+              id: r.id,
+              title: r.title,
+              type: r.type,
+              progress_notes: link.progress_notes,
+            });
+          }
+        }
+        setResourcesBySubject(map);
+      })
+      .catch(() => setResourcesBySubject({}));
+  }, [view, resourcesBySubject]);
 
   // Debounced save
   const saveTimeout = useRef<NodeJS.Timeout>();
@@ -489,6 +543,21 @@ export default function PlannerPage() {
   }
 
   const entries = activeTemplate?.entries || [];
+  const gridConfig: GridConfig | null = activeTemplate
+    ? {
+        start_hour: activeTemplate.start_hour,
+        end_hour: activeTemplate.end_hour,
+        include_saturday: activeTemplate.include_saturday,
+        include_sunday: activeTemplate.include_sunday,
+      }
+    : null;
+  // Keep the selected day valid when the template's visible days change
+  const currentDay = gridConfig
+    ? dayIndex !== null && visibleDayIndices(gridConfig).includes(dayIndex)
+      ? dayIndex
+      : defaultDayIndex(gridConfig)
+    : 0;
+  const isDayView = view === 'day' && activeTemplate !== null;
 
   return (
     <div className="flex flex-col h-full -m-6 lg:-m-8">
@@ -526,6 +595,27 @@ export default function PlannerPage() {
             onCreate={createTemplate}
             onRename={renameTemplate}
           />
+          {activeTemplate && (
+            <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50" role="group" aria-label={t('viewToggleLabel')}>
+              {([
+                { key: 'week', icon: CalendarRange, label: t('viewWeek') },
+                { key: 'day', icon: CalendarDays, label: t('viewDay') },
+              ] as const).map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => changeView(key)}
+                  aria-pressed={view === key}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-sm rounded-md transition-colors ${
+                    view === key ? 'bg-white text-primary font-medium shadow-sm' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {activeTemplate && !activeTemplate.is_active && (
@@ -533,7 +623,7 @@ export default function PlannerPage() {
               {t('setAsActive')}
             </Button>
           )}
-          {activeTemplate && (
+          {activeTemplate && !isDayView && (
             <button
               onClick={() => setGridConfigOpen(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
@@ -547,9 +637,9 @@ export default function PlannerPage() {
             className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
           >
             <Printer className="w-4 h-4" />
-            {t('printWeek')}
+            {isDayView ? t('printDay') : t('printWeek')}
           </button>
-          {clearConfirm ? (
+          {isDayView ? null : clearConfirm ? (
             <div className="flex items-center gap-1">
               <Button type="button" onClick={clearWeek} className="text-sm !px-3 !py-1.5 !bg-red-500 hover:!bg-red-600">
                 <Trash2 className="w-4 h-4 mr-1" />
@@ -570,7 +660,7 @@ export default function PlannerPage() {
               {t('clearWeek')}
             </button>
           )}
-          {deleteTemplateConfirm ? (
+          {isDayView ? null : deleteTemplateConfirm ? (
             <div className="flex items-center gap-1">
               <Button type="button" onClick={deleteTemplate} className="text-sm !px-3 !py-1.5 !bg-red-500 hover:!bg-red-600">
                 <Trash2 className="w-4 h-4 mr-1" />
@@ -595,6 +685,18 @@ export default function PlannerPage() {
       </div>
 
       {/* Main content */}
+      {isDayView && gridConfig ? (
+        <PlannerDayView
+          entries={entries}
+          subjects={subjects}
+          childrenList={childrenData}
+          config={gridConfig}
+          dayIndex={currentDay}
+          onDayChange={setDayIndex}
+          parentsById={parentsById}
+          resourcesBySubject={resourcesBySubject ?? {}}
+        />
+      ) : (
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -649,6 +751,7 @@ export default function PlannerPage() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* Entry popup */}
       {selectedEntry && (
@@ -720,7 +823,22 @@ export default function PlannerPage() {
       )}
 
       {/* Print-only layout (portaled to <body> so it becomes a direct child — prevents Chrome from repeating fixed-positioned content across pages) */}
-      {activeTemplate && (
+      {activeTemplate && isDayView && (
+        <PrintPortal>
+          <PrintableDayPlanner
+            entries={entries}
+            subjects={subjects}
+            childrenList={childrenData}
+            dayIndex={currentDay}
+            parentsById={parentsById}
+            resourcesBySubject={resourcesBySubject ?? {}}
+            templateName={activeTemplate.name}
+            familyName={family?.family_name}
+            shieldConfig={family?.shield_config as any}
+          />
+        </PrintPortal>
+      )}
+      {activeTemplate && !isDayView && (
         <PrintPortal>
           <PrintablePlanner
             entries={entries}

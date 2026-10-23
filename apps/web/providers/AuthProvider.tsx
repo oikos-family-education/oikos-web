@@ -47,6 +47,7 @@ interface AuthContextValue {
   family: Family | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  refreshFamily: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -54,6 +55,7 @@ const AuthContext = createContext<AuthContextValue>({
   family: null,
   isLoading: true,
   logout: async () => {},
+  refreshFamily: async () => {},
 });
 
 export function useAuth() {
@@ -158,6 +160,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   }, [router]);
 
+  const refreshFamily = useCallback(async () => {
+    try {
+      const familyRes = await fetch('/api/v1/families/me', { credentials: 'include' });
+      if (familyRes.ok) {
+        const familyData = await familyRes.json();
+        setFamily(familyData);
+      }
+    } catch {
+      // Non-fatal: consumers can trigger another refresh
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -170,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, family, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, family, isLoading, logout, refreshFamily }}>
       {children}
     </AuthContext.Provider>
   );

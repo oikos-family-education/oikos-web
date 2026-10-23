@@ -152,7 +152,7 @@ class FamilyService:
         # Clear has_family on every member, then cascade-delete family
         members_result = await self.db.execute(select(FamilyMember).where(FamilyMember.family_id == family_id))
         members = list(members_result.scalars().all())
-        member_user_ids = [m.user_id for m in members]
+        member_user_ids = [m.user_id for m in members if m.user_id is not None]
 
         await self.db.delete(family)
 

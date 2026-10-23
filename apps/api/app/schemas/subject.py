@@ -37,6 +37,7 @@ class SubjectCreate(BaseModel):
     skills_targeted: list[str] = Field(default_factory=list)
     prerequisite_subject_ids: list[UUID] = Field(default_factory=list)
     is_public: bool = False
+    responsible_member_id: Optional[UUID] = None
 
 
 class SubjectUpdate(BaseModel):
@@ -57,6 +58,7 @@ class SubjectUpdate(BaseModel):
     skills_targeted: Optional[list[str]] = None
     prerequisite_subject_ids: Optional[list[UUID]] = None
     is_public: Optional[bool] = None
+    responsible_member_id: Optional[UUID] = None
 
 
 class SubjectResponse(BaseModel):
@@ -81,6 +83,8 @@ class SubjectResponse(BaseModel):
     prerequisite_subject_ids: list[UUID] = []
     is_platform_subject: bool
     is_public: bool
+    responsible_member_id: Optional[UUID] = None
+    archived_at: Optional[datetime] = None
     created_by_user_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

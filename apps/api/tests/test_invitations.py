@@ -319,3 +319,102 @@ async def test_leave_family_primary_403(authed_with_family):
     client, _, _ = authed_with_family
     resp = await client.post("/api/v1/families/me/members/leave")
     assert resp.status_code == 403
+
+
+# ── Parents without an account ──────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_add_parent_profile_lists_it(authed_with_family):
+    client, _, _ = authed_with_family
+    resp = await client.post(
+        "/api/v1/families/me/members/profiles",
+        json={"first_name": "  Maria ", "last_name": "Silva"},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["first_name"] == "Maria"
+    assert body["has_account"] is False
+    assert body["email"] is None
+
+    members = (await client.get("/api/v1/families/me/members")).json()
+    profile = next(m for m in members if m["id"] == body["id"])
+    assert profile["role"] == "co_parent"
+    assert profile["has_account"] is False
+    assert profile["first_name"] == "Maria"
+
+
+@pytest.mark.asyncio
+async def test_add_parent_profile_requires_first_name(authed_with_family):
+    client, _, _ = authed_with_family
+    resp = await client.post("/api/v1/families/me/members/profiles", json={"first_name": ""})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_add_second_parent_profile_409(authed_with_family):
+    client, _, _ = authed_with_family
+    await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Maria"})
+    resp = await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Joana"})
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_rename_and_remove_parent_profile(authed_with_family, fresh_session):
+    client, _, _ = authed_with_family
+    pid = (await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Mria"})).json()["id"]
+
+    resp = await client.patch(f"/api/v1/families/me/members/profiles/{pid}", json={"first_name": "Maria"})
+    assert resp.status_code == 200
+    assert resp.json()["first_name"] == "Maria"
+
+    resp = await client.delete(f"/api/v1/families/me/members/profiles/{pid}")
+    assert resp.status_code == 204
+    s = await fresh_session()
+    res = await s.execute(select(FamilyMember).where(FamilyMember.id == uuid.UUID(pid)))
+    assert res.scalars().first() is None
+
+
+@pytest.mark.asyncio
+async def test_cannot_remove_account_member_via_profile_route(authed_with_family):
+    client, _, _ = authed_with_family
+    primary = (await client.get("/api/v1/families/me/members")).json()[0]
+    resp = await client.delete(f"/api/v1/families/me/members/profiles/{primary['id']}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_invite_allowed_when_other_parent_has_no_account(authed_with_family):
+    client, _, _ = authed_with_family
+    await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Maria"})
+    resp = await client.post("/api/v1/families/me/members/invite", json={"email": "maria@example.com"})
+    assert resp.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_accept_invitation_links_existing_parent_profile(
+    authed_with_family, make_user, make_client, fresh_session
+):
+    client, _, _ = authed_with_family
+    pid = (await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Maria"})).json()["id"]
+    subject = (await client.post("/api/v1/subjects", json={
+        "name": "Piano", "category": "arts", "responsible_member_id": pid,
+    })).json()
+    token = (await client.post(
+        "/api/v1/families/me/members/invite", json={"email": "maria@example.com"}
+    )).json()["token"]
+
+    invitee = await make_user(email="maria@example.com", first_name="Maria", last_name="Silva")
+    invitee_client = await make_client(invitee)
+    resp = await invitee_client.post("/api/v1/invitations/accept", json={"token": token})
+    assert resp.status_code == 200
+
+    s = await fresh_session()
+    res = await s.execute(select(FamilyMember).where(FamilyMember.id == uuid.UUID(pid)))
+    member = res.scalars().first()
+    assert member.user_id == invitee.id
+
+    members = (await client.get("/api/v1/families/me/members")).json()
+    assert len([m for m in members if m["kind"] == "member"]) == 2
+    # The subject assignment survived the upgrade
+    resp = await client.get(f"/api/v1/subjects/{subject['id']}")
+    assert resp.json()["responsible_member_id"] == pid

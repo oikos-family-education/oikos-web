@@ -11,6 +11,8 @@ from app.schemas.family import (
     FamilyUpdate,
     ShieldConfig,
     MemberResponse,
+    ParentProfileCreate,
+    ParentProfileUpdate,
     InvitationCreate,
     InvitationResponse,
     ExportResponse,
@@ -139,6 +141,43 @@ async def revoke_invitation(
 ):
     family = await _require_family(current_user.id, family_service)
     await members_service.revoke(family.id, current_user.id, invitation_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/me/members/profiles", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
+async def add_parent_profile(
+    req: ParentProfileCreate,
+    current_user: User = Depends(get_current_user),
+    family_service: FamilyService = Depends(get_family_service),
+    members_service: FamilyMembersService = Depends(get_members_service),
+):
+    family = await _require_family(current_user.id, family_service)
+    return await members_service.add_parent_profile(family.id, current_user.id, req.first_name, req.last_name)
+
+
+@router.patch("/me/members/profiles/{member_id}", response_model=MemberResponse)
+async def update_parent_profile(
+    member_id: UUID,
+    req: ParentProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    family_service: FamilyService = Depends(get_family_service),
+    members_service: FamilyMembersService = Depends(get_members_service),
+):
+    family = await _require_family(current_user.id, family_service)
+    return await members_service.update_parent_profile(
+        family.id, current_user.id, member_id, req.first_name, req.last_name
+    )
+
+
+@router.delete("/me/members/profiles/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_parent_profile(
+    member_id: UUID,
+    current_user: User = Depends(get_current_user),
+    family_service: FamilyService = Depends(get_family_service),
+    members_service: FamilyMembersService = Depends(get_members_service),
+):
+    family = await _require_family(current_user.id, family_service)
+    await members_service.remove_parent_profile(family.id, current_user.id, member_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -16,6 +16,7 @@ import { FaithTab } from './tabs/FaithTab';
 import { EducationTab } from './tabs/EducationTab';
 import { MembersTab } from './tabs/MembersTab';
 import { PrivacyTab } from './tabs/PrivacyTab';
+import { useAuth } from '../../providers/AuthProvider';
 
 type TabKey = 'identity' | 'faith' | 'education' | 'members' | 'privacy';
 
@@ -35,6 +36,7 @@ export function FamilyPageClient() {
   const t = useTranslations('Family');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refreshFamily } = useAuth();
 
   const initialTab = searchParams.get('tab');
   const [tab, setTab] = useState<TabKey>(isTabKey(initialTab) ? initialTab : 'identity');
@@ -78,6 +80,9 @@ export function FamilyPageClient() {
   const onFamilyUpdated = (updated: FamilyApiResponse) => {
     setFamily(updated);
     setFormData(apiToFormData(updated));
+    // Propagate to AuthProvider so the sidebar shield and dashboard hero
+    // reflect edits (e.g. coat of arms, family name) immediately.
+    refreshFamily();
   };
 
   const tabs = useMemo(() => TABS, []);

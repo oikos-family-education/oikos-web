@@ -66,6 +66,14 @@ class Subject(Base):
     is_platform_subject = Column(Boolean, nullable=False, default=False)
     is_public = Column(Boolean, nullable=False, default=False)
 
+    # Parent responsible for teaching this subject (optional)
+    responsible_member_id = Column(
+        UUID(as_uuid=True), ForeignKey("family_members.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # Lifecycle — archived subjects are hidden from the library and pickers
+    archived_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
     # Audit
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)

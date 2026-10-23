@@ -1,13 +1,20 @@
 import uuid
 import re
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from fastapi import HTTPException
 
 from app.models.subject import Subject
-from app.models.curriculum import CurriculumSubject
+from app.models.curriculum import Curriculum, CurriculumSubject
+from app.models.family_member import FamilyMember
 from app.schemas.subject import SubjectCreate, SubjectUpdate
+
+
+# Curriculum statuses that still rely on their subjects. Completed, archived
+# and template curricula don't block archiving a subject.
+IN_PROGRESS_CURRICULUM_STATUSES = ("draft", "active", "paused")
 
 
 def _escape_like(value: str) -> str:
@@ -36,12 +43,25 @@ class SubjectService:
             final_slug = f"{base_slug}-{counter}"
         return final_slug
 
+    async def _validate_responsible(self, member_id: uuid.UUID | None, family_id: uuid.UUID) -> None:
+        if member_id is None:
+            return
+        result = await self.db.execute(
+            select(FamilyMember.id).where(
+                FamilyMember.id == member_id,
+                FamilyMember.family_id == family_id,
+            )
+        )
+        if not result.scalars().first():
+            raise HTTPException(status_code=422, detail="Responsible parent must be a member of your family.")
+
     async def list_subjects(
         self,
         family_id: uuid.UUID,
         source: str | None = None,
         category: str | None = None,
         search: str | None = None,
+        status: str | None = None,
     ) -> list[Subject]:
         query = select(Subject)
 
@@ -58,6 +78,12 @@ class SubjectService:
                 (Subject.is_platform_subject == True) |
                 (Subject.is_public == True)
             )
+
+        if status == "active":
+            query = query.where(Subject.archived_at.is_(None))
+        elif status == "archived":
+            # Only a family's own subjects can be archived by them
+            query = query.where(Subject.archived_at.is_not(None), Subject.family_id == family_id)
 
         if category:
             query = query.where(Subject.category == category)
@@ -79,6 +105,7 @@ class SubjectService:
         user_id: uuid.UUID,
         data: SubjectCreate,
     ) -> Subject:
+        await self._validate_responsible(data.responsible_member_id, family_id)
         slug = await self._generate_slug(data.name, family_id)
         db_subject = Subject(
             family_id=family_id,
@@ -99,6 +126,7 @@ class SubjectService:
             skills_targeted=data.skills_targeted,
             prerequisite_subject_ids=data.prerequisite_subject_ids,
             is_public=data.is_public,
+            responsible_member_id=data.responsible_member_id,
             is_platform_subject=False,
             created_by_user_id=user_id,
         )
@@ -122,6 +150,8 @@ class SubjectService:
             raise HTTPException(status_code=403, detail="You can only edit your own subjects.")
 
         update_data = data.model_dump(exclude_unset=True)
+        if "responsible_member_id" in update_data:
+            await self._validate_responsible(update_data["responsible_member_id"], family_id)
         if "name" in update_data:
             update_data["slug"] = await self._generate_slug(update_data["name"], family_id)
         if "category" in update_data and update_data["category"]:
@@ -158,6 +188,54 @@ class SubjectService:
 
         await self.db.delete(subject)
         await self.db.commit()
+
+    async def _get_own_subject(self, subject_id: uuid.UUID, family_id: uuid.UUID) -> Subject:
+        subject = await self.get_subject(subject_id)
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found.")
+        if subject.is_platform_subject or subject.family_id != family_id:
+            raise HTTPException(status_code=403, detail="You can only archive your own subjects.")
+        return subject
+
+    async def archive_subject(self, subject_id: uuid.UUID, family_id: uuid.UUID) -> Subject:
+        subject = await self._get_own_subject(subject_id, family_id)
+        if subject.archived_at is not None:
+            raise HTTPException(status_code=400, detail="Subject is already archived.")
+
+        result = await self.db.execute(
+            select(Curriculum.name)
+            .join(CurriculumSubject, CurriculumSubject.curriculum_id == Curriculum.id)
+            .where(
+                CurriculumSubject.subject_id == subject_id,
+                Curriculum.status.in_(IN_PROGRESS_CURRICULUM_STATUSES),
+            )
+            .distinct()
+            .order_by(Curriculum.name)
+        )
+        curriculum_names = list(result.scalars().all())
+        if curriculum_names:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "detail": "Subject is used in curricula that are still in progress.",
+                    "code": "subject_in_use",
+                    "curriculums": curriculum_names,
+                },
+            )
+
+        subject.archived_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        await self.db.refresh(subject)
+        return subject
+
+    async def unarchive_subject(self, subject_id: uuid.UUID, family_id: uuid.UUID) -> Subject:
+        subject = await self._get_own_subject(subject_id, family_id)
+        if subject.archived_at is None:
+            raise HTTPException(status_code=400, detail="Subject is not archived.")
+        subject.archived_at = None
+        await self.db.commit()
+        await self.db.refresh(subject)
+        return subject
 
     async def fork_subject(
         self,

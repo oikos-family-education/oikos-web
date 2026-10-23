@@ -223,3 +223,173 @@ async def test_fork_unknown_404(authed_with_family):
     client, _, _ = authed_with_family
     resp = await client.post(f"/api/v1/subjects/{uuid.uuid4()}/fork")
     assert resp.status_code == 404
+
+
+# ── Archive ─────────────────────────────────────────────────────────────────
+
+async def _attach_to_curriculum(db, family_id, subject_id, status, name="Year 1"):
+    from datetime import date
+    from app.models.curriculum import Curriculum, CurriculumSubject
+
+    curriculum = Curriculum(
+        family_id=family_id,
+        name=name,
+        period_type="annual",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        status=status,
+    )
+    db.add(curriculum)
+    await db.flush()
+    db.add(CurriculumSubject(curriculum_id=curriculum.id, subject_id=subject_id))
+    await db.commit()
+    return curriculum
+
+
+@pytest.mark.asyncio
+async def test_archive_unused_subject(authed_with_family):
+    client, _, _ = authed_with_family
+    sid = (await client.post("/api/v1/subjects", json=_payload(name="Old"))).json()["id"]
+
+    resp = await client.post(f"/api/v1/subjects/{sid}/archive")
+    assert resp.status_code == 200
+    assert resp.json()["archived_at"] is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["completed", "archived", "template"])
+async def test_archive_allowed_when_only_finished_curricula_use_it(authed_with_family, make_subject, db, status):
+    client, _, family = authed_with_family
+    subject = await make_subject(family.id, name="Latin")
+    await _attach_to_curriculum(db, family.id, subject.id, status)
+
+    resp = await client.post(f"/api/v1/subjects/{subject.id}/archive")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["draft", "active", "paused"])
+async def test_archive_blocked_by_in_progress_curriculum(authed_with_family, make_subject, db, status):
+    client, _, family = authed_with_family
+    subject = await make_subject(family.id, name="Latin")
+    await _attach_to_curriculum(db, family.id, subject.id, status, name="Fall Term")
+
+    resp = await client.post(f"/api/v1/subjects/{subject.id}/archive")
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert detail["code"] == "subject_in_use"
+    assert detail["curriculums"] == ["Fall Term"]
+
+
+@pytest.mark.asyncio
+async def test_cannot_archive_platform_subject(authed_with_family, make_subject):
+    client, _, _ = authed_with_family
+    plat = await make_subject(None, name="Plat", is_platform_subject=True)
+    resp = await client.post(f"/api/v1/subjects/{plat.id}/archive")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_archive_twice_400(authed_with_family):
+    client, _, _ = authed_with_family
+    sid = (await client.post("/api/v1/subjects", json=_payload(name="Twice"))).json()["id"]
+    await client.post(f"/api/v1/subjects/{sid}/archive")
+    resp = await client.post(f"/api/v1/subjects/{sid}/archive")
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_unarchive_subject(authed_with_family):
+    client, _, _ = authed_with_family
+    sid = (await client.post("/api/v1/subjects", json=_payload(name="Back"))).json()["id"]
+    await client.post(f"/api/v1/subjects/{sid}/archive")
+
+    resp = await client.post(f"/api/v1/subjects/{sid}/unarchive")
+    assert resp.status_code == 200
+    assert resp.json()["archived_at"] is None
+
+    resp = await client.post(f"/api/v1/subjects/{sid}/unarchive")
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_list_subjects_filter_by_status(authed_with_family):
+    client, _, _ = authed_with_family
+    keep = (await client.post("/api/v1/subjects", json=_payload(name="Keep"))).json()["id"]
+    gone = (await client.post("/api/v1/subjects", json=_payload(name="Gone"))).json()["id"]
+    await client.post(f"/api/v1/subjects/{gone}/archive")
+
+    active = {s["id"] for s in (await client.get("/api/v1/subjects?source=mine&status=active")).json()}
+    archived = {s["id"] for s in (await client.get("/api/v1/subjects?source=mine&status=archived")).json()}
+    unfiltered = {s["id"] for s in (await client.get("/api/v1/subjects?source=mine")).json()}
+
+    assert active == {keep}
+    assert archived == {gone}
+    # No status filter keeps archived subjects resolvable for historical lookups
+    assert unfiltered == {keep, gone}
+
+
+@pytest.mark.asyncio
+async def test_list_archived_excludes_other_families(authed_with_family, make_subject, make_user, fresh_session):
+    from datetime import datetime, timezone
+    from app.models.family import Family
+
+    client, _, _ = authed_with_family
+    other_user = await make_user(email=f"other-{uuid.uuid4().hex[:6]}@example.com")
+    s = await fresh_session()
+    other_family = Family(
+        account_id=other_user.id,
+        family_name="Other",
+        family_name_slug=f"other-{uuid.uuid4().hex[:6]}",
+        shield_config={},
+        home_languages=["en"],
+    )
+    s.add(other_family)
+    await s.commit()
+    await s.refresh(other_family)
+    await make_subject(other_family.id, name="Theirs", is_public=True, archived_at=datetime.now(timezone.utc))
+
+    resp = await client.get("/api/v1/subjects?status=archived")
+    assert resp.json() == []
+    resp = await client.get("/api/v1/subjects?status=active")
+    assert all(s["name"] != "Theirs" for s in resp.json())
+
+
+# ── Responsible parent ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_assign_responsible_parent(authed_with_family):
+    client, _, _ = authed_with_family
+    primary_id = (await client.get("/api/v1/families/me/members")).json()[0]["id"]
+    other_id = (await client.post(
+        "/api/v1/families/me/members/profiles", json={"first_name": "Maria"}
+    )).json()["id"]
+
+    resp = await client.post("/api/v1/subjects", json=_payload(responsible_member_id=primary_id))
+    assert resp.status_code == 201
+    sid = resp.json()["id"]
+    assert resp.json()["responsible_member_id"] == primary_id
+
+    resp = await client.patch(f"/api/v1/subjects/{sid}", json={"responsible_member_id": other_id})
+    assert resp.json()["responsible_member_id"] == other_id
+
+    resp = await client.patch(f"/api/v1/subjects/{sid}", json={"responsible_member_id": None})
+    assert resp.json()["responsible_member_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_responsible_parent_must_belong_to_family(authed_with_family):
+    client, _, _ = authed_with_family
+    resp = await client.post("/api/v1/subjects", json=_payload(responsible_member_id=str(uuid.uuid4())))
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_removing_parent_profile_clears_subject_assignment(authed_with_family):
+    client, _, _ = authed_with_family
+    pid = (await client.post("/api/v1/families/me/members/profiles", json={"first_name": "Maria"})).json()["id"]
+    sid = (await client.post("/api/v1/subjects", json=_payload(responsible_member_id=pid))).json()["id"]
+
+    await client.delete(f"/api/v1/families/me/members/profiles/{pid}")
+    resp = await client.get(f"/api/v1/subjects/{sid}")
+    assert resp.json()["responsible_member_id"] is None

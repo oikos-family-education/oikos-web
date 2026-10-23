@@ -116,7 +116,8 @@ class MemberResponse(BaseModel):
     kind: str  # 'member' | 'invitation'
     id: UUID
     user_id: Optional[UUID] = None
-    email: str
+    email: Optional[str] = None  # None for parents without an account
+    has_account: bool = True
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     role: str  # 'primary' | 'co_parent'
@@ -124,6 +125,23 @@ class MemberResponse(BaseModel):
     joined_at: Optional[datetime] = None
     invited_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+
+
+class ParentProfileCreate(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def strip_names(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        return v or None
+
+
+class ParentProfileUpdate(ParentProfileCreate):
+    pass
 
 
 class InvitationCreate(BaseModel):

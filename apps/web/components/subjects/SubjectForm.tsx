@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Loader2, X, ChevronUp, Minus, ChevronDown } from 'lucide-react';
 import { categoryKey } from '../../lib/categoryLabel';
 import { IconPicker } from './IconPicker';
+import { useFamilyParents, getParentDisplayName } from '../../hooks/useFamilyParents';
 import { Input } from '@oikos/ui';
 import { Button } from '@oikos/ui';
 
@@ -46,6 +47,7 @@ interface SubjectData {
   learning_objectives: string[];
   skills_targeted: string[];
   is_public: boolean;
+  responsible_member_id?: string | null;
 }
 
 interface SubjectFormProps {
@@ -64,6 +66,8 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
   const [selectedColor, setSelectedColor] = useState(initialData?.color || '#6366F1');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
   const [priority, setPriority] = useState(initialData?.priority ?? 2);
+  const [responsibleId, setResponsibleId] = useState(initialData?.responsible_member_id ?? '');
+  const { parents } = useFamilyParents();
   const [objectiveInput, setObjectiveInput] = useState('');
   const [skillInput, setSkillInput] = useState('');
 
@@ -118,6 +122,7 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
       color: selectedColor,
       icon: selectedIcon,
       priority,
+      responsible_member_id: responsibleId || null,
       min_age_years: data.min_age_years === '' ? null : Number(data.min_age_years),
       max_age_years: data.max_age_years === '' ? null : Number(data.max_age_years),
       short_description: data.short_description || null,
@@ -271,6 +276,27 @@ export function SubjectForm({ initialData, isEditing = false }: SubjectFormProps
                 );
               })}
             </div>
+          </div>
+
+          {/* Responsible parent */}
+          <div>
+            <label htmlFor="responsible_member_id" className="text-sm font-semibold text-slate-700 block mb-1.5">
+              {t('responsibleLabel')}
+            </label>
+            <select
+              id="responsible_member_id"
+              value={responsibleId}
+              onChange={(e) => setResponsibleId(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white"
+            >
+              <option value="">{t('responsibleNone')}</option>
+              {parents.map((p) => (
+                <option key={p.id} value={p.id}>{getParentDisplayName(p)}</option>
+              ))}
+            </select>
+            {parents.length < 2 && (
+              <p className="text-xs text-slate-500 mt-1.5">{t('responsibleHint')}</p>
+            )}
           </div>
 
           {/* Age range */}

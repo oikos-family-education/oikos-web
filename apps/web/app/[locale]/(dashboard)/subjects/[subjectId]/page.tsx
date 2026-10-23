@@ -7,10 +7,11 @@ import { useRouter } from '../../../../../lib/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, Edit3, BookOpen, Library, ArrowLeft,
-  Clock, CalendarDays, Target, Sparkles, Users,
+  Clock, CalendarDays, Target, Sparkles, Users, UserRound,
 } from 'lucide-react';
 import { categoryKey } from '../../../../../lib/categoryLabel';
 import { SubjectResources } from '../../../../../components/resources/SubjectResources';
+import { useFamilyParents, getParentDisplayName } from '../../../../../hooks/useFamilyParents';
 
 interface Subject {
   id: string;
@@ -30,6 +31,8 @@ interface Subject {
   is_platform_subject: boolean;
   is_public: boolean;
   family_id: string | null;
+  archived_at: string | null;
+  responsible_member_id: string | null;
 }
 
 const PRIORITY_MAP: Record<number, { label: string; key: string; color: string }> = {
@@ -44,6 +47,7 @@ export default function SubjectDetailPage() {
   const router = useRouter();
   const t = useTranslations('Subjects');
   const tRes = useTranslations('Resources');
+  const { parentsById } = useFamilyParents();
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,6 +127,17 @@ export default function SubjectDetailPage() {
                 {subject.is_public && !subject.is_platform_subject && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                     {t('communityBadge')}
+                  </span>
+                )}
+                {subject.archived_at && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                    {t('archivedBadge')}
+                  </span>
+                )}
+                {subject.responsible_member_id && parentsById[subject.responsible_member_id] && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                    <UserRound className="w-3.5 h-3.5" />
+                    {t('taughtBy', { name: getParentDisplayName(parentsById[subject.responsible_member_id]) })}
                   </span>
                 )}
               </div>

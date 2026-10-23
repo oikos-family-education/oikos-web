@@ -127,4 +127,38 @@ describe('SubjectCard', () => {
     expect(screen.getByText(/5/)).toBeInTheDocument();
     expect(screen.getByText(/12/)).toBeInTheDocument();
   });
+
+  it('renders Archive for active family subjects when onArchive is provided', () => {
+    const onArchive = vi.fn();
+    renderWithProviders(
+      <SubjectCard subject={baseSubject} onFork={() => {}} onEdit={() => {}} onArchive={onArchive} />,
+    );
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^archive$/i }));
+    expect(onArchive).toHaveBeenCalledOnce();
+  });
+
+  it('renders who teaches the subject when a responsible name is given', () => {
+    renderWithProviders(
+      <SubjectCard subject={baseSubject} onFork={() => {}} onEdit={() => {}} responsibleName="Pedro" />,
+    );
+    expect(screen.getByText('Taught by Pedro')).toBeInTheDocument();
+  });
+
+  it('renders the Archived badge and Unarchive for archived subjects', () => {
+    const onUnarchive = vi.fn();
+    renderWithProviders(
+      <SubjectCard
+        subject={{ ...baseSubject, archived_at: '2026-10-01T00:00:00Z' }}
+        onFork={() => {}}
+        onEdit={() => {}}
+        onArchive={() => {}}
+        onUnarchive={onUnarchive}
+      />,
+    );
+    expect(screen.getByText('Archived')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^archive$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /unarchive/i }));
+    expect(onUnarchive).toHaveBeenCalledOnce();
+  });
 });

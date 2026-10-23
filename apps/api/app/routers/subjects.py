@@ -33,12 +33,13 @@ async def list_subjects(
     source: Optional[str] = Query(None, pattern="^(mine|platform|community)$"),
     category: Optional[str] = None,
     search: Optional[str] = Query(None, max_length=200),
+    status: Optional[str] = Query(None, pattern="^(active|archived)$"),
     current_user: User = Depends(get_current_user),
     service: SubjectService = Depends(get_subject_service),
     family_service: FamilyService = Depends(get_family_service),
 ):
     family_id = await _get_family_id(current_user, family_service)
-    return await service.list_subjects(family_id, source=source, category=category, search=search)
+    return await service.list_subjects(family_id, source=source, category=category, search=search, status=status)
 
 
 @router.get("/{subject_id}", response_model=SubjectResponse)
@@ -89,6 +90,28 @@ async def delete_subject(
 ):
     family_id = await _get_family_id(current_user, family_service)
     await service.delete_subject(subject_id, family_id)
+
+
+@router.post("/{subject_id}/archive", response_model=SubjectResponse)
+async def archive_subject(
+    subject_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: SubjectService = Depends(get_subject_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.archive_subject(subject_id, family_id)
+
+
+@router.post("/{subject_id}/unarchive", response_model=SubjectResponse)
+async def unarchive_subject(
+    subject_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: SubjectService = Depends(get_subject_service),
+    family_service: FamilyService = Depends(get_family_service),
+):
+    family_id = await _get_family_id(current_user, family_service)
+    return await service.unarchive_subject(subject_id, family_id)
 
 
 @router.post("/{subject_id}/fork", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)

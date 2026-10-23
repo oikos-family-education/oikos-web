@@ -38,11 +38,20 @@ class FamilyMembersService:
         if role != "primary":
             raise HTTPException(status_code=403, detail="Only the primary account holder can do this.")
 
+    async def _login_member_count(self, family_id: uuid.UUID) -> int:
+        res = await self.db.execute(
+            select(FamilyMember.id).where(
+                FamilyMember.family_id == family_id,
+                FamilyMember.user_id.is_not(None),
+            )
+        )
+        return len(list(res.scalars().all()))
+
     async def list_members(self, family_id: uuid.UUID) -> list[dict]:
-        # Members
+        # Members (outer join: parents without an account have no User)
         mres = await self.db.execute(
             select(FamilyMember, User)
-            .join(User, User.id == FamilyMember.user_id)
+            .outerjoin(User, User.id == FamilyMember.user_id)
             .where(FamilyMember.family_id == family_id)
             .order_by(FamilyMember.joined_at.asc())
         )
@@ -65,10 +74,11 @@ class FamilyMembersService:
             out.append({
                 "kind": "member",
                 "id": member.id,
-                "user_id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
+                "user_id": user.id if user else None,
+                "email": user.email if user else None,
+                "has_account": user is not None,
+                "first_name": user.first_name if user else member.first_name,
+                "last_name": user.last_name if user else member.last_name,
                 "role": member.role,
                 "status": "active",
                 "joined_at": member.joined_at,
@@ -100,8 +110,14 @@ class FamilyMembersService:
 
         email = email.strip().lower()
 
-        # Check that the family isn't full
-        cnt = await self.db.execute(select(FamilyMember).where(FamilyMember.family_id == family_id))
+        # Check that the family isn't full. A parent without an account doesn't
+        # count: the invitation is how they get their own login.
+        cnt = await self.db.execute(
+            select(FamilyMember).where(
+                FamilyMember.family_id == family_id,
+                FamilyMember.user_id.is_not(None),
+            )
+        )
         current_members = list(cnt.scalars().all())
         if len(current_members) >= MAX_MEMBERS_PER_FAMILY:
             raise HTTPException(status_code=409, detail="This family already has the maximum number of members.")
@@ -236,6 +252,87 @@ class FamilyMembersService:
 
         await self.db.commit()
 
+    async def _get_profile(self, family_id: uuid.UUID, member_id: uuid.UUID) -> FamilyMember:
+        res = await self.db.execute(
+            select(FamilyMember).where(
+                FamilyMember.id == member_id,
+                FamilyMember.family_id == family_id,
+                FamilyMember.user_id.is_(None),
+            )
+        )
+        member = res.scalars().first()
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found.")
+        return member
+
+    async def add_parent_profile(
+        self, family_id: uuid.UUID, actor_user_id: uuid.UUID, first_name: str, last_name: str | None
+    ) -> dict:
+        """List the other parent in the family without giving them a login."""
+        await self._require_primary(actor_user_id, family_id)
+
+        res = await self.db.execute(
+            select(FamilyMember.id).where(
+                FamilyMember.family_id == family_id,
+                FamilyMember.role == "co_parent",
+            )
+        )
+        if res.scalars().first():
+            raise HTTPException(status_code=409, detail="This family already has a second parent.")
+
+        member = FamilyMember(
+            family_id=family_id,
+            user_id=None,
+            role="co_parent",
+            first_name=first_name,
+            last_name=last_name,
+        )
+        self.db.add(member)
+        await self.db.commit()
+        await self.db.refresh(member)
+        return self._profile_dict(member)
+
+    async def update_parent_profile(
+        self,
+        family_id: uuid.UUID,
+        actor_user_id: uuid.UUID,
+        member_id: uuid.UUID,
+        first_name: str,
+        last_name: str | None,
+    ) -> dict:
+        await self._require_primary(actor_user_id, family_id)
+        member = await self._get_profile(family_id, member_id)
+        member.first_name = first_name
+        member.last_name = last_name
+        await self.db.commit()
+        await self.db.refresh(member)
+        return self._profile_dict(member)
+
+    async def remove_parent_profile(
+        self, family_id: uuid.UUID, actor_user_id: uuid.UUID, member_id: uuid.UUID
+    ) -> None:
+        await self._require_primary(actor_user_id, family_id)
+        member = await self._get_profile(family_id, member_id)
+        await self.db.delete(member)
+        await self.db.commit()
+
+    @staticmethod
+    def _profile_dict(member: FamilyMember) -> dict:
+        return {
+            "kind": "member",
+            "id": member.id,
+            "user_id": None,
+            "email": None,
+            "has_account": False,
+            "first_name": member.first_name,
+            "last_name": member.last_name,
+            "role": member.role,
+            "status": "active",
+            "joined_at": member.joined_at,
+            "invited_at": None,
+            "expires_at": None,
+        }
+
     async def accept_invitation(self, user_id: uuid.UUID, token: str) -> Family:
         token_hash = _hash_token(token)
         res = await self.db.execute(
@@ -259,11 +356,25 @@ class FamilyMembersService:
             raise HTTPException(status_code=409, detail="You already belong to a family. Leave it first to accept this invitation.")
 
         # Check family has room
-        cnt = await self.db.execute(select(FamilyMember).where(FamilyMember.family_id == inv.family_id))
-        if len(list(cnt.scalars().all())) >= MAX_MEMBERS_PER_FAMILY:
+        if await self._login_member_count(inv.family_id) >= MAX_MEMBERS_PER_FAMILY:
             raise HTTPException(status_code=409, detail="This family is full.")
 
-        self.db.add(FamilyMember(family_id=inv.family_id, user_id=user_id, role="co_parent"))
+        # If the family already lists the other parent without an account,
+        # attach the new login to that row so their subject assignments stay.
+        pres = await self.db.execute(
+            select(FamilyMember).where(
+                FamilyMember.family_id == inv.family_id,
+                FamilyMember.user_id.is_(None),
+            )
+        )
+        profile = pres.scalars().first()
+        if profile:
+            profile.user_id = user_id
+            profile.first_name = None
+            profile.last_name = None
+            profile.joined_at = _now()
+        else:
+            self.db.add(FamilyMember(family_id=inv.family_id, user_id=user_id, role="co_parent"))
         inv.accepted_at = _now()
 
         # Mark user.has_family = True

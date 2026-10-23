@@ -80,7 +80,7 @@ describe('CurriculumWizard subject picker', () => {
       const subjectCalls = vi.mocked(fetch).mock.calls
         .map((c) => (typeof c[0] === 'string' ? c[0] : (c[0] as Request).url))
         .filter((u) => u.startsWith('/api/v1/subjects'));
-      expect(subjectCalls).toEqual(['/api/v1/subjects?source=mine']);
+      expect(subjectCalls).toEqual(['/api/v1/subjects?source=mine&status=active']);
     });
 
     // Sanity: nothing rendered "Family Math" yet because we're still on step 1,

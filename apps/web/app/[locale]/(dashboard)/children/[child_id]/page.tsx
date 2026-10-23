@@ -8,11 +8,12 @@ import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Pencil, Loader2, ArrowRight, GraduationCap, Layers,
   Archive, BookOpen, Brain, Heart, Lightbulb, AlertCircle, HandHelping,
-  Calendar, User,
+  Calendar, User, FileText,
 } from 'lucide-react';
 import { Button } from '@oikos/ui';
 import { AddChildForm, ChildFormData } from '../../../../../components/onboarding/AddChildForm';
 import { ArchiveModal } from '../../../../../components/children/ArchiveModal';
+import { GRADE_LABELS, LEARNING_STYLE_LABELS, computeAge } from '../../../../../lib/childProfile';
 
 interface Child {
   id: string;
@@ -53,21 +54,6 @@ interface EnrolledCurriculum {
   child_curriculums: ChildCurriculum[];
 }
 
-const GRADE_LABELS: Record<string, string> = {
-  pre_k: 'Pre-K', k: 'Kindergarten',
-  grade_1: 'Grade 1', grade_2: 'Grade 2', grade_3: 'Grade 3',
-  grade_4: 'Grade 4', grade_5: 'Grade 5', grade_6: 'Grade 6',
-  grade_7: 'Grade 7', grade_8: 'Grade 8', grade_9: 'Grade 9',
-  grade_10: 'Grade 10', grade_11: 'Grade 11', grade_12: 'Grade 12',
-  stage_early: 'Early Stage', stage_middle: 'Middle Stage',
-  stage_upper: 'Upper Stage', graduated: 'Graduated',
-};
-
-const LEARNING_STYLE_LABELS: Record<string, string> = {
-  visual: 'Visual', auditory: 'Auditory', kinesthetic: 'Kinesthetic',
-  reading_writing: 'Reading-Writing', social: 'Social',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700',
   draft: 'bg-amber-100 text-amber-700',
@@ -91,19 +77,6 @@ function getInitialColor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
-}
-
-function computeAge(birthdate?: string, birthYear?: number): number | null {
-  const now = new Date();
-  if (birthdate) {
-    const bd = new Date(birthdate);
-    let age = now.getFullYear() - bd.getFullYear();
-    const monthDiff = now.getMonth() - bd.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < bd.getDate())) age--;
-    return age;
-  }
-  if (birthYear) return now.getFullYear() - birthYear;
-  return null;
 }
 
 function TagList({ items, color = 'primary' }: { items: string[]; color?: 'primary' | 'slate' }) {
@@ -317,6 +290,13 @@ export default function ChildDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => router.push(`/children/${child.id}/report`)}
+            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors inline-flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            {t('report')}
+          </button>
           <Button onClick={() => setShowEdit(true)} className="px-4 py-2 rounded-xl">
             <Pencil className="w-4 h-4 mr-2" />
             {t('edit')}

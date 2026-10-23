@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { icons, BookOpen, GitFork, Edit3, Trash2, ChevronUp, Minus, ChevronDown } from 'lucide-react';
+import { icons, BookOpen, GitFork, Edit3, Trash2, ChevronUp, Minus, ChevronDown, Archive, ArchiveRestore, UserRound } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { categoryKey } from '../../lib/categoryLabel';
 
@@ -18,6 +18,7 @@ interface Subject {
   max_age_years: number | null;
   is_platform_subject: boolean;
   is_public: boolean;
+  archived_at?: string | null;
 }
 
 interface SubjectCardProps {
@@ -25,6 +26,9 @@ interface SubjectCardProps {
   onFork: () => void;
   onEdit: () => void;
   onDelete?: () => void;
+  onArchive?: () => void;
+  onUnarchive?: () => void;
+  responsibleName?: string | null;
 }
 
 const PRIORITY_CONFIG: Record<number, { icon: React.ElementType; color: string; key: string }> = {
@@ -44,7 +48,7 @@ function SubjectIcon({ iconName, color }: { iconName: string | null; color: stri
   return <BookOpen className="w-5 h-5" style={{ color }} />;
 }
 
-export function SubjectCard({ subject, onFork, onEdit, onDelete }: SubjectCardProps) {
+export function SubjectCard({ subject, onFork, onEdit, onDelete, onArchive, onUnarchive, responsibleName }: SubjectCardProps) {
   const t = useTranslations('Subjects');
   const priorityCfg = PRIORITY_CONFIG[subject.priority ?? 2];
 
@@ -70,6 +74,11 @@ export function SubjectCard({ subject, onFork, onEdit, onDelete }: SubjectCardPr
                 {t('communityBadge')}
               </span>
             )}
+            {subject.archived_at && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 flex-shrink-0">
+                {t('archivedBadge')}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
@@ -84,6 +93,12 @@ export function SubjectCard({ subject, onFork, onEdit, onDelete }: SubjectCardPr
           </div>
           {subject.short_description && (
             <p className="text-sm text-slate-500 line-clamp-2">{subject.short_description}</p>
+          )}
+          {responsibleName && (
+            <p className="inline-flex items-center gap-1 text-xs text-slate-500 mt-2">
+              <UserRound className="w-3.5 h-3.5" />
+              {t('taughtBy', { name: responsibleName })}
+            </p>
           )}
           {subject.min_age_years != null && subject.max_age_years != null && (
             <p className="text-xs text-slate-400 mt-2">
@@ -110,6 +125,27 @@ export function SubjectCard({ subject, onFork, onEdit, onDelete }: SubjectCardPr
               <Edit3 className="w-3.5 h-3.5" />
               {t('edit')}
             </button>
+            {subject.archived_at ? (
+              onUnarchive && (
+                <button
+                  onClick={onUnarchive}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                >
+                  <ArchiveRestore className="w-3.5 h-3.5" />
+                  {t('unarchive')}
+                </button>
+              )
+            ) : (
+              onArchive && (
+                <button
+                  onClick={onArchive}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  {t('archive')}
+                </button>
+              )
+            )}
             {onDelete && (
               <button
                 onClick={onDelete}

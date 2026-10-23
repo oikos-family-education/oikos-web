@@ -194,6 +194,17 @@ html.dyslexia-font label {
   }
   .progress-report-sheet .page-break { break-before: page; }
   .progress-report-sheet a { color: inherit; text-decoration: none; }
+
+  /* Child report: page margins come from @page (set while printing), so the
+     sheet itself needs no padding; keep headings with the content after them
+     and avoid splitting rows or list items across pages. */
+  body.printing-child-report .progress-report-sheet { padding: 0 !important; }
+  body.printing-child-report .progress-report-sheet h1,
+  body.printing-child-report .progress-report-sheet h2,
+  body.printing-child-report .progress-report-sheet h3 { break-after: avoid; }
+  body.printing-child-report .progress-report-sheet tr,
+  body.printing-child-report .progress-report-sheet li,
+  body.printing-child-report .progress-report-sheet dl > div { break-inside: avoid; }
 }
 
 @media print {

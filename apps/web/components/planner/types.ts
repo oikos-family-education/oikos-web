@@ -50,11 +50,13 @@ export interface SubjectData {
   color: string;
   priority: number; // 1=High, 2=Medium, 3=Low
   default_session_duration_minutes: number;
+  responsible_member_id?: string | null;
 }
 
 export interface ChildData {
   id: string;
   name: string;
+  first_name?: string;
   nickname: string | null;
   birthdate: string | null;
   birth_year: number | null;

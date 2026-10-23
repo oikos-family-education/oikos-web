@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { BetaCta } from '../../components/desktop/BetaCta';
 
 export default function Home() {
   const t = useTranslations('Landing');
@@ -171,12 +172,9 @@ export default function Home() {
             </h2>
             <p className="text-white/90 mt-4 max-w-2xl mx-auto text-lg">{t('betaBody')}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-7">
-              <Link
-                href="/beta"
-                className="inline-flex items-center justify-center whitespace-nowrap px-8 py-4 rounded-2xl bg-white text-primary font-bold text-base hover:bg-slate-50 shadow-xl shadow-black/10 transition-all transform hover:-translate-y-1 active:scale-95"
-              >
+              <BetaCta className="inline-flex items-center justify-center whitespace-nowrap px-8 py-4 rounded-2xl bg-white text-primary font-bold text-base hover:bg-slate-50 shadow-xl shadow-black/10 transition-all transform hover:-translate-y-1 active:scale-95">
                 {t('betaCta')}
-              </Link>
+              </BetaCta>
             </div>
           </div>
         </div>

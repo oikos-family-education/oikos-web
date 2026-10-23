@@ -6,6 +6,7 @@ import { ChevronRight, Globe as GlobeIcon } from 'lucide-react';
 import { Link } from '../../lib/navigation';
 import { apiFetch } from '../../lib/apiFetch';
 import { findEmblem, DEFAULT_PRIMARY } from '../../lib/communityEmblems';
+import { isDesktop } from '../../lib/appMode';
 import { WidgetCard } from './WidgetCard';
 import type { DashboardCommunityRow } from '../community/types';
 
@@ -29,6 +30,8 @@ function relativeTime(iso: string): string {
  */
 export function DashboardCommunities() {
   const t = useTranslations('DashboardCommunities');
+  const tDesktop = useTranslations('Desktop');
+  const desktop = isDesktop();
   const [rows, setRows] = useState<DashboardCommunityRow[] | null>(null);
 
   async function load() {
@@ -42,10 +45,19 @@ export function DashboardCommunities() {
   }
 
   useEffect(() => {
+    if (desktop) return; // communities need the online version: nothing to fetch
     load();
     const id = setInterval(load, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [desktop]);
+
+  if (desktop) {
+    return (
+      <WidgetCard title={tDesktop('communitiesCardTitle')} testId="dashboard-communities-widget">
+        <p className="text-sm text-slate-500">{tDesktop('communitiesCardBody')}</p>
+      </WidgetCard>
+    );
+  }
 
   if (rows === null) return null; // never render skeleton — silent until first response
 

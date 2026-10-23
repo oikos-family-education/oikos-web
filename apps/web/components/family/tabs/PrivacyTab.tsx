@@ -8,6 +8,7 @@ import { Button } from '@oikos/ui';
 import { AlertTriangle, Download, Eye, EyeOff, Globe, Loader2, Trash2 } from 'lucide-react';
 import { FamilyApiResponse, FamilyFormData } from '../familyFormTypes';
 import { TabFormShell } from '../TabFormShell';
+import { isDesktop } from '../../../lib/appMode';
 
 interface Props {
   family: FamilyApiResponse;
@@ -24,7 +25,9 @@ const VISIBILITY_OPTIONS = [
 export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props) {
   const t = useTranslations('Family');
   const tOnb = useTranslations('Onboarding');
+  const tDesktop = useTranslations('Desktop');
   const router = useRouter();
+  const desktop = isDesktop();
 
   const [formData, setFormData] = useState<FamilyFormData>(initial);
   const [dirty, setDirty] = useState(false);
@@ -98,6 +101,7 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
           <div>
             <h2 className="text-lg font-semibold text-slate-800">{t('visibilityHeading')}</h2>
             <p className="text-slate-500 text-sm mt-1">{tOnb('visibilityHelp')}</p>
+            {desktop && <p className="text-xs font-medium text-slate-500 mt-2">{tDesktop('onlineOnlyNote')}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {VISIBILITY_OPTIONS.map((opt) => {
@@ -108,7 +112,8 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
                   key={opt.value}
                   type="button"
                   onClick={() => setVisibility(opt.value)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  disabled={desktop}
+                  className={`p-4 rounded-xl border-2 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     active
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'

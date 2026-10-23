@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.pool import NullPool
 
 import app.core.database as core_db
-from app.main import app
+from app.main import app, create_app
 from app.core.database import get_db, Base
 from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
@@ -294,6 +294,20 @@ async def fresh_session():
 @pytest_asyncio.fixture
 async def client():
     transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+@pytest.fixture
+def desktop_mode(monkeypatch):
+    """Run the code under test as the desktop app (APP_MODE=desktop)."""
+    monkeypatch.setattr(settings, "APP_MODE", "desktop")
+
+
+@pytest_asyncio.fixture
+async def desktop_client(desktop_mode):
+    """A client over a freshly built desktop-mode app (cloud-only routers unmounted)."""
+    transport = ASGITransport(app=create_app())
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 

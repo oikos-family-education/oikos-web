@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 def _find_env_file() -> str:
@@ -22,8 +23,16 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DATABASE_SYNC_URL: str
 
-    # Redis
-    REDIS_URL: str
+    # Deployment mode: "cloud" is the hosted service, "desktop" is the packaged local app
+    APP_MODE: Literal["cloud", "desktop"] = "cloud"
+    APP_VERSION: str = "0.0.0"
+
+    # Redis (optional: unused in desktop mode)
+    REDIS_URL: str = ""
+
+    # Desktop mode storage
+    SESSIONS_DB_PATH: str = ""
+    BACKUP_DIR: str = ""
 
     # Auth
     JWT_SECRET_KEY: str

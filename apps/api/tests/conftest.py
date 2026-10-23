@@ -427,11 +427,13 @@ def mock_rate_limit(monkeypatch):
     import app.routers.auth as auth_router
     import app.routers.beta as beta_router
     import app.routers.admin as admin_router
+    import app.routers.auth_local as auth_local_router
 
     monkeypatch.setattr(auth_service, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_router, "check_rate_limit", _noop)
     monkeypatch.setattr(beta_router, "check_rate_limit", _noop)
     monkeypatch.setattr(admin_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(auth_local_router, "check_rate_limit", _noop)
 
     # No-op outbound email
     import app.services.email_service as email_service
@@ -453,3 +455,5 @@ def mock_rate_limit(monkeypatch):
         monkeypatch.setattr(auth_service, fn, replacement)
         if hasattr(auth_router, fn):
             monkeypatch.setattr(auth_router, fn, replacement)
+        if hasattr(auth_local_router, fn):
+            monkeypatch.setattr(auth_local_router, fn, replacement)

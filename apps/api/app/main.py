@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.app_mode import is_desktop
-from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications, messages, child_reports
+from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications, messages, child_reports, auth_local
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,9 @@ CLOUD_ONLY_ROUTERS: list[APIRouter] = [
 ]
 
 # Local-app features (backup, updates, ...); not mounted in cloud mode.
-DESKTOP_ONLY_ROUTERS: list[APIRouter] = []
+DESKTOP_ONLY_ROUTERS: list[APIRouter] = [
+    auth_local.router,
+]
 
 
 def create_app() -> FastAPI:

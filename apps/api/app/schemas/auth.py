@@ -30,16 +30,21 @@ class RegisterRequest(BaseModel):
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
-class ResetPasswordRequest(BaseModel):
-    token: str
+class _NewPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=10, max_length=128)
     confirm_password: str
 
     @model_validator(mode='after')
-    def check_passwords_match(self) -> 'ResetPasswordRequest':
+    def check_passwords_match(self):
         if self.new_password != self.confirm_password:
             raise ValueError('Passwords do not match.')
         return self
+
+class ResetPasswordRequest(_NewPasswordRequest):
+    token: str
+
+class LocalResetPasswordRequest(_NewPasswordRequest):
+    email: EmailStr
 
 class UserResponse(BaseModel):
     id: uuid.UUID

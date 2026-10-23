@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.kv_store import SqliteKVStore, make_kv_client
 from app.core.security import verify_password, get_password_hash, generate_reset_token, hash_token
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest, LocalResetPasswordRequest
 
 redis_client = make_kv_client()
 
@@ -167,6 +167,21 @@ class AuthService:
         if not user or not user.password_reset_token_expires_at or user.password_reset_token_expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail={"detail": "This reset token is invalid or has expired.", "code": "invalid_or_expired_token"})
             
+        user.hashed_password = get_password_hash(req.new_password)
+        user.password_reset_token = None
+        user.password_reset_token_expires_at = None
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        await self.db.commit()
+        await revoke_all_refresh_tokens(str(user.id))
+        return user
+
+    async def local_reset_password(self, req: LocalResetPasswordRequest) -> User:
+        """Desktop only: reset a password by email, with no emailed token (the device is the trust boundary)."""
+        user = await self._get_user_by_email(req.email)
+        if not user:
+            raise HTTPException(status_code=404, detail={"detail": "No account with that email.", "code": "account_not_found"})
+
         user.hashed_password = get_password_hash(req.new_password)
         user.password_reset_token = None
         user.password_reset_token_expires_at = None

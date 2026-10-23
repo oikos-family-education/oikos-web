@@ -2041,5 +2041,14 @@
     "sectionNotes": "Notes",
     "noNotes": "No notes about this child in this period.",
     "dateHint": "Optional. Leave it empty for things that happened many times, like a weekly co-op."
+  },
+  "Desktop": {
+    "cloudOnlyTitle": "Available online",
+    "cloudOnlyBody": "This feature connects you with other families, so it's only available in the online version of Oikos.",
+    "cloudOnlyOk": "OK",
+    "cloudOnlyPageTitle": "Available in the online version",
+    "onlineOnlyNote": "Only available in the online version of Oikos.",
+    "communitiesCardTitle": "Communities",
+    "communitiesCardBody": "Connect with other families in the online version of Oikos."
   }
 }

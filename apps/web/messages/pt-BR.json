@@ -1518,5 +1518,14 @@
     "sectionNotes": "Notas",
     "noNotes": "Nenhuma nota sobre esta criança neste período.",
     "dateHint": "Opcional. Deixe em branco para coisas que aconteceram várias vezes, como uma cooperativa semanal."
+  },
+  "Desktop": {
+    "cloudOnlyTitle": "Disponível online",
+    "cloudOnlyBody": "Este recurso conecta você a outras famílias, por isso só está disponível na versão online do Oikos.",
+    "cloudOnlyOk": "OK",
+    "cloudOnlyPageTitle": "Disponível na versão online",
+    "onlineOnlyNote": "Disponível apenas na versão online do Oikos.",
+    "communitiesCardTitle": "Comunidades",
+    "communitiesCardBody": "Conecte-se com outras famílias na versão online do Oikos."
   }
 }

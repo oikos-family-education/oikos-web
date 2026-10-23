@@ -12,6 +12,7 @@ import { SidebarNavItem } from './SidebarNavItem';
 import { SidebarNavGroup } from './SidebarNavGroup';
 import { FamilyIdentity } from './FamilyIdentity';
 import { apiFetch } from '../../lib/apiFetch';
+import { isDesktop } from '../../lib/appMode';
 
 const STORAGE_KEY = 'oikos-sidebar-collapsed';
 
@@ -34,6 +35,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   // v2: poll admin pending-request count for the Communities sidebar badge.
   // Fail silently — the badge just stays hidden when the endpoint errors.
   useEffect(() => {
+    // Communities and Messages are cloud-only; the desktop app never polls them.
+    if (isDesktop()) return;
     let cancelled = false;
     async function fetchCount() {
       try {
@@ -55,6 +58,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   // Poll unread-thread count for the Messages sidebar badge.
   useEffect(() => {
+    if (isDesktop()) return;
     let cancelled = false;
     async function fetchUnread() {
       try {
@@ -126,14 +130,16 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             icon={MessageCircle}
             collapsed={collapsed}
             badge={unreadMessages}
+            cloudOnly
           />
-          <SidebarNavItem href="/discover" label={t('discover')} icon={Compass} collapsed={collapsed} />
+          <SidebarNavItem href="/discover" label={t('discover')} icon={Compass} collapsed={collapsed} cloudOnly />
           <SidebarNavItem
             href="/community"
             label={t('communities')}
             icon={Globe}
             collapsed={collapsed}
             badge={pendingCount}
+            cloudOnly
           />
           <SidebarNavItem href="/assistant" label={t('assistant')} icon={Sparkles} collapsed={collapsed} soon />
         </SidebarNavGroup>

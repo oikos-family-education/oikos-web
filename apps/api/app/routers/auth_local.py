@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Response
 
+from app.core.app_mode import require_desktop_origin
 from app.routers.auth import get_auth_service, set_auth_cookies
 from app.schemas.auth import LocalResetPasswordRequest, LoginResponse
 from app.services.auth_service import AuthService, check_rate_limit, store_refresh_token
@@ -7,7 +8,11 @@ from app.services.auth_service import AuthService, check_rate_limit, store_refre
 router = APIRouter(prefix="/auth", tags=["auth-local"])
 
 
-@router.post("/local-reset-password", response_model=LoginResponse)
+@router.post(
+    "/local-reset-password",
+    response_model=LoginResponse,
+    dependencies=[Depends(require_desktop_origin)],
+)
 async def local_reset_password(
     request: Request,
     response: Response,

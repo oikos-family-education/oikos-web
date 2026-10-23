@@ -607,6 +607,32 @@ async def test_restore_is_rate_limited_per_ip(desktop_client, monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("origin", [None, "https://evil.example", "null"])
+async def test_restore_refuses_requests_from_other_origins(
+    desktop_client, valid_backup_bytes, authed_with_family, db, backup_dir, origin
+):
+    """CSRF: a page on another site can send a simple multipart POST to 127.0.0.1 without a preflight."""
+    _, _, family = authed_with_family
+    before = await snapshot_family(db, family.id)
+    if origin is None:
+        del desktop_client.headers["Origin"]
+    else:
+        desktop_client.headers["Origin"] = origin
+    res = await _restore(desktop_client, valid_backup_bytes)
+    assert res.status_code == 403
+    assert res.json()["detail"]["code"] == "bad_origin"
+    assert await snapshot_family(db, family.id) == before
+    assert not backup_dir.exists() or not list(backup_dir.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_restore_accepts_localhost_origin(desktop_client, valid_backup_bytes):
+    desktop_client.headers["Origin"] = "http://localhost:47321"
+    res = await _restore(desktop_client, valid_backup_bytes)
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.asyncio
 async def test_restore_absent_in_cloud(client):
     res = await client.post(RESTORE, files={"file": ("b.oikos", b"x")})
     assert res.status_code == 404

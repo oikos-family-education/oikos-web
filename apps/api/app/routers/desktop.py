@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.app_mode import require_desktop_origin
 from app.core.database import get_db
 from app.schemas.desktop import RestoreResponse
 from app.services.auth_service import check_rate_limit, clear_all_sessions
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/desktop", tags=["desktop"])
 
 
-@router.post("/restore", response_model=RestoreResponse)
+@router.post("/restore", response_model=RestoreResponse, dependencies=[Depends(require_desktop_origin)])
 async def restore(
     request: Request,
     file: UploadFile = File(...),

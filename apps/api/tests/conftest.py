@@ -309,7 +309,10 @@ async def desktop_client(desktop_mode):
     """A client over a freshly built desktop-mode app (cloud-only routers unmounted)."""
     transport = ASGITransport(app=create_app())
     # The desktop app only answers to local host names (DNS-rebinding guard)
-    async with AsyncClient(transport=transport, base_url="http://127.0.0.1") as ac:
+    # and, for its unauthenticated endpoints, to requests from the app's own origin (CSRF guard)
+    async with AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={"Origin": "http://127.0.0.1:47321"}
+    ) as ac:
         yield ac
 
 

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # Desktop mode storage
     SESSIONS_DB_PATH: str = ""
     BACKUP_DIR: str = ""
+    # Origins of the desktop app's own pages; the unauthenticated desktop endpoints refuse any other
+    DESKTOP_ALLOWED_ORIGINS: list[str] = ["http://127.0.0.1:47321", "http://localhost:47321"]
 
     # Alembic config, used to stamp backups with the schema revision
     ALEMBIC_INI_PATH: str = str(Path(__file__).resolve().parents[2] / "alembic.ini")

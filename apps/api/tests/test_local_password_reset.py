@@ -70,3 +70,37 @@ async def test_absent_in_cloud(client):
         "email": "a@example.com", "new_password": "NewPassword1!", "confirm_password": "NewPassword1!",
     })
     assert res.status_code in (404, 405)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("origin", [None, "https://evil.example"])
+async def test_reset_refuses_requests_from_other_origins(desktop_client, make_user, fresh_session, origin):
+    """CSRF: a page on another site must not be able to take over an account."""
+    await make_user(email="eve@example.com")
+    headers = {"Origin": origin} if origin else {}
+    if origin is None:
+        del desktop_client.headers["Origin"]
+    res = await desktop_client.post(URL, headers=headers, json={
+        "email": "eve@example.com", "new_password": "NewPassword1!", "confirm_password": "NewPassword1!",
+    })
+    assert res.status_code == 403 and res.json()["detail"]["code"] == "bad_origin"
+    assert "access_token" not in res.cookies
+    session = await fresh_session()
+    user = (await session.execute(select(User).where(User.email == "eve@example.com"))).scalars().first()
+    assert verify_password("Password123!", user.hashed_password)
+
+
+@pytest.mark.asyncio
+async def test_reset_accepts_localhost_origin(desktop_client, make_user):
+    await make_user(email="lou@example.com")
+    res = await desktop_client.post(URL, headers={"Origin": "http://localhost:47321"}, json={
+        "email": "lou@example.com", "new_password": "NewPassword1!", "confirm_password": "NewPassword1!",
+    })
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.asyncio
+async def test_bad_origin_is_refused_before_the_body_is_validated(desktop_client):
+    desktop_client.headers["Origin"] = "https://evil.example"
+    res = await desktop_client.post(URL, json={"email": "not-an-email"})
+    assert res.status_code == 403 and res.json()["detail"]["code"] == "bad_origin"

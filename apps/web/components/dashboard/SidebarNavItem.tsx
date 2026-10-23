@@ -69,7 +69,7 @@ export function SidebarNavItem({ href, label, icon: Icon, collapsed, soon, badge
           title={title}
           aria-label={ariaLabel}
           onClick={() => setDialogOpen(true)}
-          className={className}
+          className={`${className} w-full text-left`}
         >
           {content}
         </button>

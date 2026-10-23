@@ -86,6 +86,7 @@ describe('SidebarNavItem', () => {
         <SidebarNavItem href="/messages" label="Messages" icon={MessageCircle} collapsed={false} cloudOnly />,
       );
       expect(screen.queryByRole('link')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Messages' })).toHaveClass('w-full', 'text-left');
       await userEvent.click(screen.getByRole('button', { name: 'Messages' }));
       expect(screen.getByText(en.Desktop.cloudOnlyTitle)).toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: en.Desktop.cloudOnlyOk }));
@@ -99,6 +100,7 @@ describe('SidebarNavItem', () => {
         <SidebarNavItem href="/messages" label="Messages" icon={MessageCircle} collapsed={false} cloudOnly />,
       );
       expect(screen.getByRole('link', { name: 'Messages' })).toHaveAttribute('href', expect.stringContaining('/messages'));
+      expect(screen.getByRole('link', { name: 'Messages' })).not.toHaveClass('w-full');
     });
   });
 });

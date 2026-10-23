@@ -448,6 +448,7 @@ def mock_rate_limit(monkeypatch):
         ("rotate_refresh_token", _noop),
         ("revoke_refresh_token", _noop),
         ("revoke_all_refresh_tokens", _noop),
+        ("clear_all_sessions", _noop),
     ):
         monkeypatch.setattr(auth_service, fn, replacement)
         if hasattr(auth_router, fn):

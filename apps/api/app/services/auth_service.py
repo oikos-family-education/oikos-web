@@ -3,16 +3,21 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
-import redis.asyncio as redis
 
 from app.core.config import settings
+from app.core.kv_store import SqliteKVStore, make_kv_client
 from app.core.security import verify_password, get_password_hash, generate_reset_token, hash_token
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest
 
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+redis_client = make_kv_client()
 
 _REFRESH_TTL = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+async def clear_all_sessions() -> None:
+    """Desktop only: forget every session and rate limit (used after a backup restore)."""
+    if isinstance(redis_client, SqliteKVStore):
+        await redis_client.clear()
 
 async def store_refresh_token(user_id: str, token: str) -> None:
     hashed = hash_token(token)

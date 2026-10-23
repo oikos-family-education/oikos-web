@@ -22,9 +22,10 @@ class TableRule:
 
 _FAMILY_PROJECTS = "SELECT id FROM projects WHERE family_id = :fid"
 
-# Another family's subjects can be used by this family: lessons accept public subjects, the
-# subject pickers list public subjects, and the other subject_id columns aren't checked at all.
-# Such subjects are copied into the backup (the exporter rewrites them as owned by this family).
+# Another family's subjects can be used by this family: lessons accept public subjects and the
+# subject pickers list them. Referenced public subjects are copied into the backup (the exporter
+# rewrites them as owned by this family). Private ones are never exported, and the exporter treats
+# references to them as if the subject had been deleted.
 _REFERENCED_SUBJECTS = f"""
     SELECT subject_id FROM lessons WHERE family_id = :fid
     UNION SELECT subject_id FROM teaching_logs WHERE family_id = :fid
@@ -37,10 +38,6 @@ _REFERENCED_SUBJECTS = f"""
         WHERE resource_id IN (SELECT id FROM resources WHERE family_id = :fid)
     UNION SELECT unnest(prerequisite_subject_ids) FROM subjects WHERE family_id = :fid
 """
-
-# project_resources.resource_id isn't checked against the family, so a project can point at
-# another family's resource. Those resources are copied in too.
-_REFERENCED_RESOURCES = f"SELECT resource_id FROM project_resources WHERE project_id IN ({_FAMILY_PROJECTS})"
 
 # Members, the account owner, and anyone an exported row points at (e.g. a co-parent who has left
 # but still authored teaching logs). Copied-in subjects lose their author, so they don't count.
@@ -77,7 +74,8 @@ EXPORTED: list[TableRule] = [
     TableRule("child_highlights", "family_id = :fid"),
     TableRule(
         "subjects",
-        f"is_platform_subject = false AND (family_id = :fid OR id IN ({_REFERENCED_SUBJECTS}))",
+        "is_platform_subject = false AND "
+        f"(family_id = :fid OR (is_public = true AND id IN ({_REFERENCED_SUBJECTS})))",
     ),
     TableRule("curriculums", "family_id = :fid"),
     TableRule("curriculum_subjects", "curriculum_id IN (SELECT id FROM curriculums WHERE family_id = :fid)"),
@@ -95,7 +93,7 @@ EXPORTED: list[TableRule] = [
     TableRule("calendar_events", "family_id = :fid"),
     TableRule("portfolio_entries", f"project_id IN ({_FAMILY_PROJECTS})"),
     TableRule("child_achievements", f"project_id IN ({_FAMILY_PROJECTS})"),
-    TableRule("resources", f"family_id = :fid OR id IN ({_REFERENCED_RESOURCES})"),
+    TableRule("resources", "family_id = :fid"),
     TableRule("project_resources", f"project_id IN ({_FAMILY_PROJECTS})"),
     TableRule("subject_resources", "resource_id IN (SELECT id FROM resources WHERE family_id = :fid)"),
     TableRule("lessons", "family_id = :fid"),

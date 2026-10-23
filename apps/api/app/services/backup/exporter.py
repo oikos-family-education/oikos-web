@@ -22,6 +22,13 @@ PLATFORM_SUBJECT = "$platform_subject"
 PLATFORM_CURRICULUM = "$platform_curriculum"
 
 
+# Columns that exported tables' foreign keys point at, by table
+_TARGET_COLUMNS: dict[str, set[str]] = {}
+for _rule in EXPORTED:
+    for _fk in Base.metadata.tables[_rule.table].foreign_keys:
+        _TARGET_COLUMNS.setdefault(_fk.column.table.name, set()).add(_fk.column.name)
+
+
 def _fk_columns(table: Table, target: str) -> list[str]:
     return [c.name for c in table.columns if any(fk.column.table.name == target for fk in c.foreign_keys)]
 
@@ -52,9 +59,29 @@ def _adopt_subjects(rows: list[dict], family_id: str) -> None:
         used_slugs.add(slug)
 
 
-def _adopt_resources(rows: list[dict], family_id: str) -> None:
+def _resolve_references(
+    table: Table, rows: list[dict], exported: dict[tuple[str, str], set], platform: dict[str, dict]
+) -> list[dict]:
+    """Treat a reference to a row that isn't in the backup (another family's private subject or
+    resource) as if that row had been deleted: SET NULL references become null, and rows that
+    can't exist without it (CASCADE, NOT NULL, part of the key) are left out."""
+    kept = []
     for row in rows:
-        row["family_id"] = family_id
+        for column in table.columns:
+            value = row.get(column.name)
+            fk = next(iter(column.foreign_keys), None)
+            if value is None or fk is None:
+                continue
+            target = (fk.column.table.name, fk.column.name)
+            if target not in exported or value in exported[target] or value in platform.get(target[0], {}):
+                continue
+            if column.nullable and fk.ondelete == "SET NULL":
+                row[column.name] = None
+            else:
+                break
+        else:
+            kept.append(row)
+    return kept
 
 
 async def _platform_markers(db: AsyncSession) -> tuple[dict[str, dict], dict[str, dict]]:
@@ -76,8 +103,11 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
         raise HTTPException(status_code=404, detail="Family not found.")
 
     subject_markers, curriculum_markers = await _platform_markers(db)
+    platform = {"subjects": subject_markers, "curriculums": curriculum_markers}
     fid = str(family_id)
     now = datetime.now(timezone.utc)
+    # Values of every column a foreign key points at, per table already written (parents come first)
+    exported: dict[tuple[str, str], set] = {}
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -89,8 +119,9 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
             ]
             if rule.table == "subjects":
                 _adopt_subjects(rows, fid)
-            elif rule.table == "resources":
-                _adopt_resources(rows, fid)
+            rows = _resolve_references(table, rows, exported, platform)
+            for name in _TARGET_COLUMNS.get(rule.table, ()):
+                exported[(rule.table, name)] = {row[name] for row in rows}
 
             refs = [(c, subject_markers) for c in _fk_columns(table, "subjects")]
             refs += [(c, curriculum_markers) for c in _fk_columns(table, "curriculums")]
@@ -98,8 +129,11 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
                 for column, markers in refs:
                     row[column] = markers.get(row[column], row[column])
                 if rule.table == "subjects":
+                    # Drop prerequisites that aren't in the backup, as if they had been deleted
                     row["prerequisite_subject_ids"] = [
-                        subject_markers.get(sid, sid) for sid in row["prerequisite_subject_ids"]
+                        subject_markers.get(sid, sid)
+                        for sid in row["prerequisite_subject_ids"]
+                        if sid in subject_markers or sid in exported[("subjects", "id")]
                     ]
             archive.writestr(f"{rule.table}.json", json.dumps(rows))
 

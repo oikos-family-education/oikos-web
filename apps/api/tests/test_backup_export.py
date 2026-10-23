@@ -10,12 +10,13 @@ from sqlalchemy import ARRAY, JSON, Boolean, Date, DateTime, Integer, SmallInteg
 
 from app.core.database import Base
 from app.core.migrations import current_revision, known_revisions
-from app.models.curriculum import ChildCurriculum, Curriculum
+from app.models.calendar import CalendarEvent
+from app.models.curriculum import ChildCurriculum, Curriculum, CurriculumSubject
 from app.models.family import Family
 from app.models.family_member import FamilyMember
-from app.models.lesson import Lesson
-from app.models.project import Project, ProjectResource
-from app.models.resource import Resource
+from app.models.lesson import Lesson, LessonBlock
+from app.models.project import Project, ProjectResource, ProjectSubject
+from app.models.resource import Resource, SubjectResource
 from app.models.teaching_log import TeachingLog
 from app.services.backup import BACKUP_KIND, FORMAT_VERSION
 from app.services.backup.codec import decode_row, encode_row
@@ -253,7 +254,7 @@ async def test_platform_curriculum_exported_by_name(authed_with_family, make_chi
 
 
 @pytest.mark.asyncio
-async def test_other_familys_subject_is_copied_in_as_own(
+async def test_other_familys_public_subject_is_copied_in_as_own(
     authed_with_family, make_user, make_subject, db
 ):
     """A lesson may use another family's public subject; the backup carries a copy owned by this family."""
@@ -281,18 +282,64 @@ async def test_other_familys_subject_is_copied_in_as_own(
 
 
 @pytest.mark.asyncio
-async def test_other_familys_resource_linked_to_project_is_copied_in(
-    authed_with_family, make_user, db
+async def test_other_familys_private_subject_and_resources_are_never_exported(
+    authed_with_family, make_user, make_subject, make_child, db
 ):
-    client, _, family = authed_with_family
+    """References to rows the backup can't carry behave as if those rows had been deleted."""
+    client, user, family = authed_with_family
     other = await _make_other_family(db, make_user)
-    theirs = Resource(family_id=other.id, title="Atlas", type="book")
-    unlinked = Resource(family_id=other.id, title="Other", type="book")
+    private = await make_subject(other.id, name="Secretsubjectqx", slug="secretsubjectqx", is_public=False)
+    foreign_resource = Resource(family_id=other.id, title="Secretatlasqx", type="book")
+    child = await make_child(family.id)
+    own_subject = await make_subject(family.id, slug="history")
+    own_with_prereqs = await make_subject(family.id, prerequisite_subject_ids=[private.id, own_subject.id])
+    own_resource = Resource(family_id=family.id, title="Our book", type="book")
     project = Project(family_id=family.id, title="Maps")
-    db.add_all([theirs, unlinked, project])
+    curriculum = Curriculum(
+        family_id=family.id, name="Year 1", period_type="annual",
+        start_date=date(2026, 9, 1), end_date=date(2027, 6, 30),
+    )
+    db.add_all([foreign_resource, own_resource, project, curriculum])
     await db.flush()
-    db.add(ProjectResource(project_id=project.id, resource_id=theirs.id))
+    db.add_all([
+        ProjectResource(project_id=project.id, resource_id=foreign_resource.id),
+        ProjectSubject(project_id=project.id, subject_id=private.id),
+        CurriculumSubject(curriculum_id=curriculum.id, subject_id=private.id),
+        SubjectResource(subject_id=private.id, resource_id=own_resource.id),
+        CalendarEvent(
+            family_id=family.id, title="Trip", subject_id=private.id,
+            start_at=datetime(2026, 10, 1, 9, tzinfo=timezone.utc),
+            end_at=datetime(2026, 10, 1, 10, tzinfo=timezone.utc),
+        ),
+    ])
+    await db.commit()
+    lesson = await _make_lesson(db, family.id, private.id)
+    kept_lesson = await _make_lesson(db, family.id, own_subject.id)
+    db.add_all([
+        LessonBlock(lesson_id=lesson.id, type="text", content={"text": "hi"}),
+        LessonBlock(lesson_id=kept_lesson.id, type="text", content={"text": "kept"}),
+        TeachingLog(
+            family_id=family.id, taught_on=date(2026, 10, 1), child_id=child.id,
+            subject_id=private.id, lesson_id=lesson.id, logged_by_user_id=user.id,
+        ),
+    ])
     await db.commit()
 
-    resources = _rows(await _export(client), "resources")
-    assert [(r["id"], r["family_id"]) for r in resources] == [(str(theirs.id), str(family.id))]
+    z = await _export(client)
+    raw = b"".join(z.read(n) for n in z.namelist())
+    for secret in (str(private.id), "Secretsubjectqx", str(foreign_resource.id), "Secretatlasqx", str(lesson.id)):
+        assert secret.encode() not in raw, secret
+
+    # ON DELETE SET NULL references become null
+    assert _rows(z, "calendar_events")[0]["subject_id"] is None
+    log = _rows(z, "teaching_logs")[0]
+    assert log["subject_id"] is None and log["lesson_id"] is None
+    # Rows that can't exist without the missing row are left out
+    for table in ("project_resources", "project_subjects", "curriculum_subjects", "subject_resources"):
+        assert _rows(z, table) == [], table
+    assert [l["id"] for l in _rows(z, "lessons")] == [str(kept_lesson.id)]
+    assert [b["lesson_id"] for b in _rows(z, "lesson_blocks")] == [str(kept_lesson.id)]
+    # Prerequisites that point at a missing subject are dropped
+    subjects = {s["id"]: s for s in _rows(z, "subjects")}
+    assert subjects[str(own_with_prereqs.id)]["prerequisite_subject_ids"] == [str(own_subject.id)]
+    assert {r["id"] for r in _rows(z, "resources")} == {str(own_resource.id)}

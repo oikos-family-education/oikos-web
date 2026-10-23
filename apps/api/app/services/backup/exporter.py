@@ -59,14 +59,27 @@ def _adopt_subjects(rows: list[dict], family_id: str) -> None:
         used_slugs.add(slug)
 
 
+# Rows the backup deliberately leaves out: other families' private subjects and all their resources
+_MAY_BE_MISSING = {"subjects", "resources"}
+
+
 def _resolve_references(
-    table: Table, rows: list[dict], exported: dict[tuple[str, str], set], platform: dict[str, dict]
-) -> list[dict]:
+    table: Table,
+    rows: list[dict],
+    exported: dict[tuple[str, str], set],
+    omitted: dict[tuple[str, str], set],
+    platform: dict[str, dict],
+) -> tuple[list[dict], list[dict], int]:
     """Treat a reference to a row that isn't in the backup (another family's private subject or
-    resource) as if that row had been deleted: SET NULL references become null, and rows that
-    can't exist without it (CASCADE, NOT NULL, part of the key) are left out."""
-    kept = []
+    resource, or a row left out because of one) as if that row had been deleted: SET NULL
+    references become null, and rows that can't exist without it (CASCADE, NOT NULL, part of the
+    key) are left out. Returns the kept rows, the left-out rows and how many references were nulled.
+
+    Any other missing reference means a registry rule doesn't select something it should, so the
+    export fails instead of quietly losing the family's rows."""
+    kept, dropped, nulled = [], [], 0
     for row in rows:
+        row_nulled = 0
         for column in table.columns:
             value = row.get(column.name)
             fk = next(iter(column.foreign_keys), None)
@@ -75,13 +88,18 @@ def _resolve_references(
             target = (fk.column.table.name, fk.column.name)
             if target not in exported or value in exported[target] or value in platform.get(target[0], {}):
                 continue
+            if target[0] not in _MAY_BE_MISSING and value not in omitted.get(target, ()):
+                raise RuntimeError(f"Backup export: {table.name}.{column.name} points at a row that isn't exported")
             if column.nullable and fk.ondelete == "SET NULL":
                 row[column.name] = None
+                row_nulled += 1
             else:
+                dropped.append(row)
                 break
         else:
             kept.append(row)
-    return kept
+            nulled += row_nulled
+    return kept, dropped, nulled
 
 
 async def _platform_markers(db: AsyncSession) -> tuple[dict[str, dict], dict[str, dict]]:
@@ -106,8 +124,13 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
     platform = {"subjects": subject_markers, "curriculums": curriculum_markers}
     fid = str(family_id)
     now = datetime.now(timezone.utc)
-    # Values of every column a foreign key points at, per table already written (parents come first)
+    # Values of every column a foreign key points at, per table already written (parents come first),
+    # for the rows written and for the rows left out
     exported: dict[tuple[str, str], set] = {}
+    omitted_values: dict[tuple[str, str], set] = {}
+    # Recorded in the manifest: rows left out and references nulled, per table
+    omitted: dict[str, int] = {}
+    nulled: dict[str, int] = {}
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -119,9 +142,10 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
             ]
             if rule.table == "subjects":
                 _adopt_subjects(rows, fid)
-            rows = _resolve_references(table, rows, exported, platform)
+            rows, dropped, nulled_count = _resolve_references(table, rows, exported, omitted_values, platform)
             for name in _TARGET_COLUMNS.get(rule.table, ()):
                 exported[(rule.table, name)] = {row[name] for row in rows}
+                omitted_values[(rule.table, name)] = {row[name] for row in dropped}
 
             refs = [(c, subject_markers) for c in _fk_columns(table, "subjects")]
             refs += [(c, curriculum_markers) for c in _fk_columns(table, "curriculums")]
@@ -130,11 +154,16 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
                     row[column] = markers.get(row[column], row[column])
                 if rule.table == "subjects":
                     # Drop prerequisites that aren't in the backup, as if they had been deleted
-                    row["prerequisite_subject_ids"] = [
-                        subject_markers.get(sid, sid)
-                        for sid in row["prerequisite_subject_ids"]
+                    prerequisites = [
+                        sid for sid in row["prerequisite_subject_ids"]
                         if sid in subject_markers or sid in exported[("subjects", "id")]
                     ]
+                    nulled_count += len(row["prerequisite_subject_ids"]) - len(prerequisites)
+                    row["prerequisite_subject_ids"] = [subject_markers.get(sid, sid) for sid in prerequisites]
+            if dropped:
+                omitted[rule.table] = len(dropped)
+            if nulled_count:
+                nulled[rule.table] = nulled_count
             archive.writestr(f"{rule.table}.json", json.dumps(rows))
 
         manifest = {
@@ -144,6 +173,8 @@ async def export_family_backup(db: AsyncSession, family_id: UUID) -> tuple[str, 
             "alembicRevision": current_revision(),
             "createdAt": now.isoformat(),
             "familyId": fid,
+            "omitted": omitted,
+            "nulled": nulled,
         }
         archive.writestr("manifest.json", json.dumps(manifest))
 

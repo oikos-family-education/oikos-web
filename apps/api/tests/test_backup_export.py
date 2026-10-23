@@ -1,4 +1,5 @@
 """Family backup export (.oikos): classification, scoping, secrets and platform references."""
+import dataclasses
 import io
 import json
 import uuid
@@ -20,6 +21,7 @@ from app.models.resource import Resource, SubjectResource
 from app.models.teaching_log import TeachingLog
 from app.services.backup import BACKUP_KIND, FORMAT_VERSION
 from app.services.backup.codec import decode_row, encode_row
+from app.services.backup.exporter import export_family_backup
 from app.services.backup.registry import EXCLUDED, EXPORTED
 
 
@@ -82,6 +84,15 @@ def test_exported_tables_are_in_insert_order():
             target = fk.column.table.name
             if target in order and target != name:
                 assert order.index(target) < position, f"{name} is exported before {target}"
+
+
+def test_users_rule_covers_every_user_foreign_key():
+    """A user FK column missing from the users rule would make every export of it fail."""
+    users_sql = next(r for r in EXPORTED if r.table == "users").where_sql
+    for rule in EXPORTED:
+        for column in Base.metadata.tables[rule.table].columns:
+            if any(fk.column.table.name == "users" for fk in column.foreign_keys):
+                assert f"SELECT {column.name} FROM {rule.table} " in users_sql, f"{rule.table}.{column.name}"
 
 
 # ── Codec ───────────────────────────────────────────────────────────────────
@@ -153,6 +164,7 @@ async def test_manifest_fields(authed_with_family):
     assert manifest["alembicRevision"] == current_revision()
     assert "appVersion" in manifest
     assert datetime.fromisoformat(manifest["createdAt"]).tzinfo is not None
+    assert manifest["omitted"] == {} and manifest["nulled"] == {}
     # One file per exported table, even when empty
     assert set(z.namelist()) == {"manifest.json"} | {f"{r.table}.json" for r in EXPORTED}
 
@@ -343,3 +355,37 @@ async def test_other_familys_private_subject_and_resources_are_never_exported(
     subjects = {s["id"]: s for s in _rows(z, "subjects")}
     assert subjects[str(own_with_prereqs.id)]["prerequisite_subject_ids"] == [str(own_subject.id)]
     assert {r["id"] for r in _rows(z, "resources")} == {str(own_resource.id)}
+    # The manifest records what this export left out or cut loose
+    manifest = json.loads(z.read("manifest.json"))
+    assert manifest["omitted"] == {
+        "curriculum_subjects": 1,
+        "project_subjects": 1,
+        "project_resources": 1,
+        "subject_resources": 1,
+        "lessons": 1,
+        "lesson_blocks": 1,
+    }
+    # subjects: the dropped prerequisite; teaching_logs: subject_id and lesson_id
+    assert manifest["nulled"] == {"subjects": 1, "calendar_events": 1, "teaching_logs": 2}
+
+
+@pytest.mark.asyncio
+async def test_unresolved_reference_outside_subjects_and_resources_fails_the_export(
+    authed_with_family, make_user, monkeypatch, db
+):
+    """Only missing subjects/resources are expected; any other dangling reference is a registry bug
+    and must fail loudly rather than silently drop the family's rows."""
+    _, user, family = authed_with_family
+    departed = await make_user()
+    db.add(TeachingLog(family_id=family.id, taught_on=date(2026, 10, 1), logged_by_user_id=departed.id))
+    await db.commit()
+
+    import app.services.backup.exporter as exporter
+    rules = [
+        dataclasses.replace(r, where_sql=r.where_sql.replace("logged_by_user_id", "NULL::uuid"))
+        if r.table == "users" else r
+        for r in EXPORTED
+    ]
+    monkeypatch.setattr(exporter, "EXPORTED", rules)
+    with pytest.raises(RuntimeError, match="teaching_logs.logged_by_user_id"):
+        await export_family_backup(db, family.id)

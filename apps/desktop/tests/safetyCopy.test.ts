@@ -6,7 +6,7 @@ import type { AppConfig } from '../src/config';
 import { resolvePaths } from '../src/paths';
 import { pruneBackups, writePremigrateCopy } from '../src/safetyCopy';
 
-const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'b'.repeat(64), lastRunVersion: '0.1.0' };
+const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'b'.repeat(64) };
 
 function stamp(i: number): string {
   return `2026102${i}T120000000Z`;

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
-import { loadOrCreateConfig, saveConfig, type AppConfig } from './config.js';
+import { loadOrCreateConfig, loadState, saveState, type AppConfig, type AppState } from './config.js';
 import { logLine } from './logs.js';
 import { resolvePaths } from './paths.js';
 import { findBusyPorts } from './ports.js';
@@ -77,8 +77,10 @@ async function start(): Promise<void> {
   splash = createSplash();
 
   let cfg: AppConfig;
+  let state: AppState;
   try {
     cfg = loadOrCreateConfig(userData);
+    state = loadState(userData);
   } catch (err) {
     showError('start', (err as Error).message, paths.logs);
     return;
@@ -87,7 +89,7 @@ async function start(): Promise<void> {
   let pg: PgHandle | null = null;
 
   await runStartup({
-    cfg,
+    lastRunVersion: state.lastRunVersion,
     appVersion: app.getVersion(),
     stopOrphans: async () => {
       const pgNote = await stopOrphanedCluster(paths, cfg);
@@ -116,7 +118,7 @@ async function start(): Promise<void> {
       return track('Oikos web server', startWeb(paths), paths.logs);
     },
     waitForHealth,
-    saveConfig: (next) => saveConfig(userData, next),
+    saveLastRunVersion: (version) => saveState(userData, { lastRunVersion: version }),
     showError: (kind, detail) => showError(kind, detail, paths.logs),
     openMainWindow: () => {
       ready = true;

@@ -1,9 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppConfig } from '../src/config';
 import { runStartup, type StartupDeps } from '../src/startup';
 
-const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'b'.repeat(64), lastRunVersion: '0.2.0' };
 
 function fakeDeps(overrides: Partial<StartupDeps> = {}) {
   const calls: string[] = [];
@@ -13,7 +11,7 @@ function fakeDeps(overrides: Partial<StartupDeps> = {}) {
       return result;
     });
   const deps = {
-    cfg,
+    lastRunVersion: '0.2.0' as string | null,
     appVersion: '0.2.0',
     stopOrphans: step('stopOrphans', undefined),
     findBusyPorts: vi.fn(async (_ports: number[]) => {
@@ -35,8 +33,8 @@ function fakeDeps(overrides: Partial<StartupDeps> = {}) {
     waitForHealth: vi.fn(async (url: string, _timeoutMs: number) => {
       calls.push(`waitForHealth ${url}`);
     }),
-    saveConfig: vi.fn((_cfg: AppConfig) => {
-      calls.push('saveConfig');
+    saveLastRunVersion: vi.fn((_version: string) => {
+      calls.push('saveLastRunVersion');
     }),
     showError: vi.fn((_kind: 'ports' | 'migration' | 'start', _detail: string) => {
       calls.push('showError');
@@ -51,7 +49,7 @@ function fakeDeps(overrides: Partial<StartupDeps> = {}) {
 
 describe('runStartup', () => {
   it('runStartup runs steps in order and records the version', async () => {
-    const deps = fakeDeps({ cfg: { ...cfg, lastRunVersion: '0.1.0' } });
+    const deps = fakeDeps({ lastRunVersion: '0.1.0' });
     await runStartup(deps);
     expect(deps.calls).toEqual([
       'stopOrphans',
@@ -64,19 +62,19 @@ describe('runStartup', () => {
       'startWeb',
       'waitForHealth http://127.0.0.1:47322/health',
       'waitForHealth http://localhost:47321/',
-      'saveConfig',
+      'saveLastRunVersion',
       'openMainWindow',
     ]);
     expect(deps.findBusyPorts).toHaveBeenCalledWith([47321, 47322, 47323]);
     expect(deps.waitForHealth).toHaveBeenCalledWith('http://127.0.0.1:47322/health', 60_000);
     expect(deps.waitForHealth).toHaveBeenCalledWith('http://localhost:47321/', 60_000);
-    expect(deps.saveConfig).toHaveBeenCalledWith({ ...cfg, lastRunVersion: '0.2.0' });
+    expect(deps.saveLastRunVersion).toHaveBeenCalledWith('0.2.0');
     expect(deps.showError).not.toHaveBeenCalled();
   });
 
   it('startup aborts before migrating when the safety copy fails', async () => {
     const deps = fakeDeps({
-      cfg: { ...cfg, lastRunVersion: '0.1.0' },
+      lastRunVersion: '0.1.0',
       appVersion: '0.2.0',
       hasUsers: async () => true,
       writePremigrateCopy: async () => {
@@ -87,7 +85,7 @@ describe('runStartup', () => {
     expect(deps.runMigrations).not.toHaveBeenCalled();
     expect(deps.showError).toHaveBeenCalledWith('migration', expect.stringContaining('disk full'));
     expect(deps.startApi).not.toHaveBeenCalled();
-    expect(deps.saveConfig).not.toHaveBeenCalled();
+    expect(deps.saveLastRunVersion).not.toHaveBeenCalled();
   });
 
   it('a failure to clear a previous run shows the start error and starts nothing', async () => {
@@ -111,20 +109,23 @@ describe('runStartup', () => {
   });
 
   it('no safety copy on first run or same version', async () => {
-    const firstRun = fakeDeps({ cfg: { ...cfg, lastRunVersion: null } });
+    const firstRun = fakeDeps({ lastRunVersion: null });
     await runStartup(firstRun);
     expect(firstRun.writePremigrateCopy).not.toHaveBeenCalled();
     expect(firstRun.runMigrations).toHaveBeenCalled();
-    expect(firstRun.saveConfig).toHaveBeenCalledWith({ ...cfg, lastRunVersion: '0.2.0' });
+    expect(firstRun.saveLastRunVersion).toHaveBeenCalledWith('0.2.0');
 
-    const sameVersion = fakeDeps({ cfg: { ...cfg, lastRunVersion: '0.2.0' } });
+    const sameVersion = fakeDeps({ lastRunVersion: '0.2.0' });
     await runStartup(sameVersion);
     expect(sameVersion.writePremigrateCopy).not.toHaveBeenCalled();
     expect(sameVersion.runMigrations).toHaveBeenCalled();
+    // Nothing to record: no file is rewritten on an ordinary start
+    expect(sameVersion.saveLastRunVersion).not.toHaveBeenCalled();
+    expect(sameVersion.openMainWindow).toHaveBeenCalled();
   });
 
   it('no safety copy after an upgrade when the database has no users', async () => {
-    const deps = fakeDeps({ cfg: { ...cfg, lastRunVersion: '0.1.0' }, hasUsers: async () => false });
+    const deps = fakeDeps({ lastRunVersion: '0.1.0', hasUsers: async () => false });
     await runStartup(deps);
     expect(deps.writePremigrateCopy).not.toHaveBeenCalled();
     expect(deps.runMigrations).toHaveBeenCalled();
@@ -132,7 +133,7 @@ describe('runStartup', () => {
 
   it('a failed migration names the safety copy and starts nothing else', async () => {
     const deps = fakeDeps({
-      cfg: { ...cfg, lastRunVersion: '0.1.0' },
+      lastRunVersion: '0.1.0',
       runMigrations: async () => {
         throw new Error('alembic: relation "x" does not exist');
       },
@@ -144,7 +145,7 @@ describe('runStartup', () => {
       expect.stringContaining('/data/backups/auto-premigrate-x.dump'),
     );
     expect(deps.startApi).not.toHaveBeenCalled();
-    expect(deps.saveConfig).not.toHaveBeenCalled();
+    expect(deps.saveLastRunVersion).not.toHaveBeenCalled();
   });
 
   it('a Postgres start failure shows the start error', async () => {
@@ -160,14 +161,14 @@ describe('runStartup', () => {
 
   it('a health-check timeout shows the start error and keeps the old version', async () => {
     const deps = fakeDeps({
-      cfg: { ...cfg, lastRunVersion: '0.1.0' },
+      lastRunVersion: '0.1.0',
       waitForHealth: async (url: string) => {
         if (url.includes('47321')) throw new Error(`Timed out waiting for ${url}`);
       },
     });
     await runStartup(deps);
     expect(deps.showError).toHaveBeenCalledWith('start', expect.stringContaining('Timed out waiting for http://localhost:47321/'));
-    expect(deps.saveConfig).not.toHaveBeenCalled();
+    expect(deps.saveLastRunVersion).not.toHaveBeenCalled();
     expect(deps.openMainWindow).not.toHaveBeenCalled();
   });
 

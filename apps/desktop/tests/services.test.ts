@@ -13,7 +13,7 @@ import { apiEnv, runMigrations, startApi, startWeb, stopOrphanedApi, waitForHeal
 const { fork } = vi.hoisted(() => ({ fork: vi.fn() }));
 vi.mock('electron', () => ({ utilityProcess: { fork } }));
 
-const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'b'.repeat(64), lastRunVersion: null };
+const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'b'.repeat(64) };
 
 /** Paths whose "API exe" is node itself: node fails on the `migrate`/`serve` argument like a broken API would. */
 function nodeAsApi() {

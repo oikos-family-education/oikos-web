@@ -1,4 +1,3 @@
-import type { AppConfig } from './config.js';
 import { API_PORT, PG_PORT, WEB_PORT } from './ports.js';
 
 export type StartupErrorKind = 'ports' | 'migration' | 'start';
@@ -10,7 +9,8 @@ export interface WatchedProcess {
 
 /** Every side effect of the startup sequence, injected so the sequence can be tested. */
 export interface StartupDeps {
-  cfg: AppConfig;
+  /** The version that last started successfully (state.json); null on first run. */
+  lastRunVersion: string | null;
   appVersion: string;
   /** Stops Postgres and the API if a previous run (a crash, a force-quit) left them running. */
   stopOrphans: () => Promise<void>;
@@ -22,7 +22,7 @@ export interface StartupDeps {
   startApi: () => WatchedProcess;
   startWeb: () => WatchedProcess;
   waitForHealth: (url: string, timeoutMs: number) => Promise<void>;
-  saveConfig: (cfg: AppConfig) => void;
+  saveLastRunVersion: (version: string) => void;
   showError: (kind: StartupErrorKind, detail: string) => void;
   openMainWindow: () => void;
 }
@@ -50,7 +50,7 @@ function healthyBeforeExit(proc: WatchedProcess, name: string, healthy: Promise<
  * → both healthy → record the version → main window. Any failure shows the error window instead.
  */
 export async function runStartup(deps: StartupDeps): Promise<void> {
-  const { cfg, appVersion } = deps;
+  const { lastRunVersion, appVersion } = deps;
   let stage: StartupErrorKind = 'start';
   try {
     await deps.stopOrphans();
@@ -63,7 +63,7 @@ export async function runStartup(deps: StartupDeps): Promise<void> {
     await deps.startPostgres();
 
     let safetyCopy: string | null = null;
-    if (cfg.lastRunVersion !== null && cfg.lastRunVersion !== appVersion && (await deps.hasUsers())) {
+    if (lastRunVersion !== null && lastRunVersion !== appVersion && (await deps.hasUsers())) {
       stage = 'migration';
       try {
         safetyCopy = await deps.writePremigrateCopy();
@@ -87,7 +87,7 @@ export async function runStartup(deps: StartupDeps): Promise<void> {
       healthyBeforeExit(web, 'Oikos web server', deps.waitForHealth(WEB_URL, HEALTH_TIMEOUT_MS)),
     ]);
 
-    deps.saveConfig({ ...cfg, lastRunVersion: appVersion });
+    if (lastRunVersion !== appVersion) deps.saveLastRunVersion(appVersion);
     deps.openMainWindow();
   } catch (err) {
     deps.showError(stage, message(err));

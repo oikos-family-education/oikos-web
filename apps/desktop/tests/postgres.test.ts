@@ -10,7 +10,7 @@ import { PG_PORT, findBusyPorts } from '../src/ports';
 import { startPostgres, stopOrphanedCluster } from '../src/postgres';
 import { isAlive, waitForExit } from '../src/processes';
 
-const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'c0ffee'.repeat(10), lastRunVersion: null };
+const cfg: AppConfig = { jwtSecret: 'a'.repeat(64), pgPassword: 'c0ffee'.repeat(10) };
 const portBusy = (await findBusyPorts([PG_PORT])).length > 0;
 
 function freshPaths() {

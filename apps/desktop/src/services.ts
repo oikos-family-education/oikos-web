@@ -87,20 +87,21 @@ export async function stopOrphanedApi(paths: AppPaths): Promise<string | null> {
 /**
  * Starts the Next.js standalone server with Electron's Node. HOSTNAME must be `localhost`,
  * not 127.0.0.1: Next 14.2.3 turns every locale rewrite into a self-redirect loop otherwise.
- * ipv4first makes `localhost` resolve to 127.0.0.1, so it binds IPv4 loopback only.
+ * ipv4first makes `localhost` resolve to 127.0.0.1, so it binds IPv4 loopback only. It is passed
+ * as a command-line flag: a packaged Electron app ignores NODE_OPTIONS, and the server then bound
+ * [::1] instead.
  */
 export function startWeb(paths: AppPaths): UtilityProcess {
   if (!existsSync(paths.webServerJs)) throw new Error(`The Oikos web server was not found at ${paths.webServerJs}`);
   const log = openLog(paths.logs, 'web');
-  const nodeOptions = [process.env.NODE_OPTIONS, '--dns-result-order=ipv4first'].filter(Boolean).join(' ');
   const child = utilityProcess.fork(paths.webServerJs, [], {
     cwd: dirname(paths.webServerJs),
+    execArgv: ['--dns-result-order=ipv4first'],
     env: {
       ...process.env,
       NODE_ENV: 'production',
       PORT: String(WEB_PORT),
       HOSTNAME: 'localhost',
-      NODE_OPTIONS: nodeOptions,
       NEXT_TELEMETRY_DISABLED: '1',
     },
     stdio: 'pipe',

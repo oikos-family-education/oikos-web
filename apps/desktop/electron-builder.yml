@@ -1,4 +1,5 @@
-# Unsigned installers for a few known families: NSIS for Windows x64, a DMG per Mac architecture.
+# Installers for a few known families: NSIS for Windows x64 (unsigned) and a DMG per Mac
+# architecture (ad-hoc signed). No Developer ID, no notarization.
 # Build with `npm run desktop:build` from the repo root (see scripts/build-desktop.mjs).
 appId: family.oikos.desktop
 productName: Oikos
@@ -43,6 +44,9 @@ extraResources:
 
 publish: null
 
+# Windows: copies the VC++ runtime next to postgres.exe and pg_dump.exe (scripts/vc-runtime.mjs)
+afterPack: ./scripts/after-pack.mjs
+
 win:
   target:
     - target: nsis
@@ -52,8 +56,12 @@ nsis:
   artifactName: ${productName} Setup ${version}.${ext}
 
 mac:
-  # Unsigned: no Developer ID. Families open it once with right-click > Open.
-  identity: null
+  # Ad-hoc signed ("-"): no Developer ID and no notarization, so families open it once with
+  # right-click > Open. Apple Silicon refuses to run a modified bundle that isn't signed at all.
+  identity: '-'
+  # Hardened runtime only matters for notarization; with an ad-hoc signature its library
+  # validation would stop Postgres and the API from loading their own libraries.
+  hardenedRuntime: false
   category: public.app-category.education
   # One DMG per architecture: the bundled API and Postgres binaries are built for one CPU.
   # The architecture is the build machine's (scripts/build-desktop.mjs passes --arm64 or --x64).

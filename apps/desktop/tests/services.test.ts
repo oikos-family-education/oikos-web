@@ -140,14 +140,17 @@ describe('startWeb', () => {
       expect.objectContaining({
         cwd: dirname(paths.webServerJs),
         stdio: 'pipe',
+        // A command-line flag, not NODE_OPTIONS: packaged Electron ignores NODE_OPTIONS
+        execArgv: ['--dns-result-order=ipv4first'],
         env: expect.objectContaining({
           PORT: '47321',
           HOSTNAME: 'localhost',
           NODE_ENV: 'production',
-          NODE_OPTIONS: expect.stringContaining('--dns-result-order=ipv4first'),
         }),
       }),
     );
+    const env = fork.mock.calls[0][2].env as Record<string, string | undefined>;
+    expect(env.NODE_OPTIONS ?? '').not.toContain('--dns-result-order');
     stdout.write('Ready in 120ms\n');
     stderr.write('a warning\n');
     const log = await eventuallyRead(join(paths.logs, 'web.log'), /a warning/);

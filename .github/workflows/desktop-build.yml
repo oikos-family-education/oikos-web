@@ -28,7 +28,7 @@ jobs:
         shell: bash
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      # Unsigned builds: never pick up a signing identity from the runner's keychain
+      # No Developer ID: never pick up a signing identity from the runner's keychain (Macs are ad-hoc signed)
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4

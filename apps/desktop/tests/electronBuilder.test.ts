@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load } from 'js-yaml';
@@ -19,8 +19,9 @@ interface Config {
   directories: { output: string };
   extraResources: { from: string; to: string }[];
   win: { target: { target: string; arch: string[] }[] };
-  mac: { identity: null; target: string };
+  mac: { identity: string | null; hardenedRuntime: boolean; target: string };
   publish: null;
+  afterPack: string;
 }
 const config = load(readFileSync(join(desktopDir, 'electron-builder.yml'), 'utf8')) as Config;
 
@@ -32,13 +33,20 @@ function sourceOf(resourcePath: string): string | null {
 }
 
 describe('electron-builder.yml', () => {
-  it('names the app as the brief says, unsigned, and never publishes', () => {
+  it('names the app as the brief says, ad-hoc signs the Mac app, and never publishes', () => {
     expect(config.appId).toBe('family.oikos.desktop');
     expect(config.productName).toBe('Oikos');
-    expect(config.mac.identity).toBeNull();
+    // R26: "-" is an ad-hoc signature (no Developer ID); null would skip signing entirely
+    expect(config.mac.identity).toBe('-');
+    expect(config.mac.hardenedRuntime).toBe(false);
     expect(config.mac.target).toBe('dmg');
     expect(config.win.target).toEqual([{ target: 'nsis', arch: ['x64'] }]);
     expect(config.publish).toBeNull();
+  });
+
+  it('runs the after-pack hook that bundles the VC++ runtime on Windows', () => {
+    expect(config.afterPack).toBe('./scripts/after-pack.mjs');
+    expect(existsSync(join(desktopDir, config.afterPack))).toBe(true);
   });
 
   it('keeps the embedded-postgres binaries out of app.asar so they can be spawned', () => {

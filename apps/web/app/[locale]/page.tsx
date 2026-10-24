@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { BetaCta } from '../../components/desktop/BetaCta';
+import { RestoreBackupButton } from '../../components/desktop/RestoreBackupButton';
 
 export default function Home() {
   const t = useTranslations('Landing');
@@ -86,6 +87,7 @@ export default function Home() {
               >
                 {t('heroCtaSecondary')}
               </a>
+              <RestoreBackupButton />
             </div>
             <ul className="flex flex-wrap gap-x-6 gap-y-2 pt-3 text-sm text-slate-500">
               <li className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-primary" />{t('heroTrust1')}</li>
@@ -264,6 +266,7 @@ export default function Home() {
             >
               {t('finalCtaSecondary')}
             </Link>
+            <RestoreBackupButton />
           </div>
         </div>
       </section>

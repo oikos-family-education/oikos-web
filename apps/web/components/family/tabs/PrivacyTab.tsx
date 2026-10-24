@@ -3,9 +3,8 @@
 import { apiFetch } from '../../../lib/apiFetch';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '../../../lib/navigation';
-import { Button } from '@oikos/ui';
-import { AlertTriangle, Download, Eye, EyeOff, Globe, Loader2, Trash2 } from 'lucide-react';
+import { Link, useRouter } from '../../../lib/navigation';
+import { AlertTriangle, Eye, EyeOff, Globe, Loader2, Trash2 } from 'lucide-react';
 import { FamilyApiResponse, FamilyFormData } from '../familyFormTypes';
 import { TabFormShell } from '../TabFormShell';
 import { isDesktop } from '../../../lib/appMode';
@@ -40,21 +39,6 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
   const setVisibility = (v: string) => {
     setFormData((prev) => ({ ...prev, visibility: v }));
     setDirty(true);
-  };
-
-  // Export
-  const [exporting, setExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState('');
-
-  const requestExport = async () => {
-    setExporting(true);
-    setExportMessage('');
-    try {
-      const res = await apiFetch('/api/v1/families/me/export', { method: 'POST', credentials: 'include' });
-      if (res.ok) setExportMessage(t('exportRequested'));
-    } finally {
-      setExporting(false);
-    }
   };
 
   // Delete
@@ -129,22 +113,16 @@ export function PrivacyTab({ family, formData: initial, onFamilyUpdated }: Props
         </div>
       </TabFormShell>
 
-      {/* Export */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 lg:p-8">
-        <div className="flex items-center gap-2 mb-3">
-          <Download className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold text-slate-800">{t('exportTitle')}</h2>
-        </div>
-        <p className="text-sm text-slate-600 mb-4">{t('exportBody')}</p>
-        {exportMessage && (
-          <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
-            {exportMessage}
-          </div>
-        )}
-        <Button type="button" onClick={requestExport} disabled={exporting} className="px-5">
-          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('exportButton')}
-        </Button>
-      </div>
+      {/* Export moved to Settings → Backup */}
+      <p className="text-sm text-slate-600">
+        {t.rich('exportMovedNote', {
+          link: (chunks) => (
+            <Link href="/settings" className="font-medium text-primary hover:underline">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
 
       {/* Danger zone — delete family */}
       <div className="rounded-xl border border-red-200 bg-red-50/40 p-6 lg:p-8">

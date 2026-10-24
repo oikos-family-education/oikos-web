@@ -53,3 +53,29 @@ async def test_desktop_accepts_localhost(desktop_client):
 async def test_cloud_accepts_any_host(client):
     res = await client.get("/health", headers={"Host": "evil.example"})
     assert res.status_code == 200
+
+
+async def _preflight(client, origin: str):
+    return await client.options(
+        "/health",
+        headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_desktop_cors_allows_only_the_desktop_origins(desktop_client):
+    for origin in ("http://127.0.0.1:47321", "http://localhost:47321"):
+        res = await _preflight(desktop_client, origin)
+        assert res.headers.get("access-control-allow-origin") == origin
+        assert res.headers.get("access-control-allow-credentials") == "true"
+    res = await _preflight(desktop_client, "http://localhost:3000")
+    assert "access-control-allow-origin" not in res.headers
+
+
+@pytest.mark.asyncio
+async def test_cloud_cors_unchanged(client):
+    res = await _preflight(client, "http://localhost:3000")
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert res.headers.get("access-control-allow-credentials") == "true"
+    res = await _preflight(client, "http://localhost:47321")
+    assert "access-control-allow-origin" not in res.headers

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.core.app_mode import is_desktop
+from app.core.config import settings
 from app.routers import auth, families, invitations, subjects, curriculums, week_planner, resources, projects, calendar, progress, notes, lessons, users, beta, admin, communities, meetups, notifications, messages, child_reports, auth_local, desktop
 
 logger = logging.getLogger(__name__)
@@ -54,9 +55,11 @@ def create_app() -> FastAPI:
         logger.error("Validation error on %s %s: %d error(s)", request.method, request.url.path, len(exc.errors()))
         return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
+    # Desktop: only the local web server's origins; the dev port 3000 must not get credentialed access
+    allowed_origins = list(settings.DESKTOP_ALLOWED_ORIGINS) if is_desktop() else ["http://localhost:3000"]
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

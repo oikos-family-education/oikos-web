@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { BetaCta } from '../../components/desktop/BetaCta';
+import { DesktopSessionRedirect } from '../../components/desktop/DesktopSessionRedirect';
 import { RestoreBackupButton } from '../../components/desktop/RestoreBackupButton';
 
 export default function Home() {
@@ -25,6 +26,7 @@ export default function Home() {
 
   return (
     <main className="relative z-10">
+      <DesktopSessionRedirect />
       {/* Top nav */}
       <header className="max-w-6xl mx-auto px-6 lg:px-8 pt-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">

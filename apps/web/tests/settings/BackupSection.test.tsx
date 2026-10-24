@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import en from '../../messages/en.json';
 import { renderWithProviders } from '../utils/renderWithProviders';
-import { BackupSection } from '../../components/settings/BackupSection';
+import { BackupSection, REVOKE_DELAY_MS } from '../../components/settings/BackupSection';
 
 const FILENAME = 'Oikos-backup-smith-2026-10-23.oikos';
 
@@ -36,6 +36,7 @@ describe('BackupSection', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     URL.createObjectURL = originalCreate;
     URL.revokeObjectURL = originalRevoke;
     vi.unstubAllGlobals();
@@ -45,6 +46,7 @@ describe('BackupSection', () => {
 
   for (const mode of ['', 'desktop']) {
     it(`renders and downloads with the server filename (${mode || 'cloud'} mode)`, async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       vi.stubEnv('NEXT_PUBLIC_APP_MODE', mode);
       const fetchMock = vi.fn().mockResolvedValue(zipResponse());
       vi.stubGlobal('fetch', fetchMock);
@@ -62,6 +64,9 @@ describe('BackupSection', () => {
       );
       expect(clicked[0].download).toBe(FILENAME);
       expect(clicked[0].href).toBe('blob:fake-url');
+      // Revoked later, not right after the click (Safari would cancel the download)
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(REVOKE_DELAY_MS);
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake-url');
       expect(screen.queryByRole('alert')).toBeNull();
     });

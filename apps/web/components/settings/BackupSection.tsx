@@ -8,6 +8,8 @@ import { apiFetch } from '../../lib/apiFetch';
 import { Alert } from '../ui/Alert';
 
 const FALLBACK_FILENAME = 'Oikos-backup.oikos';
+// Safari cancels a download whose blob URL is revoked right after the click
+export const REVOKE_DELAY_MS = 10_000;
 
 function filenameFrom(contentDisposition: string | null): string {
   const match = contentDisposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
@@ -41,7 +43,7 @@ export function BackupSection() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
     } catch {
       setError(t('backupError'));
     } finally {

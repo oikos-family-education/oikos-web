@@ -1,0 +1,26 @@
+# Build context of the API images (docker-compose builds them from apps/api, so the root
+# .dockerignore does not apply here). alembic/, scripts/ and app/ are needed and stay in.
+
+# Python virtual environments, including the desktop build's .venv-desktop
+.venv
+.venv*
+venv
+
+# Python caches
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.coverage
+
+# Desktop (PyInstaller) build outputs; desktop/oikos-api.spec is a source file and stays in
+dist
+build
+*.spec
+
+# Secrets: compose passes them through env_file
+.env
+.env.*
+!.env.example
+
+**/*.log
+.DS_Store

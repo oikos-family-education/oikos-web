@@ -1,5 +1,6 @@
 **/node_modules
 **/.next
+**/.next-*
 **/.turbo
 **/dist
 **/build
@@ -23,4 +24,12 @@ npm-debug.log*
 **/*.pyc
 **/.pytest_cache
 **/.venv
+# e.g. apps/api/.venv-desktop (desktop build)
+**/.venv*
 **/venv
+
+# Desktop app: installer output, downloaded archives, staged pg_dump, dev links
+apps/desktop/release
+apps/desktop/.cache
+apps/desktop/.pg-dump
+apps/desktop/.dev-resources

@@ -588,15 +588,16 @@ async def test_restore_needs_backup_dir(desktop_client, valid_backup_bytes, auth
 
 @pytest.mark.asyncio
 async def test_restored_user_must_set_password(desktop_client, db, valid_backup_bytes, user_email_in_backup):
-    """Backups carry no password hashes: each restored account gets an unguessable random password.
-
-    Checked on the stored hash rather than through /auth/login, because login currently skips the
-    password check entirely (the dev bypass in AuthService.authenticate_user)."""
+    """Backups carry no password hashes: each restored account gets an unguessable random password."""
     res = await _restore(desktop_client, valid_backup_bytes)
     assert res.status_code == 200, res.text
     hashed = await _scalar(db, "SELECT hashed_password FROM users WHERE email = :email", email=user_email_in_backup)
     assert hashed.startswith("$2")
     assert not verify_password("Password123!", hashed)
+    login = await desktop_client.post(
+        "/api/v1/auth/login", json={"email": user_email_in_backup, "password": "Password123!"}
+    )
+    assert login.status_code == 401
 
 
 @pytest.mark.asyncio

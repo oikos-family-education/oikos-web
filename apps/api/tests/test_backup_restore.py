@@ -657,3 +657,87 @@ async def test_restore_accepts_localhost_origin(desktop_client, valid_backup_byt
 async def test_restore_absent_in_cloud(client):
     res = await client.post(RESTORE, files={"file": ("b.oikos", b"x")})
     assert res.status_code == 404
+
+
+# ── Restored login accounts ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_restore_lists_the_account_owner_first_and_no_former_members(desktop_client, db, make_user):
+    """users.json is in whatever order the database returned the rows; the owner must still come
+    first, and a former member (kept only as a note's author) is not offered a login."""
+    owner = await make_user(email="owner@example.com")
+    co_parent = await make_user(email="aaa-co-parent@example.com")
+    former = await make_user(email="0-former@example.com")
+    family = Family(account_id=owner.id, family_name="Gray", family_name_slug=f"gray-{uuid.uuid4().hex[:6]}")
+    db.add(family)
+    await db.flush()
+    db.add_all([
+        FamilyMember(family_id=family.id, user_id=owner.id, role="primary"),
+        FamilyMember(family_id=family.id, user_id=co_parent.id, role="co_parent"),
+        Note(family_id=family.id, author_user_id=former.id, content="Left the family"),
+    ])
+    for user in (owner, co_parent, former):
+        user.has_family = True  # the former member's flag is stale: they belong to another family
+    await db.commit()
+    _, data = await export_family_backup(db, family.id)
+    await db.commit()
+
+    # The owner last in the file, the former member first
+    def _reorder(rows):
+        rank = {owner.email: 2, co_parent.email: 1, former.email: 0}
+        return sorted(rows, key=lambda row: rank[row["email"]])
+
+    res = await _restore(desktop_client, rewrite_table(data, "users.json", _reorder))
+    assert res.status_code == 200, res.text
+    assert res.json()["emails"] == [owner.email, co_parent.email]
+    # The former member is restored (their note keeps its author) but has no family here
+    assert await _scalar(db, "SELECT has_family FROM users WHERE id = :id", id=former.id) is False
+    assert await _scalar(db, "SELECT has_family FROM users WHERE id = :id", id=owner.id) is True
+    assert await _scalar(db, "SELECT has_family FROM users WHERE id = :id", id=co_parent.id) is True
+    assert await _scalar(db, "SELECT author_user_id FROM notes") == former.id
+
+
+@pytest.mark.asyncio
+async def test_restore_ignores_secret_columns_in_the_file(desktop_client, db, valid_backup_bytes, user_email_in_backup):
+    """A crafted file can't plant a reset token, a lockout, moderation state or a known password."""
+    planted = {
+        "hashed_password": "$2b$12$known.hash.from.the.file.................................",
+        "password_reset_token": "planted",
+        "password_reset_token_expires_at": "2999-01-01T00:00:00+00:00",
+        "failed_login_attempts": 99,
+        "locked_until": "2999-01-01T00:00:00+00:00",
+        "moderation_status": "banned",
+        "moderation_reason": "planted",
+    }
+    data = rewrite_table(
+        valid_backup_bytes, "users.json", lambda rows: [{**row, **planted} for row in rows]
+    )
+    res = await _restore(desktop_client, data)
+    assert res.status_code == 200, res.text
+    row = (await db.execute(
+        text("SELECT * FROM users WHERE email = :email"), {"email": user_email_in_backup}
+    )).mappings().one()
+    await db.commit()
+    assert row["hashed_password"] != planted["hashed_password"]
+    assert row["hashed_password"].startswith("$2")
+    assert row["password_reset_token"] is None
+    assert row["password_reset_token_expires_at"] is None
+    assert row["failed_login_attempts"] == 0
+    assert row["locked_until"] is None
+    assert row["moderation_status"] == "active"
+    assert row["moderation_reason"] is None
+
+
+@pytest.mark.asyncio
+async def test_restore_succeeds_when_clearing_sessions_fails(desktop_client, valid_backup_bytes, db, monkeypatch, caplog):
+    """The restore is already committed: the client must hear that it worked."""
+    async def _boom():
+        raise RuntimeError("sessions.db is locked")
+
+    import app.routers.desktop as desktop_router
+    monkeypatch.setattr(desktop_router, "clear_all_sessions", _boom)
+    res = await _restore(desktop_client, valid_backup_bytes)
+    assert res.status_code == 200, res.text
+    assert res.json()["emails"]
+    assert await _scalar(db, "SELECT count(*) FROM families") == 1
+    assert "could not clear the old sessions" in caplog.text

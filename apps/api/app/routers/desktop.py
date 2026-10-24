@@ -36,5 +36,9 @@ async def restore(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"detail": "The backup could not be restored. Nothing was changed.", "code": "restore_failed"},
         )
-    await clear_all_sessions()
+    try:
+        await clear_all_sessions()
+    except Exception:
+        # The restore is committed, so it succeeded: saying "nothing was changed" would be false
+        logger.exception("Restored the backup, but could not clear the old sessions")
     return RestoreResponse(emails=emails)

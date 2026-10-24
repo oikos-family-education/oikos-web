@@ -32,6 +32,24 @@ _KEEP_PLATFORM_ROWS = {
     "curriculum_subjects": f"curriculum_id IN ({_TEMPLATES_SQL})",
 }
 
+# The restored login accounts, account owner first: only the owner and family members can log in to
+# the restored family. Others in the backup (e.g. a co-parent who left but authored notes) are not offered.
+_RESTORED_LOGINS_SQL = """
+    SELECT u.email FROM users u
+    WHERE u.id IN (SELECT account_id FROM families)
+       OR u.id IN (SELECT user_id FROM family_members WHERE user_id IS NOT NULL)
+    ORDER BY
+        u.id NOT IN (SELECT account_id FROM families),
+        (SELECT min(m.joined_at) FROM family_members m WHERE m.user_id = u.id) NULLS LAST,
+        u.email
+"""
+
+# has_family means "has a family_members row"; a former member restored for authorship has none
+_CLEAR_HAS_FAMILY_SQL = """
+    UPDATE users SET has_family = false
+    WHERE has_family AND id NOT IN (SELECT user_id FROM family_members WHERE user_id IS NOT NULL)
+"""
+
 # Columns that exported tables' foreign keys point at, by table
 _TARGET_COLUMNS: dict[str, set[str]] = {}
 for _rule in EXPORTED:
@@ -163,11 +181,18 @@ def _prepare_rows(
     rows: list[dict],
     inserted: dict[tuple[str, str], set],
     platform: dict[str, dict[str, Any]],
+    drop_columns: frozenset[str] = frozenset(),
 ) -> list[dict]:
     """Decode rows and point their references at local rows. A reference to a row that isn't in
-    the backup is nulled when the column is nullable and ON DELETE SET NULL; otherwise it raises."""
+    the backup is nulled when the column is nullable and ON DELETE SET NULL; otherwise it raises.
+
+    Columns the exporter never writes (drop_columns: password and reset secrets, lockout and
+    moderation state) are ignored if a file carries them, so they take the column defaults."""
     platform_ids = {name: set(ids.values()) for name, ids in platform.items()}
-    decoded = [decode_row(table, row) for row in rows]
+    decoded = [
+        decode_row(table, {key: value for key, value in row.items() if key not in drop_columns})
+        for row in rows
+    ]
     own_subjects = {row.get("id") for row in decoded} if table.name == "subjects" else set()
 
     for row in decoded:
@@ -206,7 +231,8 @@ async def _insert(db: AsyncSession, table: Table, rows: list[dict]) -> None:
 
 
 async def restore_backup(db: AsyncSession, data: bytes) -> list[str]:
-    """Replace all data with the backup's. Returns the emails of the restored login accounts.
+    """Replace all data with the backup's. Returns the emails of the restored login accounts,
+    account owner first, then the other family members.
 
     Raises BackupError for a file this app can't restore. Any other failure rolls back the whole
     restore, leaving the data as it was (the safety copy is written before anything changes)."""
@@ -217,15 +243,14 @@ async def restore_backup(db: AsyncSession, data: bytes) -> list[str]:
         platform = await _platform_ids(db)
         # Values of every column a foreign key points at, per table inserted so far
         inserted: dict[tuple[str, str], set] = {}
-        emails: list[str] = []
         for rule in EXPORTED:
             table = Base.metadata.tables[rule.table]
-            rows = _prepare_rows(table, tables[rule.table], inserted, platform)
+            rows = _prepare_rows(table, tables[rule.table], inserted, platform, rule.drop_columns)
             await _insert(db, table, rows)
             for name in _TARGET_COLUMNS.get(rule.table, ()):
                 inserted[(rule.table, name)] = {row.get(name) for row in rows}
-            if rule.table == "users":
-                emails = [row["email"] for row in rows]
+        await db.execute(text(_CLEAR_HAS_FAMILY_SQL))
+        emails = list((await db.execute(text(_RESTORED_LOGINS_SQL))).scalars().all())
         await db.commit()
     except Exception:
         await db.rollback()

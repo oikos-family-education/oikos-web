@@ -90,7 +90,7 @@ async function start(): Promise<void> {
     cfg,
     appVersion: app.getVersion(),
     stopOrphans: async () => {
-      const pgNote = await stopOrphanedCluster(paths);
+      const pgNote = await stopOrphanedCluster(paths, cfg);
       if (pgNote) logLine(paths.logs, 'postgres', pgNote);
       const apiNote = await stopOrphanedApi(paths);
       if (apiNote) logLine(paths.logs, 'api', apiNote);

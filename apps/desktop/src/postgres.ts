@@ -1,15 +1,16 @@
 import { execFile, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type EmbeddedPostgres from 'embedded-postgres';
 import type { AppConfig } from './config.js';
 import { closeLog, openLog } from './logs.js';
 import type { AppPaths } from './paths.js';
 import { PG_PORT } from './ports.js';
-import { isAlive, killTree, processImage, waitForExit } from './processes.js';
+import { isAlive, killTree, waitForExit } from './processes.js';
 
 export interface PgHandle {
   /** True when the `users` table exists and has at least one row. */
@@ -136,23 +137,58 @@ async function stopCluster(pg: EmbeddedPostgres, pgdata: string, record: (m: str
 }
 
 /**
- * Run before starting: deals with a cluster left behind by an app that did not shut down
- * (a crash, a force-quit). Returns what it did, or null when there was nothing to do.
- * - postmaster.pid names a live postgres: stop it cleanly (pg_ctl, fast shutdown).
- * - It names a live process that is not postgres (PID reused after a power loss): the file is
- *   stale; remove it, never touching that process.
- * - It names a dead PID: Postgres itself treats the file as stale.
+ * Postgres on Windows stores the data path in the ANSI code page, so the path in postmaster.pid
+ * and `SHOW data_directory` lose non-ASCII characters (`João` comes back as `Jo\uFFFDo`).
+ * Compare paths with every non-ASCII character treated as unknown.
  */
-export async function stopOrphanedCluster(paths: AppPaths): Promise<string | null> {
+function comparablePath(path: string): string {
+  let p = resolve(path).replace(/\\/g, '/').replace(/\/+$/, '');
+  p = p.replace(/[^\x00-\x7f]+/g, '?');
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
+
+/**
+ * True only when the server answering on 127.0.0.1:PG_PORT accepts our credentials AND serves
+ * our data folder. Proof: it reads back, from its own data directory (pg_read_file with a
+ * relative path), a one-off token we just wrote into `pgdata`. Encoding-proof, unlike comparing
+ * `SHOW data_directory` (see comparablePath).
+ */
+async function servesOurData(paths: AppPaths, cfg: AppConfig): Promise<boolean> {
+  const name = `oikos-owner-${randomBytes(8).toString('hex')}`;
+  const token = randomBytes(16).toString('hex');
+  const file = join(paths.pgdata, name);
+  writeFileSync(file, token);
+  try {
+    const EmbeddedPostgresClass = await loadEmbeddedPostgres();
+    const probe = new EmbeddedPostgresClass({ port: PG_PORT, user: 'oikos', password: cfg.pgPassword, onLog: () => {}, onError: () => {} });
+    const read = withClient(probe, 'postgres', async (c) => (await c.query(`SELECT pg_read_file('${name}') AS token`)).rows[0]?.token);
+    return (await timeout(read, 10_000, 'no answer')) === token;
+  } catch {
+    return false; // no server, wrong password, not our data folder, or no answer
+  } finally {
+    rmSync(file, { force: true });
+  }
+}
+
+/**
+ * Run before starting: stops our own cluster if a previous run (a crash, a force-quit) left it
+ * running. Returns what it did, or null when there was nothing to do.
+ *
+ * It signals a process only after proving it is our cluster: postmaster.pid names a live PID,
+ * the file's data folder (line 2) is ours, and the server on our port with our credentials
+ * serves our data folder. Anything else (a dead PID, a PID now used by another program or by
+ * another Postgres) is left alone, file included: Postgres's own stale-lock check decides.
+ */
+export async function stopOrphanedCluster(paths: AppPaths, cfg: AppConfig): Promise<string | null> {
   const pidFile = join(paths.pgdata, 'postmaster.pid');
   if (!existsSync(pidFile)) return null;
-  const pid = Number(readFileSync(pidFile, 'utf8').split(/\r?\n/)[0]);
+  // latin1 keeps one character per byte, whatever code page Postgres wrote the path in.
+  const [pidLine = '', dataDirLine = ''] = readFileSync(pidFile, 'latin1').split(/\r?\n/);
+  const pid = Number(pidLine);
   if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) return null;
-  const image = await processImage(pid);
-  if (!image || !/^postgres(\.exe)?$/i.test(basename(image))) {
-    rmSync(pidFile, { force: true });
-    return `removed stale postmaster.pid (PID ${pid} is now ${image ?? 'another program'})`;
-  }
+  if (comparablePath(dataDirLine) !== comparablePath(paths.pgdata)) return null;
+  if (!(await servesOurData(paths, cfg))) return null;
+
   await pgCtlStop(paths.pgdata);
   if (!(await waitForExit(pid, STOP_TIMEOUT_MS))) {
     throw new Error(`PostgreSQL left running by a previous start (PID ${pid}) did not stop`);

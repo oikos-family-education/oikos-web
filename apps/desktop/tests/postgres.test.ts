@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
@@ -120,7 +120,7 @@ describe.skipIf(portBusy)('startPostgres (real PostgreSQL)', () => {
       const orphan = await startPostgres(paths, cfg);
       const pid = postmasterPid(paths.pgdata);
 
-      expect(await stopOrphanedCluster(paths)).toMatch(new RegExp(`stopped .*PID ${pid}`));
+      expect(await stopOrphanedCluster(paths, cfg)).toMatch(new RegExp(`stopped .*PID ${pid}`));
       expect(isAlive(pid)).toBe(false);
       expect(existsSync(join(paths.pgdata, 'postmaster.pid'))).toBe(false);
       await within(30_000, orphan.stop());
@@ -133,6 +133,33 @@ describe.skipIf(portBusy)('startPostgres (real PostgreSQL)', () => {
   );
 
   it(
+    'never stops an unrelated Postgres whose PID was reused in our stale postmaster.pid',
+    async () => {
+      // Our cluster, shut down uncleanly long ago: its postmaster.pid is still there.
+      const ours = freshPaths();
+      await (await startPostgres(ours, cfg)).stop();
+      // Another Postgres (another app, same user, even the same port and password) on a
+      // DIFFERENT data folder now owns the PID that our stale file names.
+      const other = freshPaths();
+      const unrelated = await startPostgres(other, cfg);
+      try {
+        const pid = postmasterPid(other.pgdata);
+        const ourPidFile = join(ours.pgdata, 'postmaster.pid');
+        writeFileSync(ourPidFile, `${pid}\n${ours.pgdata.replace(/\\/g, '/')}\n1700000000\n${PG_PORT}\n\n127.0.0.1\n`);
+
+        expect(await stopOrphanedCluster(ours, cfg)).toBeNull();
+        expect(isAlive(pid)).toBe(true);
+        expect(await unrelated.hasUsers()).toBe(false); // still serving
+        expect(existsSync(ourPidFile)).toBe(true); // left for Postgres's own stale-lock check
+        expect(readdirSync(ours.pgdata).filter((f) => f.startsWith('oikos-owner-'))).toEqual([]);
+      } finally {
+        await unrelated.stop();
+      }
+    },
+    120_000,
+  );
+
+  it(
     'a stale postmaster.pid with a dead PID (power loss) does not block the next start',
     async () => {
       const paths = freshPaths();
@@ -140,7 +167,7 @@ describe.skipIf(portBusy)('startPostgres (real PostgreSQL)', () => {
       const pidFile = join(paths.pgdata, 'postmaster.pid');
       writeFileSync(pidFile, `${deadPid()}\n${paths.pgdata}\n1700000000\n${PG_PORT}\n\n127.0.0.1\n`);
 
-      expect(await stopOrphanedCluster(paths)).toBeNull();
+      expect(await stopOrphanedCluster(paths, cfg)).toBeNull();
       const handle = await within(60_000, startPostgres(paths, cfg));
       try {
         expect(await handle.hasUsers()).toBe(false);
@@ -154,17 +181,17 @@ describe.skipIf(portBusy)('startPostgres (real PostgreSQL)', () => {
 
 describe('stopOrphanedCluster without Postgres', () => {
   it('does nothing when there is no postmaster.pid', async () => {
-    expect(await stopOrphanedCluster(freshPaths())).toBeNull();
+    expect(await stopOrphanedCluster(freshPaths(), cfg)).toBeNull();
   });
 
-  it('removes a postmaster.pid whose PID now belongs to another program, and leaves that program alone', async () => {
+  it('leaves a postmaster.pid whose PID now belongs to another program, and that program, alone', async () => {
     const paths = freshPaths();
     const other = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
     try {
       mkdirSync(paths.pgdata, { recursive: true });
       writeFileSync(join(paths.pgdata, 'postmaster.pid'), `${other.pid}\n${paths.pgdata}\n`);
-      expect(await stopOrphanedCluster(paths)).toMatch(/stale/);
-      expect(existsSync(join(paths.pgdata, 'postmaster.pid'))).toBe(false);
+      expect(await stopOrphanedCluster(paths, cfg)).toBeNull();
+      expect(existsSync(join(paths.pgdata, 'postmaster.pid'))).toBe(true);
       expect(isAlive(other.pid!)).toBe(true);
     } finally {
       other.kill();

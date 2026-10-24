@@ -5,6 +5,11 @@ build/
 dist/
 .turbo/
 
+# Desktop builds (the web build stays out of .next, which the Docker dev server uses)
+apps/web/.next-desktop/
+apps/web/.next-cloudcheck/
+apps/api/.venv-desktop/
+
 # Python
 venv/
 env/

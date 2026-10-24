@@ -1,0 +1,81 @@
+import pytest
+
+from app.main import create_app
+
+CLOUD_ONLY_TAGS = {"communities", "meetups", "messages", "notifications", "beta-public", "admin", "invitations"}
+
+
+def _tags(application):
+    return {t for r in application.routes for t in getattr(r, "tags", [])}
+
+
+def test_cloud_app_mounts_everything():
+    assert CLOUD_ONLY_TAGS <= _tags(create_app())
+
+
+def test_desktop_app_has_no_cloud_only_routes(desktop_mode):
+    assert not (CLOUD_ONLY_TAGS & _tags(create_app()))
+
+
+@pytest.mark.asyncio
+async def test_desktop_core_routes_still_work(desktop_client):
+    assert (await desktop_client.get("/health")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_family_invite_404_in_desktop(authed_with_family, desktop_mode):
+    client, _, _ = authed_with_family
+    res = await client.post("/api/v1/families/me/members/invite", json={"email": "x@example.com"})
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_family_invite_unchanged_in_cloud(authed_with_family):
+    client, _, _ = authed_with_family
+    res = await client.post("/api/v1/families/me/members/invite", json={"email": "x@example.com"})
+    assert res.status_code != 404
+
+
+@pytest.mark.asyncio
+async def test_desktop_rejects_foreign_host(desktop_client):
+    """DNS rebinding: a page on another site must not reach the unauthenticated desktop endpoints."""
+    res = await desktop_client.get("/health", headers={"Host": "evil.example"})
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_desktop_accepts_localhost(desktop_client):
+    res = await desktop_client.get("/health", headers={"Host": "localhost:8000"})
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_cloud_accepts_any_host(client):
+    res = await client.get("/health", headers={"Host": "evil.example"})
+    assert res.status_code == 200
+
+
+async def _preflight(client, origin: str):
+    return await client.options(
+        "/health",
+        headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_desktop_cors_allows_only_the_desktop_origins(desktop_client):
+    for origin in ("http://127.0.0.1:47321", "http://localhost:47321"):
+        res = await _preflight(desktop_client, origin)
+        assert res.headers.get("access-control-allow-origin") == origin
+        assert res.headers.get("access-control-allow-credentials") == "true"
+    res = await _preflight(desktop_client, "http://localhost:3000")
+    assert "access-control-allow-origin" not in res.headers
+
+
+@pytest.mark.asyncio
+async def test_cloud_cors_unchanged(client):
+    res = await _preflight(client, "http://localhost:3000")
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert res.headers.get("access-control-allow-credentials") == "true"
+    res = await _preflight(client, "http://localhost:47321")
+    assert "access-control-allow-origin" not in res.headers

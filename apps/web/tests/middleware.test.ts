@@ -4,7 +4,7 @@
  * We mock the two external dependencies so we can exercise our own logic
  * (cookie guard + locale stripping) in pure jsdom without Next.js edge runtime.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ── Stub next-intl middleware ───────────────────────────────────────────────
 // We just return the request untouched — we only want to verify our guard logic.
@@ -17,6 +17,8 @@ vi.mock('../i18n', () => ({ locales: ['en', 'pt-BR'], defaultLocale: 'en' }));
 
 // ── Minimal NextRequest / NextResponse stubs ───────────────────────────────
 const mockRedirectResponse = { type: 'redirect' as const };
+const mockNextResponse = { type: 'next' as const };
+const mockForbiddenResponse = { type: 'forbidden' as const };
 
 vi.mock('next/server', () => {
   class MockURL {
@@ -34,16 +36,26 @@ vi.mock('next/server', () => {
   class NextRequest {
     nextUrl: MockURL;
     cookies: { has: (k: string) => boolean };
-    constructor(url: string, opts: { cookies?: Record<string, string> } = {}) {
+    headers: { get: (k: string) => string | null };
+    constructor(url: string, opts: { cookies?: Record<string, string>; headers?: Record<string, string> } = {}) {
       this.nextUrl = new MockURL(url);
       const jar = opts.cookies ?? {};
       this.cookies = { has: (k) => k in jar };
+      const headers = Object.fromEntries(
+        Object.entries(opts.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v]),
+      );
+      this.headers = { get: (k) => headers[k.toLowerCase()] ?? null };
     }
   }
 
-  const NextResponse = {
-    redirect: (_url: unknown) => mockRedirectResponse,
-  };
+  // The middleware builds a 403 with `new NextResponse(body, { status: 403 })`.
+  class NextResponse {
+    constructor(_body?: unknown, init?: { status?: number }) {
+      if (init?.status === 403) return mockForbiddenResponse as unknown as NextResponse;
+    }
+    static redirect(_url: unknown) { return mockRedirectResponse; }
+    static next() { return mockNextResponse; }
+  }
 
   return { NextRequest, NextResponse };
 });
@@ -55,8 +67,12 @@ import { NextRequest } from 'next/server';
 import middleware from '../middleware';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
-function makeReq(pathname: string, cookies: Record<string, string> = {}) {
-  return new (NextRequest as any)(`http://localhost${pathname}`, { cookies });
+function makeReq(
+  pathname: string,
+  cookies: Record<string, string> = {},
+  headers: Record<string, string> = {},
+) {
+  return new (NextRequest as any)(`http://localhost${pathname}`, { cookies, headers });
 }
 
 describe('middleware', () => {
@@ -140,5 +156,68 @@ describe('middleware', () => {
       const res = middleware(req as any);
       expect(res).toMatchObject({ type: 'intl' });
     });
+  });
+
+  describe('/api/* in cloud mode', () => {
+    it('passes /api/v1/auth/me straight through (no auth redirect, no intl)', () => {
+      const res = middleware(makeReq('/api/v1/auth/me') as any);
+      expect(res).toMatchObject({ type: 'next' });
+    });
+
+    it('passes a protected-looking api path through without a token', () => {
+      const res = middleware(makeReq('/api/dashboard') as any);
+      expect(res).toMatchObject({ type: 'next' });
+    });
+
+    it('does not apply the host allowlist', () => {
+      const res = middleware(makeReq('/api/v1/health', {}, { host: 'evil.example' }) as any);
+      expect(res).toMatchObject({ type: 'next' });
+    });
+
+    it('leaves page requests with a foreign Host untouched', () => {
+      const res = middleware(makeReq('/login', {}, { host: 'evil.example' }) as any);
+      expect(res).toMatchObject({ type: 'intl' });
+    });
+  });
+
+  describe('desktop host allowlist', () => {
+    beforeEach(() => {
+      vi.stubEnv('NEXT_PUBLIC_APP_MODE', 'desktop');
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('rejects a page request with a foreign Host', () => {
+      const res = middleware(makeReq('/login', {}, { host: 'evil.example' }) as any);
+      expect(res).toMatchObject({ type: 'forbidden' });
+    });
+
+    it('rejects an /api request with a foreign Host', () => {
+      const res = middleware(makeReq('/api/v1/auth/me', {}, { host: 'evil.example' }) as any);
+      expect(res).toMatchObject({ type: 'forbidden' });
+    });
+
+    it('rejects a request with the right host but a different port', () => {
+      const res = middleware(makeReq('/login', {}, { host: '127.0.0.1:3000' }) as any);
+      expect(res).toMatchObject({ type: 'forbidden' });
+    });
+
+    it('rejects a request with no Host header', () => {
+      const res = middleware(makeReq('/login') as any);
+      expect(res).toMatchObject({ type: 'forbidden' });
+    });
+
+    for (const host of ['127.0.0.1:47321', 'localhost:47321']) {
+      it(`lets ${host} reach pages (normal logic applies)`, () => {
+        expect(middleware(makeReq('/login', {}, { host }) as any)).toMatchObject({ type: 'intl' });
+        expect(middleware(makeReq('/dashboard', {}, { host }) as any)).toMatchObject({ type: 'redirect' });
+        expect(middleware(makeReq('/dashboard', { access_token: 't' }, { host }) as any)).toMatchObject({ type: 'intl' });
+      });
+
+      it(`lets ${host} reach /api straight through`, () => {
+        expect(middleware(makeReq('/api/v1/auth/me', {}, { host }) as any)).toMatchObject({ type: 'next' });
+      });
+    }
   });
 });

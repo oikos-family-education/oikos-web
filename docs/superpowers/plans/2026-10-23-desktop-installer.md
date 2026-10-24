@@ -475,6 +475,8 @@ git commit -m "feat(api): family backup export (.oikos) replacing the export stu
    - Set each user's `hashed_password` to `get_password_hash(secrets.token_urlsafe(32))`.
 4. After the commit, `await clear_all_sessions()`.
 
+**Host allowlist (ruling R5, from a security review of Task 3):** in desktop mode, `create_app()` adds Starlette's `TrustedHostMiddleware` with `allowed_hosts=["127.0.0.1", "localhost"]`. This rejects DNS-rebinding requests to the unauthenticated desktop endpoints. Test: in desktop mode, a request with `Host: evil.example` gets a 400; cloud mode is unaffected.
+
 - [ ] **Step 1: Write the failing tests**
 
 ```python
@@ -629,6 +631,7 @@ Expected: FAIL (modules missing).
 - **Sidebar:** pass `cloudOnly` to the Messages, Discover and Communities items. Skip both polling `useEffect` bodies when `isDesktop()`.
 - **NotificationBell:** in desktop mode, render the bell button only. Clicking it opens `CloudOnlyDialog`. No polling.
 - **The four `layout.tsx` files:** `export default function Layout({ children }) { return <CloudOnlyRouteGuard>{children}</CloudOnlyRouteGuard>; }`
+- **Host allowlist (ruling R5):** in `apps/web/middleware.ts`, when `isDesktop()`, respond 403 to any request whose `Host` header isn't `127.0.0.1:47321` or `localhost:47321`. The middleware matcher must also cover `/api/*` for this check. Next's proxy rewrites the Host header, so the API's own check can't see the browser's Host. Test in `tests/middleware.test.ts`: a desktop request with `Host: evil.example` gets a 403, and cloud mode is unaffected.
 
 - [ ] **Step 4: Run the web suite**
 

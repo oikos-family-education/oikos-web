@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from app.core.app_mode import require_cloud_mode
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
@@ -15,9 +16,10 @@ from app.schemas.family import (
     ParentProfileUpdate,
     InvitationCreate,
     InvitationResponse,
-    ExportResponse,
 )
 from app.schemas.child import ChildCreate, ChildUpdate, ChildResponse
+from app.services.auth_service import check_rate_limit
+from app.services.backup.exporter import export_family_backup
 from app.services.family_service import FamilyService
 from app.services.family_members_service import FamilyMembersService
 
@@ -92,7 +94,12 @@ async def list_members(
     return await members_service.list_members(family.id)
 
 
-@router.post("/me/members/invite", response_model=InvitationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/me/members/invite",
+    response_model=InvitationResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_cloud_mode)],
+)
 async def invite_member(
     req: InvitationCreate,
     current_user: User = Depends(get_current_user),
@@ -112,7 +119,11 @@ async def invite_member(
     })
 
 
-@router.post("/me/members/invite/{invitation_id}/resend", response_model=InvitationResponse)
+@router.post(
+    "/me/members/invite/{invitation_id}/resend",
+    response_model=InvitationResponse,
+    dependencies=[Depends(require_cloud_mode)],
+)
 async def resend_invitation(
     invitation_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -132,7 +143,11 @@ async def resend_invitation(
     })
 
 
-@router.delete("/me/members/invite/{invitation_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/me/members/invite/{invitation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_cloud_mode)],
+)
 async def revoke_invitation(
     invitation_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -206,14 +221,21 @@ async def leave_family(
 
 # ---------- Export ----------
 
-@router.post("/me/export", response_model=ExportResponse)
-async def request_export(
+@router.post("/me/export", response_class=Response)
+async def export_backup(
     current_user: User = Depends(get_current_user),
     family_service: FamilyService = Depends(get_family_service),
+    db: AsyncSession = Depends(get_db),
 ):
-    await _require_family(current_user.id, family_service)
-    # v1 stub: acknowledge the request. Real async export is deferred.
-    return ExportResponse(status="pending", url=None)
+    """Download the family's .oikos backup."""
+    await check_rate_limit(f"ratelimit:export:{current_user.id}", 10, 3600)
+    family = await _require_family(current_user.id, family_service)
+    filename, content = await export_family_backup(db, family.id)
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------- Children ----------

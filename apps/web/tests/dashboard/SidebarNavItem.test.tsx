@@ -1,7 +1,10 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Home } from 'lucide-react';
+import userEvent from '@testing-library/user-event';
+import { Home, MessageCircle } from 'lucide-react';
+import en from '../../messages/en.json';
+import { renderWithProviders } from '../utils/renderWithProviders';
 import { SidebarNavItem } from '../../components/dashboard/SidebarNavItem';
 
 let mockPathname = '/dashboard';
@@ -69,5 +72,35 @@ describe('SidebarNavItem', () => {
     mockPathname = '/dashboard';
     render(<SidebarNavItem href="/x" label="Future" icon={Home} collapsed soon />);
     expect(screen.getByRole('link')).toHaveAttribute('title', 'Future (Soon)');
+  });
+
+  describe('cloudOnly', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('opens the dialog instead of navigating in desktop mode', async () => {
+      vi.stubEnv('NEXT_PUBLIC_APP_MODE', 'desktop');
+      mockPathname = '/dashboard';
+      renderWithProviders(
+        <SidebarNavItem href="/messages" label="Messages" icon={MessageCircle} collapsed={false} cloudOnly />,
+      );
+      expect(screen.queryByRole('link')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Messages' })).toHaveClass('w-full', 'text-left');
+      await userEvent.click(screen.getByRole('button', { name: 'Messages' }));
+      expect(screen.getByText(en.Desktop.cloudOnlyTitle)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: en.Desktop.cloudOnlyOk }));
+      expect(screen.queryByText(en.Desktop.cloudOnlyTitle)).toBeNull();
+    });
+
+    it('is a normal link in cloud mode', () => {
+      vi.stubEnv('NEXT_PUBLIC_APP_MODE', '');
+      mockPathname = '/dashboard';
+      renderWithProviders(
+        <SidebarNavItem href="/messages" label="Messages" icon={MessageCircle} collapsed={false} cloudOnly />,
+      );
+      expect(screen.getByRole('link', { name: 'Messages' })).toHaveAttribute('href', expect.stringContaining('/messages'));
+      expect(screen.getByRole('link', { name: 'Messages' })).not.toHaveClass('w-full');
+    });
   });
 });

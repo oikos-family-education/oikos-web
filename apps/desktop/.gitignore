@@ -1,0 +1,7 @@
+dist/
+# Dev launch: links to the local API and web builds (see scripts/dev-resources.mjs)
+.dev-resources/
+# Installer build: electron-builder output, the downloaded EDB zips, the staged pg_dump
+release/
+.cache/
+.pg-dump/

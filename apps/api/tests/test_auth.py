@@ -145,14 +145,77 @@ async def test_login_existing_user_sets_cookies(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_login_dev_bypass_creates_unknown_user(client: AsyncClient):
-    """The dev-bypass logic in AuthService auto-registers an unknown email on login."""
+async def test_login_unknown_email_is_rejected_without_creating_a_user(client: AsyncClient, db):
     resp = await client.post("/api/v1/auth/login", json={
         "email": "fresh@example.com",
         "password": "Whatever123!",
     })
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["code"] == "invalid_credentials"
+    result = await db.execute(select(User).where(User.email == "fresh@example.com"))
+    assert result.scalars().first() is None
+
+
+@pytest.mark.asyncio
+async def test_login_wrong_password_is_rejected_and_counted(client: AsyncClient, make_user, fresh_session):
+    user = await make_user(email="wrong@example.com")
+    resp = await client.post("/api/v1/auth/login", json={
+        "email": "wrong@example.com",
+        "password": "NotThePassword1!",
+    })
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["code"] == "invalid_credentials"
+    assert "access_token" not in resp.cookies
+    session = await fresh_session()
+    stored = await session.get(User, user.id)
+    assert stored.failed_login_attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_login_locks_after_five_failures_even_with_the_right_password(client: AsyncClient, make_user):
+    await make_user(email="lock@example.com")
+    for _ in range(5):
+        resp = await client.post("/api/v1/auth/login", json={
+            "email": "lock@example.com",
+            "password": "NotThePassword1!",
+        })
+        assert resp.status_code == 401
+    resp = await client.post("/api/v1/auth/login", json={
+        "email": "lock@example.com",
+        "password": "Password123!",
+    })
+    assert resp.status_code == 423
+    assert resp.json()["detail"]["code"] == "account_locked"
+
+
+@pytest.mark.asyncio
+async def test_login_success_resets_failed_attempts(client: AsyncClient, make_user, fresh_session):
+    user = await make_user(email="reset-count@example.com")
+    await client.post("/api/v1/auth/login", json={
+        "email": "reset-count@example.com",
+        "password": "NotThePassword1!",
+    })
+    resp = await client.post("/api/v1/auth/login", json={
+        "email": "reset-count@example.com",
+        "password": "Password123!",
+    })
     assert resp.status_code == 200
-    assert resp.json()["user"]["email"] == "fresh@example.com"
+    session = await fresh_session()
+    stored = await session.get(User, user.id)
+    assert stored.failed_login_attempts == 0
+    assert stored.locked_until is None
+    assert stored.last_login_at is not None
+
+
+@pytest.mark.asyncio
+async def test_login_wrong_password_does_not_reveal_moderation_status(client: AsyncClient, make_user):
+    await make_user(email="banned-guess@example.com", moderation_status="banned")
+    resp = await client.post("/api/v1/auth/login", json={
+        "email": "banned-guess@example.com",
+        "password": "NotThePassword1!",
+    })
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["code"] == "invalid_credentials"
 
 
 # ── Forgot / reset password ─────────────────────────────────────────────────

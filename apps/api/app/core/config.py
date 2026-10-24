@@ -1,8 +1,13 @@
+import sys
 from pathlib import Path
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-def _find_env_file() -> str:
+def _find_env_file() -> str | None:
     """Walk up from this file's directory to find the nearest .env."""
+    if getattr(sys, "frozen", False):
+        # The packaged desktop build is configured only by its environment; never read a stray .env
+        return None
     current = Path(__file__).resolve().parent
     for _ in range(6):
         candidate = current / ".env"
@@ -22,8 +27,21 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DATABASE_SYNC_URL: str
 
-    # Redis
-    REDIS_URL: str
+    # Deployment mode: "cloud" is the hosted service, "desktop" is the packaged local app
+    APP_MODE: Literal["cloud", "desktop"] = "cloud"
+    APP_VERSION: str = "0.0.0"
+
+    # Redis (optional: unused in desktop mode)
+    REDIS_URL: str = ""
+
+    # Desktop mode storage
+    SESSIONS_DB_PATH: str = ""
+    BACKUP_DIR: str = ""
+    # Origins of the desktop app's own pages; the unauthenticated desktop endpoints refuse any other
+    DESKTOP_ALLOWED_ORIGINS: list[str] = ["http://127.0.0.1:47321", "http://localhost:47321"]
+
+    # Alembic config, used to stamp backups with the schema revision
+    ALEMBIC_INI_PATH: str = str(Path(__file__).resolve().parents[2] / "alembic.ini")
 
     # Auth
     JWT_SECRET_KEY: str

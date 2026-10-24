@@ -17,12 +17,16 @@ import {
   Users,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { BetaCta } from '../../components/desktop/BetaCta';
+import { DesktopSessionRedirect } from '../../components/desktop/DesktopSessionRedirect';
+import { RestoreBackupButton } from '../../components/desktop/RestoreBackupButton';
 
 export default function Home() {
   const t = useTranslations('Landing');
 
   return (
     <main className="relative z-10">
+      <DesktopSessionRedirect />
       {/* Top nav */}
       <header className="max-w-6xl mx-auto px-6 lg:px-8 pt-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
@@ -85,6 +89,7 @@ export default function Home() {
               >
                 {t('heroCtaSecondary')}
               </a>
+              <RestoreBackupButton />
             </div>
             <ul className="flex flex-wrap gap-x-6 gap-y-2 pt-3 text-sm text-slate-500">
               <li className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-primary" />{t('heroTrust1')}</li>
@@ -171,12 +176,9 @@ export default function Home() {
             </h2>
             <p className="text-white/90 mt-4 max-w-2xl mx-auto text-lg">{t('betaBody')}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-7">
-              <Link
-                href="/beta"
-                className="inline-flex items-center justify-center whitespace-nowrap px-8 py-4 rounded-2xl bg-white text-primary font-bold text-base hover:bg-slate-50 shadow-xl shadow-black/10 transition-all transform hover:-translate-y-1 active:scale-95"
-              >
+              <BetaCta className="inline-flex items-center justify-center whitespace-nowrap px-8 py-4 rounded-2xl bg-white text-primary font-bold text-base hover:bg-slate-50 shadow-xl shadow-black/10 transition-all transform hover:-translate-y-1 active:scale-95">
                 {t('betaCta')}
-              </Link>
+              </BetaCta>
             </div>
           </div>
         </div>
@@ -266,6 +268,7 @@ export default function Home() {
             >
               {t('finalCtaSecondary')}
             </Link>
+            <RestoreBackupButton />
           </div>
         </div>
       </section>

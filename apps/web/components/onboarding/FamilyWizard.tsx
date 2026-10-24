@@ -10,6 +10,7 @@ import { WizardStep2 } from './WizardStep2';
 import { WizardStep3 } from './WizardStep3';
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@oikos/ui';
+import { isDesktop } from '../../lib/appMode';
 import { FamilyFormData, buildDefaultFormData } from '../family/familyFormTypes';
 
 export type { FamilyFormData } from '../family/familyFormTypes';
@@ -96,7 +97,7 @@ export function FamilyWizard() {
       <div className="bg-white/80 backdrop-blur-xl border border-white rounded-[2rem] shadow-2xl p-8 sm:p-10 transition-all duration-300">
         {step === 1 && <WizardStep1 data={formData} onChange={updateFormData} />}
         {step === 2 && <WizardStep2 data={formData} onChange={updateFormData} />}
-        {step === 3 && <WizardStep3 data={formData} onChange={updateFormData} />}
+        {step === 3 && <WizardStep3 data={formData} onChange={updateFormData} hideVisibility={isDesktop()} />}
 
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">

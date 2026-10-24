@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.pool import NullPool
 
 import app.core.database as core_db
-from app.main import app
+from app.main import app, create_app
 from app.core.database import get_db, Base
 from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
@@ -298,6 +298,24 @@ async def client():
         yield ac
 
 
+@pytest.fixture
+def desktop_mode(monkeypatch):
+    """Run the code under test as the desktop app (APP_MODE=desktop)."""
+    monkeypatch.setattr(settings, "APP_MODE", "desktop")
+
+
+@pytest_asyncio.fixture
+async def desktop_client(desktop_mode):
+    """A client over a freshly built desktop-mode app (cloud-only routers unmounted)."""
+    transport = ASGITransport(app=create_app())
+    # The desktop app only answers to local host names (DNS-rebinding guard)
+    # and, for its unauthenticated endpoints, to requests from the app's own origin (CSRF guard)
+    async with AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={"Origin": "http://127.0.0.1:47321"}
+    ) as ac:
+        yield ac
+
+
 @pytest_asyncio.fixture
 async def authed_client(db: AsyncSession) -> tuple[AsyncClient, User]:
     """A client with a logged-in user (cookie + freshly committed user row).
@@ -413,11 +431,18 @@ def mock_rate_limit(monkeypatch):
     import app.routers.auth as auth_router
     import app.routers.beta as beta_router
     import app.routers.admin as admin_router
+    import app.routers.auth_local as auth_local_router
+    import app.routers.families as families_router
+    import app.routers.desktop as desktop_router
 
     monkeypatch.setattr(auth_service, "check_rate_limit", _noop)
     monkeypatch.setattr(auth_router, "check_rate_limit", _noop)
     monkeypatch.setattr(beta_router, "check_rate_limit", _noop)
     monkeypatch.setattr(admin_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(auth_local_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(families_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(desktop_router, "check_rate_limit", _noop)
+    monkeypatch.setattr(desktop_router, "clear_all_sessions", _noop)
 
     # No-op outbound email
     import app.services.email_service as email_service
@@ -434,7 +459,10 @@ def mock_rate_limit(monkeypatch):
         ("rotate_refresh_token", _noop),
         ("revoke_refresh_token", _noop),
         ("revoke_all_refresh_tokens", _noop),
+        ("clear_all_sessions", _noop),
     ):
         monkeypatch.setattr(auth_service, fn, replacement)
         if hasattr(auth_router, fn):
             monkeypatch.setattr(auth_router, fn, replacement)
+        if hasattr(auth_local_router, fn):
+            monkeypatch.setattr(auth_local_router, fn, replacement)

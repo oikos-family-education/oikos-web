@@ -3,16 +3,21 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
-import redis.asyncio as redis
 
 from app.core.config import settings
+from app.core.kv_store import SqliteKVStore, make_kv_client
 from app.core.security import verify_password, get_password_hash, generate_reset_token, hash_token
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest, LocalResetPasswordRequest
 
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+redis_client = make_kv_client()
 
 _REFRESH_TTL = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+async def clear_all_sessions() -> None:
+    """Desktop only: forget every session and rate limit (used after a backup restore)."""
+    if isinstance(redis_client, SqliteKVStore):
+        await redis_client.clear()
 
 async def store_refresh_token(user_id: str, token: str) -> None:
     hashed = hash_token(token)
@@ -102,19 +107,22 @@ class AuthService:
     async def authenticate_user(self, req: LoginRequest) -> User:
         user = await self._get_user_by_email(req.email)
         if not user:
-            # Auto-register dummy user for dev bypass
-            db_user = User(
-                email=req.email.lower(),
-                first_name="Dev",
-                last_name="Bypass",
-                hashed_password=get_password_hash(req.password)
-            )
-            self.db.add(db_user)
-            await self.db.commit()
-            await self.db.refresh(db_user)
-            return db_user
+            raise HTTPException(status_code=401, detail={"detail": "Invalid email or password.", "code": "invalid_credentials"})
 
-        # Block/ban enforcement — auto-lift if a temporary block has expired
+        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+            raise HTTPException(status_code=423, detail={"detail": "Account locked.", "code": "account_locked", "locked_until": user.locked_until.isoformat()})
+
+        if not verify_password(req.password, user.hashed_password):
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= 10:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(hours=1)
+            elif user.failed_login_attempts >= 5:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            await self.db.commit()
+            raise HTTPException(status_code=401, detail={"detail": "Invalid email or password.", "code": "invalid_credentials"})
+
+        # Block/ban enforcement (only after the password is proven, so a guess reveals nothing) —
+        # auto-lift if a temporary block has expired
         if user.moderation_status == "blocked":
             now = datetime.now(timezone.utc)
             if user.moderation_expires_at and user.moderation_expires_at < now:
@@ -136,7 +144,6 @@ class AuthService:
                 detail={"detail": "Your account is banned.", "code": "account_banned"},
             )
 
-        # Bypass password
         user.failed_login_attempts = 0
         user.locked_until = None
         user.last_login_at = datetime.now(timezone.utc)
@@ -162,6 +169,21 @@ class AuthService:
         if not user or not user.password_reset_token_expires_at or user.password_reset_token_expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail={"detail": "This reset token is invalid or has expired.", "code": "invalid_or_expired_token"})
             
+        user.hashed_password = get_password_hash(req.new_password)
+        user.password_reset_token = None
+        user.password_reset_token_expires_at = None
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        await self.db.commit()
+        await revoke_all_refresh_tokens(str(user.id))
+        return user
+
+    async def local_reset_password(self, req: LocalResetPasswordRequest) -> User:
+        """Desktop only: reset a password by email, with no emailed token (the device is the trust boundary)."""
+        user = await self._get_user_by_email(req.email)
+        if not user:
+            raise HTTPException(status_code=404, detail={"detail": "No account with that email.", "code": "account_not_found"})
+
         user.hashed_password = get_password_hash(req.new_password)
         user.password_reset_token = None
         user.password_reset_token_expires_at = None

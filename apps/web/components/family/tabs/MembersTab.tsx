@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Input, Button } from '@oikos/ui';
 import { AlertTriangle, Loader2, Mail, UserPlus, UserRound, Users } from 'lucide-react';
+import { isDesktop } from '../../../lib/appMode';
+import { CloudOnlyDialog } from '../../desktop/CloudOnlyDialog';
 
 interface Member {
   kind: 'member' | 'invitation';
@@ -52,6 +54,7 @@ export function MembersTab() {
   const [profileError, setProfileError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Member | null>(null);
+  const [cloudOnlyOpen, setCloudOnlyOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -127,6 +130,10 @@ export function MembersTab() {
 
   const submitInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDesktop()) {
+      setCloudOnlyOpen(true);
+      return;
+    }
     setEmailError('');
     setInviteError('');
     setInviteSuccess('');
@@ -160,11 +167,19 @@ export function MembersTab() {
   };
 
   const cancelInvitation = async (m: Member) => {
+    if (isDesktop()) {
+      setCloudOnlyOpen(true);
+      return;
+    }
     await apiFetch(`/api/v1/families/me/members/invite/${m.id}`, { method: 'DELETE', credentials: 'include' });
     await load();
   };
 
   const resendInvitation = async (m: Member) => {
+    if (isDesktop()) {
+      setCloudOnlyOpen(true);
+      return;
+    }
     await apiFetch(`/api/v1/families/me/members/invite/${m.id}/resend`, { method: 'POST', credentials: 'include' });
     await load();
   };
@@ -413,6 +428,8 @@ export function MembersTab() {
           </form>
         </div>
       )}
+
+      <CloudOnlyDialog open={cloudOnlyOpen} onClose={() => setCloudOnlyOpen(false)} />
 
       {confirmingRemove && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">

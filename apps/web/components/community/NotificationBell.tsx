@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 import { Bell } from 'lucide-react';
 import { useRouter } from '../../lib/navigation';
 import { apiFetch } from '../../lib/apiFetch';
+import { isDesktop } from '../../lib/appMode';
+import { CloudOnlyDialog } from '../desktop/CloudOnlyDialog';
 import type { NotificationItem } from './types';
 
 const POLL_INTERVAL_MS = 60_000;
@@ -29,6 +31,33 @@ function relativeTime(iso: string): string {
  * and fetches the full list once. Marks items read on click + navigates.
  */
 export function NotificationBell() {
+  // Notifications come from other families, so the desktop app only shows the
+  // bell as an entry point to the "available online" dialog.
+  if (isDesktop()) return <DesktopNotificationBell />;
+  return <CloudNotificationBell />;
+}
+
+function DesktopNotificationBell() {
+  const t = useTranslations('Notifications');
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setDialogOpen(true)}
+        className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+        aria-label={t('bellTitle')}
+        title={t('bellTitle')}
+      >
+        <Bell className="w-5 h-5" />
+      </button>
+      <CloudOnlyDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+    </>
+  );
+}
+
+function CloudNotificationBell() {
   const t = useTranslations('Notifications');
   const router = useRouter();
   const [unread, setUnread] = useState(0);

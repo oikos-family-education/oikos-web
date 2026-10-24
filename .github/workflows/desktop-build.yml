@@ -1,0 +1,88 @@
+name: Desktop installers
+
+# Manual only: builds the unsigned installers and keeps them as workflow artifacts.
+# Nothing is published or released.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+          - name: macos-arm64
+            os: macos-14
+          # Intel Mac. macos-13 was retired on 2025-12-04; macos-15-intel is GitHub's x64 replacement.
+          - name: macos-x64
+            os: macos-15-intel
+    defaults:
+      run:
+        shell: bash
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # No Developer ID: never pick up a signing identity from the runner's keychain (Macs are ad-hoc signed)
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            apps/api/requirements.txt
+            apps/api/requirements-desktop.txt
+
+      - name: Show build machine
+        run: |
+          node -p "process.platform + '-' + process.arch"
+          "${{ steps.python.outputs.python-path }}" --version
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      # The venv is created from this Python (apps/api/.venv-desktop, Scripts/ or bin/ per OS)
+      - name: Build the API (PyInstaller)
+        env:
+          OIKOS_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: npm run build:desktop --workspace=@oikos/desktop -- api
+
+      - name: Build the web server (Next.js standalone)
+        run: npm run build:desktop --workspace=@oikos/desktop -- web
+
+      - name: Cache the EDB PostgreSQL zip
+        uses: actions/cache@v4
+        with:
+          path: apps/desktop/.cache/pg-dump/*.zip
+          key: edb-pg-${{ runner.os }}-${{ hashFiles('apps/desktop/scripts/fetch-pg-dump.mjs') }}
+
+      # Checksum-verified against the SHA-256 pinned in the script
+      - name: Fetch pg_dump
+        run: npm run build:desktop --workspace=@oikos/desktop -- pg-dump
+
+      - name: Build the installer (electron-builder)
+        run: npm run build:desktop --workspace=@oikos/desktop -- app
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: oikos-${{ matrix.name }}
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+          if-no-files-found: error
+          retention-days: 14

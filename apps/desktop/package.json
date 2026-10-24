@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "npm run build && node scripts/dev-resources.mjs && electron .",
     "test": "vitest run",
-    "type-check": "tsc -p tsconfig.json --noEmit"
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "build:desktop": "node scripts/build-desktop.mjs"
   },
   "dependencies": {
     "async-exit-hook": "^2.0.1",
@@ -19,6 +20,7 @@
     "@types/node": "^20",
     "electron": "44.6.0",
     "electron-builder": "26.17.0",
+    "js-yaml": "4.1.1",
     "pg": "^8.7.3",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"

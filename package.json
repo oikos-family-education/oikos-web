@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "turbo dev --filter=!@oikos/desktop",
     "build": "turbo build",
+    "desktop:build": "npm run build:desktop --workspace=@oikos/desktop",
     "lint": "turbo lint",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",

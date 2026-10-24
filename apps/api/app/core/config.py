@@ -1,9 +1,13 @@
+import sys
 from pathlib import Path
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-def _find_env_file() -> str:
+def _find_env_file() -> str | None:
     """Walk up from this file's directory to find the nearest .env."""
+    if getattr(sys, "frozen", False):
+        # The packaged desktop build is configured only by its environment; never read a stray .env
+        return None
     current = Path(__file__).resolve().parent
     for _ in range(6):
         candidate = current / ".env"

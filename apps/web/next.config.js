@@ -1,7 +1,18 @@
+const path = require('path');
 const withNextIntl = require('next-intl/plugin')('./i18n.ts');
+
+// The desktop build (scripts/build-desktop.mjs) bundles a self-contained server for Electron to run
+const standalone = process.env.NEXT_OUTPUT_STANDALONE === '1';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // A separate build folder lets a host-side build run without touching the
+  // .next that the Docker dev server serves through its bind mount
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+  output: standalone ? 'standalone' : undefined,
+  // Trace from the monorepo root so the standalone folder includes the hoisted node_modules
+  // and the workspace packages; server.js lands at <standalone>/apps/web/server.js
+  ...(standalone && { experimental: { outputFileTracingRoot: path.join(__dirname, '../..') } }),
   transpilePackages: ["@oikos/ui", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities", "@dnd-kit/accessibility"],
   // Force webpack to poll for file changes in dev mode. Native inotify
   // events don't propagate from the Windows host into the Linux dev
@@ -13,7 +24,7 @@ const nextConfig = {
       config.watchOptions = {
         poll: 800,
         aggregateTimeout: 300,
-        ignored: ['**/node_modules', '**/.next', '**/.git'],
+        ignored: ['**/node_modules', '**/.next', '**/.next-*', '**/.git'],
       };
     }
     return config;

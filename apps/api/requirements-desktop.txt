@@ -1,0 +1,4 @@
+-r requirements.txt
+pyinstaller==6.11.1
+# Windows has no system time zone database; zoneinfo reads this package instead
+tzdata==2026.5

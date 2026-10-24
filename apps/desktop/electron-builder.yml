@@ -57,7 +57,7 @@ nsis:
 
 mac:
   # Ad-hoc signed ("-"): no Developer ID and no notarization, so families open it once with
-  # right-click > Open. Apple Silicon refuses to run a modified bundle that isn't signed at all.
+  # System Settings > Privacy & Security > Open Anyway. Apple Silicon refuses to run a modified bundle that isn't signed at all.
   identity: '-'
   # Hardened runtime only matters for notarization; with an ad-hoc signature its library
   # validation would stop Postgres and the API from loading their own libraries.

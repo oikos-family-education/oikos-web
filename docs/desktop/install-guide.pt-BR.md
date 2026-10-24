@@ -50,6 +50,16 @@ Você só precisa fazer isso uma vez. Depois, o Oikos abre como qualquer outro a
 - Para salvar um backup, abra **Configurações → Backup** e clique em **Salvar backup**. O Oikos pergunta onde guardar o arquivo. Guarde uma cópia em um lugar seguro, como um pen drive ou uma pasta na nuvem em que você confie.
 - Para mudar de computador, ou depois de reinstalar, instale o Oikos, escolha **Restaurar de um backup** na página de boas-vindas e selecione o seu arquivo `.oikos`. Em seguida o Oikos pede para você definir uma senha.
 
+## Instalando uma atualização
+
+Quando eu mandar uma versão mais nova, instale por cima da que você já tem. Não precisa desinstalar nada antes.
+
+1. Feche o Oikos.
+2. **Windows:** rode o novo arquivo `Oikos Setup`, do mesmo jeito que na primeira vez. **Mac:** abra o novo DMG e arraste o Oikos para a pasta Aplicativos de novo; quando o macOS perguntar, escolha **Substituir** (**Replace**).
+3. Abra o Oikos normalmente.
+
+Seus dados continuam onde estão. Antes de a atualização mudar qualquer coisa, o Oikos faz automaticamente uma cópia de segurança dos seus dados neste computador, por isso a primeira abertura depois de uma atualização pode demorar um pouco mais.
+
 ## Deu algum problema?
 
 Me mande uma mensagem ou me ligue. Se puder, conte o que apareceu na tela (uma foto ajuda muito).

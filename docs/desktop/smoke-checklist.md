@@ -10,6 +10,8 @@ Run this on every build before sending it to a family. Each row has a result col
 
 Build the pre-filled notes refer to: `0.1.0`. Fill in the build and date when you run each row.
 
+**Bump the version for every installer you send.** Raise `version` in `apps/desktop/package.json` before each build. The app takes its pre-update safety copy only when that version differs from the one that last ran, so an installer that reuses the old version updates the database with no safety copy.
+
 ## How to get the installers
 
 1. Push the `feat/desktop-installer` branch to GitHub, and get the workflow file onto `main` first. GitHub lists a manual-only (`workflow_dispatch`) workflow in the Actions tab only once its file exists on the default branch (`main`). Either merge this branch, or merge just `.github/workflows/desktop-build.yml` in a small PR.

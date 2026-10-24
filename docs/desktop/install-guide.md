@@ -50,6 +50,16 @@ You only need to do this once. After that, Oikos opens like any other app.
 - To save a backup, open **Settings → Backup** and click **Save backup**. Oikos asks where to put the file. Keep a copy somewhere safe, such as a USB drive or a cloud folder you trust.
 - To move to a new computer, or after a reinstall, install Oikos, choose **Restore from backup** on the welcome page and pick your `.oikos` file. Oikos then asks you to set a password.
 
+## Installing an update
+
+When I send you a newer version, install it over the one you have. You don't need to uninstall anything first.
+
+1. Close Oikos.
+2. **Windows:** run the new `Oikos Setup` file, the same way as the first time. **Mac:** open the new DMG and drag Oikos to Applications again; when macOS asks, choose **Replace**.
+3. Open Oikos as usual.
+
+Your data stays where it is. Before the update changes anything, Oikos automatically makes a safety copy of your data on this computer, so the first start after an update can take a little longer.
+
 ## Something went wrong?
 
 Send me a message or call me. If you can, tell me what you saw on the screen (a photo of it helps a lot).

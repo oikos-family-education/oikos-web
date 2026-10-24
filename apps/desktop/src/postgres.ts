@@ -3,14 +3,14 @@ import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type EmbeddedPostgres from 'embedded-postgres';
 import type { AppConfig } from './config.js';
 import { closeLog, openLog } from './logs.js';
 import type { AppPaths } from './paths.js';
 import { PG_PORT } from './ports.js';
-import { isAlive, killTree, waitForExit } from './processes.js';
+import { isAlive, killTree, processImage, waitForExit } from './processes.js';
 
 export interface PgHandle {
   /** True when the `users` table exists and has at least one row. */
@@ -174,10 +174,12 @@ async function servesOurData(paths: AppPaths, cfg: AppConfig): Promise<boolean> 
  * Run before starting: stops our own cluster if a previous run (a crash, a force-quit) left it
  * running. Returns what it did, or null when there was nothing to do.
  *
- * It signals a process only after proving it is our cluster: postmaster.pid names a live PID,
- * the file's data folder (line 2) is ours, and the server on our port with our credentials
- * serves our data folder. Anything else (a dead PID, a PID now used by another program or by
- * another Postgres) is left alone, file included: Postgres's own stale-lock check decides.
+ * - Dead PID: nothing to do; Postgres treats the file as stale itself.
+ * - Live PID that is not a postgres program (PID reused after a power loss): the file is stale;
+ *   remove it (no signal). Otherwise Postgres on macOS/Linux would refuse to start.
+ * - Live postgres: stop it only after proving it is our cluster: the file's data folder
+ *   (line 2) is ours, and the server on our port with our credentials serves our data folder.
+ *   If that is not proven (another cluster's process), touch nothing, file included.
  */
 export async function stopOrphanedCluster(paths: AppPaths, cfg: AppConfig): Promise<string | null> {
   const pidFile = join(paths.pgdata, 'postmaster.pid');
@@ -186,6 +188,11 @@ export async function stopOrphanedCluster(paths: AppPaths, cfg: AppConfig): Prom
   const [pidLine = '', dataDirLine = ''] = readFileSync(pidFile, 'latin1').split(/\r?\n/);
   const pid = Number(pidLine);
   if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) return null;
+  const image = await processImage(pid);
+  if (image && !/^postgres(\.exe)?$/i.test(basename(image))) {
+    rmSync(pidFile, { force: true });
+    return `removed stale postmaster.pid (PID ${pid} is now ${basename(image)})`;
+  }
   if (comparablePath(dataDirLine) !== comparablePath(paths.pgdata)) return null;
   if (!(await servesOurData(paths, cfg))) return null;
 

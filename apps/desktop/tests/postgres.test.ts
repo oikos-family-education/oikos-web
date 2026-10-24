@@ -184,14 +184,14 @@ describe('stopOrphanedCluster without Postgres', () => {
     expect(await stopOrphanedCluster(freshPaths(), cfg)).toBeNull();
   });
 
-  it('leaves a postmaster.pid whose PID now belongs to another program, and that program, alone', async () => {
+  it('removes a postmaster.pid whose PID now belongs to another program, and leaves that program alone', async () => {
     const paths = freshPaths();
     const other = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
     try {
       mkdirSync(paths.pgdata, { recursive: true });
       writeFileSync(join(paths.pgdata, 'postmaster.pid'), `${other.pid}\n${paths.pgdata}\n`);
-      expect(await stopOrphanedCluster(paths, cfg)).toBeNull();
-      expect(existsSync(join(paths.pgdata, 'postmaster.pid'))).toBe(true);
+      expect(await stopOrphanedCluster(paths, cfg)).toMatch(/stale/);
+      expect(existsSync(join(paths.pgdata, 'postmaster.pid'))).toBe(false);
       expect(isAlive(other.pid!)).toBe(true);
     } finally {
       other.kill();

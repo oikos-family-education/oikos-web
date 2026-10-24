@@ -32,7 +32,7 @@ function stubApi(answers: Record<string, number[]>) {
   return fetchMock;
 }
 
-function callsTo(fetchMock: ReturnType<typeof vi.fn>, url: string) {
+function callsTo(fetchMock: { mock: { calls: unknown[][] } }, url: string) {
   return fetchMock.mock.calls.filter(([u]) => String(u) === url);
 }
 

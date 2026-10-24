@@ -12,8 +12,8 @@ Build the pre-filled notes refer to: `0.1.0`. Fill in the build and date when yo
 
 ## How to get the installers
 
-1. Push the `feat/desktop-installer` branch to GitHub.
-2. Open the repository's **Actions** tab, choose the **Desktop installers** workflow (`.github/workflows/desktop-build.yml`, the "desktop-build" workflow) and click **Run workflow** on that branch. It only runs by hand and publishes nothing.
+1. Push the `feat/desktop-installer` branch to GitHub, and get the workflow file onto `main` first. GitHub lists a manual-only (`workflow_dispatch`) workflow in the Actions tab only once its file exists on the default branch (`main`). Either merge this branch, or merge just `.github/workflows/desktop-build.yml` in a small PR.
+2. Open the repository's **Actions** tab, choose the **Desktop installers** workflow (`.github/workflows/desktop-build.yml`, the "desktop-build" workflow), click **Run workflow**, and pick `feat/desktop-installer` (or `main` after merging) in the branch picker. It only runs by hand and publishes nothing. Once the file is on `main`, the command line works too: `gh workflow run desktop-build.yml --ref feat/desktop-installer`.
 3. Wait for the three jobs (`windows-x64`, `macos-arm64`, `macos-x64`) to finish. Each builds the API, the web server and the installer, so allow some time.
 4. Open the finished run and download the artifacts from the **Artifacts** section. They are kept for 14 days.
 

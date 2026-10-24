@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -6,7 +7,8 @@ import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../src/config';
 import { resolvePaths } from '../src/paths';
-import { apiEnv, runMigrations, startApi, startWeb, waitForHealth } from '../src/services';
+import { isAlive, waitForExit as waitForPidExit } from '../src/processes';
+import { apiEnv, runMigrations, startApi, startWeb, stopOrphanedApi, waitForHealth } from '../src/services';
 
 const { fork } = vi.hoisted(() => ({ fork: vi.fn() }));
 vi.mock('electron', () => ({ utilityProcess: { fork } }));
@@ -69,6 +71,54 @@ describe('startApi', () => {
     expect(child.spawnargs.slice(1)).toEqual(['serve', '--port', '47322']);
     expect(await waitForExit(child)).not.toBe(0);
     expect(await eventuallyRead(join(paths.logs, 'api.log'), /Cannot find module/)).toMatch(/Cannot find module/);
+  });
+
+  it('records its PID while it runs and forgets it when it exits', async () => {
+    const paths = nodeAsApi();
+    const child = startApi(paths, { ...process.env });
+    expect(readFileSync(paths.apiPid, 'utf8')).toBe(String(child.pid));
+    await waitForExit(child);
+    for (let i = 0; i < 40 && existsSync(paths.apiPid); i++) await new Promise((r) => setTimeout(r, 50));
+    expect(existsSync(paths.apiPid)).toBe(false);
+  });
+});
+
+describe('stopOrphanedApi', () => {
+  function sleeper() {
+    return spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  }
+
+  it('does nothing when no API PID was recorded', async () => {
+    expect(await stopOrphanedApi(nodeAsApi())).toBeNull();
+  });
+
+  it('stops an API left running by a previous app', async () => {
+    const paths = nodeAsApi(); // the "API program" is node, like the orphan below
+    const orphan = sleeper();
+    try {
+      mkdirSync(dirname(paths.apiPid), { recursive: true });
+      writeFileSync(paths.apiPid, String(orphan.pid));
+      expect(await stopOrphanedApi(paths)).toMatch(new RegExp(`stopped .*PID ${orphan.pid}`));
+      expect(await waitForPidExit(orphan.pid!, 5_000)).toBe(true);
+      expect(existsSync(paths.apiPid)).toBe(false);
+    } finally {
+      orphan.kill();
+    }
+  });
+
+  it('never kills a program that is not the Oikos API, even with a matching PID', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oikos '));
+    const paths = resolvePaths(dir, join(dir, 'res')); // API program: oikos-api(.exe)
+    const other = sleeper();
+    try {
+      mkdirSync(dirname(paths.apiPid), { recursive: true });
+      writeFileSync(paths.apiPid, String(other.pid));
+      expect(await stopOrphanedApi(paths)).toBeNull();
+      expect(isAlive(other.pid!)).toBe(true);
+      expect(existsSync(paths.apiPid)).toBe(false);
+    } finally {
+      other.kill();
+    }
   });
 });
 

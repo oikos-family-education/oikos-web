@@ -12,6 +12,8 @@ export interface WatchedProcess {
 export interface StartupDeps {
   cfg: AppConfig;
   appVersion: string;
+  /** Stops Postgres and the API if a previous run (a crash, a force-quit) left them running. */
+  stopOrphans: () => Promise<void>;
   findBusyPorts: (ports: number[]) => Promise<number[]>;
   startPostgres: () => Promise<unknown>;
   hasUsers: () => Promise<boolean>;
@@ -44,13 +46,14 @@ function healthyBeforeExit(proc: WatchedProcess, name: string, healthy: Promise<
 
 /**
  * The startup sequence:
- * ports → Postgres → safety copy (version change with users) → migrations → API → web
+ * leftovers of a crashed run → ports → Postgres → safety copy (version change with users) → migrations → API → web
  * → both healthy → record the version → main window. Any failure shows the error window instead.
  */
 export async function runStartup(deps: StartupDeps): Promise<void> {
   const { cfg, appVersion } = deps;
   let stage: StartupErrorKind = 'start';
   try {
+    await deps.stopOrphans();
     const busy = await deps.findBusyPorts([WEB_PORT, API_PORT, PG_PORT]);
     if (busy.length > 0) {
       deps.showError('ports', busy.join(', '));

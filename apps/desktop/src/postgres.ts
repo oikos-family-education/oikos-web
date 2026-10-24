@@ -1,14 +1,15 @@
-import { execFile, spawnSync, type ChildProcess } from 'node:child_process';
+import { execFile, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import type EmbeddedPostgres from 'embedded-postgres';
 import type { AppConfig } from './config.js';
 import { closeLog, openLog } from './logs.js';
 import type { AppPaths } from './paths.js';
 import { PG_PORT } from './ports.js';
+import { isAlive, killTree, processImage, waitForExit } from './processes.js';
 
 export interface PgHandle {
   /** True when the `users` table exists and has at least one row. */
@@ -24,6 +25,8 @@ interface PgClient {
 }
 
 const DB = 'oikos';
+const START_TIMEOUT_MS = 120_000;
+const STOP_TIMEOUT_MS = 30_000;
 const execFileAsync = promisify(execFile);
 
 /** embedded-postgres keeps the postgres child private; we need it to stop cleanly on Windows. */
@@ -56,21 +59,105 @@ async function loadEmbeddedPostgres(): Promise<typeof EmbeddedPostgres> {
   return EmbeddedPostgresClass;
 }
 
+function hasExited(child: ChildProcess): boolean {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+/**
+ * embedded-postgres's stop() waits for an `exit` event, so it never resolves once the postgres
+ * child has already exited. Forget such a child first.
+ */
+function forgetIfExited(pg: EmbeddedPostgres): void {
+  const child = internals(pg).process;
+  if (child && hasExited(child)) internals(pg).process = undefined;
+}
+
+/** Rejects with `message` if `promise` has not settled after `ms`. */
+function timeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 /** If the app process ends without a clean stop (a crash), take Postgres down with it. */
 function killOnExit(pg: EmbeddedPostgres): void {
   process.once('exit', () => {
     const child = internals(pg).process;
-    if (!child?.pid || child.exitCode !== null) return;
-    if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/f', '/t'], { windowsHide: true });
-    else child.kill('SIGINT');
+    if (child?.pid && !hasExited(child)) killTree(child.pid);
   });
 }
 
 /** pg_ctl from the same embedded-postgres platform package as the server binary. */
 async function pgCtlPath(): Promise<string> {
-  const pkg = '@embedded-postgres/windows-x64';
+  const os = process.platform === 'win32' ? 'windows' : process.platform;
+  const pkg = `@embedded-postgres/${os}-${process.arch}`;
   const bins = (await import(pkg)) as { pg_ctl: string };
   return bins.pg_ctl;
+}
+
+async function pgCtlStop(pgdata: string): Promise<void> {
+  await execFileAsync(await pgCtlPath(), ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '60'], {
+    cwd: dirname(pgdata),
+    windowsHide: true,
+  });
+}
+
+/**
+ * Stops the cluster. Always settles: a child that already exited is forgotten, and a stop that
+ * hangs ends with a forced kill.
+ */
+async function stopCluster(pg: EmbeddedPostgres, pgdata: string, record: (m: string) => void): Promise<void> {
+  const child = internals(pg).process;
+  if (child && !hasExited(child) && process.platform === 'win32') {
+    // embedded-postgres stops with `taskkill /f` on Windows, a crash as far as Postgres is
+    // concerned. pg_ctl delivers a real fast-shutdown request instead.
+    try {
+      const exited = once(child, 'exit').catch(() => undefined);
+      await pgCtlStop(pgdata);
+      await timeout(exited, STOP_TIMEOUT_MS, 'postgres did not exit');
+    } catch (err) {
+      record(`pg_ctl stop failed, forcing: ${(err as Error).message}`);
+    }
+  }
+  forgetIfExited(pg);
+  // Elsewhere this sends SIGINT (fast shutdown); on Windows it is the fallback.
+  try {
+    await timeout(pg.stop(), STOP_TIMEOUT_MS, 'PostgreSQL did not stop in time');
+  } catch (err) {
+    record(`${(err as Error).message}, forcing`);
+    const stuck = internals(pg).process;
+    if (stuck?.pid) killTree(stuck.pid);
+    internals(pg).process = undefined;
+  }
+}
+
+/**
+ * Run before starting: deals with a cluster left behind by an app that did not shut down
+ * (a crash, a force-quit). Returns what it did, or null when there was nothing to do.
+ * - postmaster.pid names a live postgres: stop it cleanly (pg_ctl, fast shutdown).
+ * - It names a live process that is not postgres (PID reused after a power loss): the file is
+ *   stale; remove it, never touching that process.
+ * - It names a dead PID: Postgres itself treats the file as stale.
+ */
+export async function stopOrphanedCluster(paths: AppPaths): Promise<string | null> {
+  const pidFile = join(paths.pgdata, 'postmaster.pid');
+  if (!existsSync(pidFile)) return null;
+  const pid = Number(readFileSync(pidFile, 'utf8').split(/\r?\n/)[0]);
+  if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) return null;
+  const image = await processImage(pid);
+  if (!image || !/^postgres(\.exe)?$/i.test(basename(image))) {
+    rmSync(pidFile, { force: true });
+    return `removed stale postmaster.pid (PID ${pid} is now ${image ?? 'another program'})`;
+  }
+  await pgCtlStop(paths.pgdata);
+  if (!(await waitForExit(pid, STOP_TIMEOUT_MS))) {
+    throw new Error(`PostgreSQL left running by a previous start (PID ${pid}) did not stop`);
+  }
+  return `stopped PostgreSQL left running by a previous start (PID ${pid})`;
 }
 
 /**
@@ -102,9 +189,9 @@ export async function startPostgres(paths: AppPaths, cfg: AppConfig): Promise<Pg
     if (!existsSync(join(paths.pgdata, 'PG_VERSION'))) await pg.initialise();
     killOnExit(pg);
     try {
-      await pg.start();
+      await timeout(pg.start(), START_TIMEOUT_MS, 'Timed out waiting for PostgreSQL to accept connections.');
     } catch (err) {
-      // embedded-postgres rejects without a reason when postgres exits early.
+      // embedded-postgres rejects without a reason when postgres exits early; the log tail has it.
       throw new Error(`PostgreSQL did not start. ${err instanceof Error ? err.message : ''}\n${tail.trim()}`);
     }
     await withClient(pg, 'postgres', async (c) => {
@@ -112,7 +199,7 @@ export async function startPostgres(paths: AppPaths, cfg: AppConfig): Promise<Pg
       if (rows.length === 0) await c.query(`CREATE DATABASE ${DB}`);
     });
   } catch (err) {
-    await pg.stop().catch(() => undefined);
+    await stopCluster(pg, paths.pgdata, record);
     await closeLog(log);
     throw err;
   }
@@ -127,24 +214,7 @@ export async function startPostgres(paths: AppPaths, cfg: AppConfig): Promise<Pg
       }),
 
     async stop() {
-      const child = internals(pg).process;
-      if (child && child.exitCode === null && process.platform === 'win32') {
-        // embedded-postgres stops with `taskkill /f` on Windows, a crash as far as Postgres is
-        // concerned. pg_ctl delivers a real fast-shutdown request instead.
-        try {
-          const exited = once(child, 'exit').catch(() => undefined);
-          await execFileAsync(await pgCtlPath(), ['stop', '-D', paths.pgdata, '-m', 'fast', '-w', '-t', '60'], {
-            cwd: dirname(paths.pgdata),
-            windowsHide: true,
-          });
-          await exited;
-          internals(pg).process = undefined;
-        } catch (err) {
-          record(`pg_ctl stop failed, forcing: ${(err as Error).message}`);
-        }
-      }
-      // Elsewhere this sends SIGINT (fast shutdown); on Windows it is the fallback.
-      await pg.stop();
+      await stopCluster(pg, paths.pgdata, record);
       await closeLog(log);
     },
   };

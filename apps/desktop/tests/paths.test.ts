@@ -14,6 +14,7 @@ describe('resolvePaths', () => {
     expect(p.backups).toBe(join('/data', 'backups'));
     expect(p.logs).toBe(join('/data', 'logs'));
     expect(p.sessionsDb).toBe(join('/data', 'sessions.db'));
+    expect(p.apiPid).toBe(join('/data', 'api.pid'));
   });
 
   it('finds the bundled programs under the resources folder', () => {

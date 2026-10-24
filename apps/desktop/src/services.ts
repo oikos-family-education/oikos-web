@@ -1,11 +1,12 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname } from 'node:path';
 import { utilityProcess, type UtilityProcess } from 'electron';
 import type { AppConfig } from './config.js';
 import { closeLog, closeLogAfter, keepTail, openLog, pipeToLog } from './logs.js';
 import type { AppPaths } from './paths.js';
 import { API_PORT, PG_PORT, WEB_PORT } from './ports.js';
+import { isAlive, killTree, processImage, waitForExit } from './processes.js';
 
 /** The environment the `oikos-api` CLI reads (see apps/api/desktop_entry.py). */
 export function apiEnv(paths: AppPaths, cfg: AppConfig, appVersion: string): NodeJS.ProcessEnv {
@@ -57,7 +58,30 @@ export async function runMigrations(paths: AppPaths, env: NodeJS.ProcessEnv): Pr
 
 /** Starts `oikos-api serve` on 127.0.0.1:API_PORT. Output goes to logs/api.log. */
 export function startApi(paths: AppPaths, env: NodeJS.ProcessEnv): ChildProcess {
-  return spawnApi(paths, ['serve', '--port', String(API_PORT)], env, 'api').child;
+  const { child } = spawnApi(paths, ['serve', '--port', String(API_PORT)], env, 'api');
+  if (child.pid) {
+    mkdirSync(dirname(paths.apiPid), { recursive: true });
+    writeFileSync(paths.apiPid, String(child.pid));
+    child.once('exit', () => rmSync(paths.apiPid, { force: true }));
+  }
+  return child;
+}
+
+/**
+ * Run before starting: stops an API left running by an app that did not shut down (a crash,
+ * a force-quit), using the PID recorded in `api.pid`. Only a process still running the Oikos API
+ * program is stopped. Returns what it did, or null when there was nothing to do.
+ */
+export async function stopOrphanedApi(paths: AppPaths): Promise<string | null> {
+  if (!existsSync(paths.apiPid)) return null;
+  const pid = Number(readFileSync(paths.apiPid, 'utf8').trim());
+  rmSync(paths.apiPid, { force: true });
+  if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) return null;
+  const image = await processImage(pid);
+  if (!image || basename(image).toLowerCase() !== basename(paths.apiExe).toLowerCase()) return null;
+  killTree(pid);
+  if (!(await waitForExit(pid, 10_000))) throw new Error(`The Oikos API left running by a previous start (PID ${pid}) did not stop`);
+  return `stopped the Oikos API left running by a previous start (PID ${pid})`;
 }
 
 /**

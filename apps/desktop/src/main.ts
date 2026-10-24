@@ -1,11 +1,12 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { loadOrCreateConfig, saveConfig, type AppConfig } from './config.js';
+import { logLine } from './logs.js';
 import { resolvePaths } from './paths.js';
 import { findBusyPorts } from './ports.js';
-import { startPostgres, type PgHandle } from './postgres.js';
+import { startPostgres, stopOrphanedCluster, type PgHandle } from './postgres.js';
 import { writePremigrateCopy } from './safetyCopy.js';
-import { apiEnv, runMigrations, startApi, startWeb, waitForHealth } from './services.js';
+import { apiEnv, runMigrations, startApi, startWeb, stopOrphanedApi, waitForHealth } from './services.js';
 import { runStartup, type StartupErrorKind } from './startup.js';
 import { createErrorWindow, createMainWindow, createSplash, registerDownloadHandler } from './windows.js';
 
@@ -16,6 +17,10 @@ interface Service {
 }
 
 const STOP_TIMEOUT_MS = 10_000;
+/** Quit always completes: whatever is still running after this is killed by the exit handlers. */
+const SHUTDOWN_LIMIT_MS = 60_000;
+
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // Dev only: keep test runs out of the real user-data folder, and find the local builds.
 if (!app.isPackaged && process.env.OIKOS_USER_DATA) app.setPath('userData', process.env.OIKOS_USER_DATA);
@@ -45,12 +50,18 @@ function track<T extends { kill(): unknown; once(event: 'exit', cb: (code: numbe
   proc: T,
   logsDir: string,
 ): T {
+  let running = true;
   const exited = new Promise<void>((resolve) =>
     proc.once('exit', (code) => {
+      running = false;
       resolve();
       if (ready) showError('start', `The ${name} stopped unexpectedly (exit code ${code}).`, logsDir);
     }),
   );
+  // Last resort if the app exits before a clean stop (shutdown time limit, crash).
+  process.once('exit', () => {
+    if (running) proc.kill();
+  });
   services.unshift({ name, kill: () => proc.kill(), exited });
   return proc;
 }
@@ -78,6 +89,12 @@ async function start(): Promise<void> {
   await runStartup({
     cfg,
     appVersion: app.getVersion(),
+    stopOrphans: async () => {
+      const pgNote = await stopOrphanedCluster(paths);
+      if (pgNote) logLine(paths.logs, 'postgres', pgNote);
+      const apiNote = await stopOrphanedApi(paths);
+      if (apiNote) logLine(paths.logs, 'api', apiNote);
+    },
     findBusyPorts,
     startPostgres: async () => {
       refuseWhileQuitting();
@@ -118,8 +135,9 @@ async function shutdown(): Promise<void> {
   for (const win of BrowserWindow.getAllWindows()) win.hide();
   for (const service of services) {
     service.kill();
-    await Promise.race([service.exited, new Promise((r) => setTimeout(r, STOP_TIMEOUT_MS))]);
+    await Promise.race([service.exited, delay(STOP_TIMEOUT_MS)]);
   }
+  // startPostgres always settles (it has its own start timeout); stop() always settles too.
   const pg = await pgStarting?.catch(() => null);
   await pg?.stop().catch(() => undefined);
 }
@@ -144,7 +162,7 @@ if (!app.requestSingleInstanceLock()) {
     if (shutdownDone) return;
     event.preventDefault();
     if (quitting) return;
-    void shutdown().finally(() => {
+    void Promise.race([shutdown(), delay(SHUTDOWN_LIMIT_MS)]).finally(() => {
       shutdownDone = true;
       app.quit();
     });

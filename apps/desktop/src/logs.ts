@@ -1,4 +1,4 @@
-import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
+import { appendFileSync, createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
 import { join } from 'node:path';
 type Readable = NodeJS.ReadableStream;
 
@@ -10,6 +10,16 @@ export function openLog(logsDir: string, name: string): WriteStream {
   stream.on('error', () => undefined);
   stream.write(`\n=== ${new Date().toISOString()} ===\n`);
   return stream;
+}
+
+/** Appends one line to `<logsDir>/<name>.log`. Never throws. */
+export function logLine(logsDir: string, name: string, line: string): void {
+  try {
+    mkdirSync(logsDir, { recursive: true });
+    appendFileSync(join(logsDir, `${name}.log`), `[${new Date().toISOString()}] ${line}\n`);
+  } catch {
+    // logging must never take the app down
+  }
 }
 
 /** Copies a child's output into the log without closing the log when the child's stream ends. */

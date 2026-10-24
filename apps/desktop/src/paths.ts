@@ -6,6 +6,8 @@ export interface AppPaths {
   backups: string;
   logs: string;
   sessionsDb: string;
+  /** PID of the running API, so a later launch can stop one left behind by a crash. */
+  apiPid: string;
   apiExe: string;
   alembicIni: string;
   webServerJs: string;
@@ -28,6 +30,7 @@ export function resolvePaths(userDataDir: string, resourcesDir: string): AppPath
     backups: join(userDataDir, 'backups'),
     logs: join(userDataDir, 'logs'),
     sessionsDb: join(userDataDir, 'sessions.db'),
+    apiPid: join(userDataDir, 'api.pid'),
     apiExe: join(resourcesDir, 'api', `oikos-api${exe}`),
     alembicIni: join(resourcesDir, 'api', '_internal', 'alembic.ini'),
     webServerJs: join(resourcesDir, 'web', 'apps', 'web', 'server.js'),

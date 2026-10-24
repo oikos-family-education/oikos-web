@@ -15,6 +15,7 @@ function fakeDeps(overrides: Partial<StartupDeps> = {}) {
   const deps = {
     cfg,
     appVersion: '0.2.0',
+    stopOrphans: step('stopOrphans', undefined),
     findBusyPorts: vi.fn(async (_ports: number[]) => {
       calls.push('findBusyPorts');
       return [] as number[];
@@ -53,6 +54,7 @@ describe('runStartup', () => {
     const deps = fakeDeps({ cfg: { ...cfg, lastRunVersion: '0.1.0' } });
     await runStartup(deps);
     expect(deps.calls).toEqual([
+      'stopOrphans',
       'findBusyPorts',
       'startPostgres',
       'hasUsers',
@@ -86,6 +88,18 @@ describe('runStartup', () => {
     expect(deps.showError).toHaveBeenCalledWith('migration', expect.stringContaining('disk full'));
     expect(deps.startApi).not.toHaveBeenCalled();
     expect(deps.saveConfig).not.toHaveBeenCalled();
+  });
+
+  it('a failure to clear a previous run shows the start error and starts nothing', async () => {
+    const deps = fakeDeps({
+      stopOrphans: async () => {
+        throw new Error('pg_ctl stop failed');
+      },
+    });
+    await runStartup(deps);
+    expect(deps.showError).toHaveBeenCalledWith('start', expect.stringContaining('pg_ctl stop failed'));
+    expect(deps.findBusyPorts).not.toHaveBeenCalled();
+    expect(deps.startPostgres).not.toHaveBeenCalled();
   });
 
   it('busy ports show the ports error and start nothing', async () => {
